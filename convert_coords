@@ -1,0 +1,11 @@
+#!/usr/bin/env python
+
+import osr
+inSpatialRef = osr.SpatialReference()
+inSpatialRef.ImportFromEPSG(3338)
+outSpatialRef = osr.SpatialReference()
+outSpatialRef.ImportFromEPSG(4326)
+coordTransform = osr.CoordinateTransformation(inSpatialRef, outSpatialRef)
+inSpatialRef.ExportToPrettyWkt()
+outSpatialRef.ExportToPrettyWkt()
+a=zeros((10000,10000))
