@@ -21,8 +21,8 @@ rows = dataset.RasterYSize
 bands = dataset.RasterCount
 data = band.ReadAsArray(0, 0, cols, rows)
 mpl.imshow(data)
-xpos=np.arange(data.shape[0])*geotransform[-1]*-1+geotransform[0]
-ypos=np.arange(data.shape[1])*geotransform[-1]+geotransform[3]
+xpos = -np.arange(data.shape[0])*geotransform[-1]+geotransform[0]
+ypos =  np.arange(data.shape[1])*geotransform[-1]+geotransform[3]
 
 
 outfile = Dataset(outfilename, 'w', format='NETCDF4')
@@ -42,3 +42,29 @@ longitudes[:] = xpos
 latitudes[:] = ypos
 height[:] = data
 
+
+
+xp2= -np.arange(data.shape[0]*3)*geotransform[-1]+geotransform[0] + data.shape[0] * geotransform[-1]
+yp2=  np.arange(data.shape[1]*3)*geotransform[-1]+geotransform[3] - data.shape[1] * geotransform [-1]
+rows *= 3 
+cols *= 3
+
+
+
+outfile = Dataset("big_" + outfilename, 'w', format='NETCDF4')
+print outfile.file_format
+lat = outfile.createDimension('lat', cols)
+lon = outfile.createDimension('lon', rows)
+
+latitudes = outfile.createVariable('lat','f4',('lat',))
+longitudes = outfile.createVariable('lon','f4',('lon',))
+height = outfile.createVariable('height','f4',('lon','lat'))
+height.coordinates = "lon lat" ;
+
+print xpos.shape
+print ypos.shape
+print data.shape
+
+longitudes[:] = xp2
+latitudes[:] = yp2
+height[:] = 0
