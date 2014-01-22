@@ -1,0 +1,40 @@
+#!/usr/bin/env python
+
+import sys
+import flo_utils as fu
+from argparse import ArgumentParser
+
+
+parser = ArgumentParser()
+parser.description = "A script to plot a variable in a netCDF file over a GeoTiff. Uses GDAL python bindings, Proj4, and Basemap. Script is fine-tuned for whole Greenland plots, but can be adapted for other needs."
+parser.add_argument("FILE", nargs='*')
+parser.add_argument("-v", "--variables", dest="varname",
+                  help='''Variables to plot, default = 'usurf,cbar,...'.''', default="cbar,usurf,thk,cbase,diffusivity,topg")
+parser.add_argument("-n", "--noshow", dest="noshow", action="store_true",
+                  help='''do not open eog on results''', default=False)
+
+
+options = parser.parse_args()
+variables = (options.varname).split(",")
+print options.varname
+print variables
+outfiles  = []
+filenames = options.FILE
+print filenames
+fu.debug=True
+for variable in variables:
+  for filename in filenames:
+    print "plotting %s from %s"%(variable, filename)
+    outfilename = "%s_%s.png"%(variable, filename)
+    ret = fu.qo("/home/flo/Apps/pypismtools/scripts/basemap-plot.py --singlerow -v " + variable + " --colorbar_label -o %s %s"%(outfilename, filename))
+    print (ret)
+    outfiles.append( outfilename )
+
+if  options.noshow :
+  print "scp high1.gi.alaska.edu:t1/{" +  ",".join(outfiles) + "} ."
+else : 
+  fu.qo(["/usr/bin/eog"] + outfiles )
+
+
+
+
