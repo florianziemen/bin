@@ -1,0 +1,171 @@
+#!/usr/bin/env python
+# -*- mode:python -*-
+
+import argparse
+import json
+import os
+import shlex
+import shutil
+import subprocess
+import sys
+    
+
+def backup_file(filename):
+    if os.access(filename, os.R_OK):
+        print "file " + filename + " exists. Moving it to " + filename + "~"
+        shutil.move(filename, filename + "~")
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-v", "--verbose", help="verbose output",
+                    action="store_true", default = False)
+
+parser.add_argument("-e", "--echo", help="only print command",
+                    action="store_true", default = False)
+
+
+parser.add_argument("-i", "--input",  help="input file", default = None)
+parser.add_argument("-c", "--config",  help="run_pism config file", default="run_pism.conf")
+parser.add_argument("-o", "--output", help="output file", default = None)
+parser.add_argument("-y", "--years", help="years to run", default = None)
+parser.add_argument("--ys", help="startyear", default = None)
+parser.add_argument("-b", "--boot_file", help="boot file (if desired)" , default = None )
+parser.add_argument("-r", "--regrid_file", help="regrid file (if desired)" , default = None ) 
+parser.add_argument("--config_overwrite", help="config_overwrite file (if desired)" , default = None )
+parser.add_argument("-p" ,"--pass_arguments", help="extra arguments to be passed on" , default = None ) 
+parser.add_argument("--force_to_thk", help="surface forcing file" , default = None ) 
+parser.add_argument("--force_to_thk_alpha", help="surface forcing alpha" , default = None ) 
+
+group = parser.add_mutually_exclusive_group()
+group.add_argument("--ssa", action='store_true', help="use ssa")
+group.add_argument("--no-ssa", action='store_false', help="do not use ssa")
+
+
+
+args = parser.parse_args()
+
+
+args_dict = vars(args) 
+
+pism_args = []
+
+config = {}
+if os.access(args.config, os.R_OK):
+    config = json.load(open("run_pism.conf","r"))
+
+for x in args_dict.keys():
+    if not args_dict[x] is  None :
+        config[x] = args_dict[x]
+
+errors = 0 
+required = ( "output", "years")
+for x in required:
+    if not x in config.keys():
+        print "run_pism:ERROR: option " + x + " missing! GOING TO EXIT"
+        errors = errors + 1
+
+if ( not args.input)  and (not args.boot_file):
+    print "run_pism: ERROR: need some input --input or --boot_file! GOING TO EXIT!"
+    errors = errors + 1
+
+if args.input:
+    pism_args.append(" -i " + args.input)
+
+if args.output[-3:] == ".nc":
+    output_start = args.output[:-3]
+else:
+    print "run_pism: ERROR: need netcdf output file name ending on '.nc' ! GOING TO EXIT!"
+    errors = errors + 1
+
+
+    
+if errors:
+    sys.exit(1)
+    
+if config["ssa"]:
+    pism_args.append("-ssa_sliding")
+
+if args.boot_file:
+    boot=" -boot_file  " + args.boot_file +  " -no_model_strip 2  -boot_no_smb_in_temp " + config["geometry"]
+    pism_args.append(boot)
+    
+if args.regrid_file:
+    regrid=" -regrid_vars litho_temp,thk,enthalpy,tillwat,bmelt -regrid_file" + args.regrid_file
+    pism_args.append(regrid)
+    
+pism_args.append(" -y " + config["years"])
+if config["ys"]:
+    pism_args.append("-ys " + config["ys"])
+
+pism_args.append("-o " + args.output)
+    
+
+if "max_dt" in config.keys():
+    pism_args.append(" -max_dt " + config["max_dt"])
+
+    
+atmosphere = " -atmosphere given,lapse_rate "  + \
+             " -atmosphere_given_file "        + config["atmosphere_given_file"] + \
+             " -atmosphere_lapse_rate_file " + config["atmosphere_lapse_rate_file"] + \
+             " -temp_lapse_rate " + config["temp_lapse_rate"] 
+pism_args.append(atmosphere)
+
+surface = " -surface pdd"
+if config["force_to_thk"]:
+    surface = " -surface pdd,forcing -force_to_thk " + config["force_to_thk"]
+pism_args.append(surface)
+    
+    
+if config["force_to_thk_alpha"]:
+    pism_args.append("-force_to_thk_alpha " + config["force_to_thk_alpha"] )
+
+    
+
+
+if "ocean_kill_file" in config.keys():
+    pism_args.append(" -ocean_kill " + config["ocean_kill_file"])
+
+if "config_override" in config.keys():
+    pism_args.append("-config_override " + config["config_override"])
+
+pism_args.append("-bed_smoother_range " + config["bed_smoother_range"])
+
+pism_args.append("-extra_times " + config["extra_times"])
+pism_args.append("-extra_vars " + config["extra_vars"])
+pism_args.append("-extra_file " + output_start + "_extra")
+pism_args.append("-extra_split")
+
+pism_args.append(" -ts_times " + config["ts_times"])
+pism_args.append(" -ts_vars " + config["ts_vars"])
+pism_args.append("-ts_file " + output_start + "_ts.nc")
+
+if pass_arguments in config.keys(): # anything - coming from the command line
+    config["direct"] = config["direct"] + " " + config["pass_arguments"]
+
+# pism_args.append(config["skip"])
+pism_args.append(config["direct"])
+
+if args.pass_arguments:
+    pism_args.append(args.pass_arguments)
+
+start = " ".join((config["mpi"], config["pism"]))
+
+
+
+config_file_name = output_start + ".conf"
+backup_file(config_file_name)
+json.dump(config, open(config_file_name, "w"), sort_keys=True, indent=2)
+
+error_file = output_start + ".err"
+backup_file(error_file)
+
+log_file = output_start + ".log"
+backup_file(log_file)
+
+full_string = start + " " + " ".join(pism_args)
+print " running " + full_string
+
+print "tail -f ", log_file , error_file
+
+spc = subprocess.check_call(shlex.split(full_string), stdout = open(log_file, "w"), stderr= open(error_file, "w"))
+# spc.communicate()
