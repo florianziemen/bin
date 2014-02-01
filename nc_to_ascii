@@ -1,0 +1,77 @@
+#!/usr/bin/env python
+
+import gdal
+import math
+from gdalconst import *
+import struct
+from netCDF4 import Dataset
+import matplotlib.pylab as mpl
+import numpy as np
+import sys
+import glob
+# fill in times.
+from datetime import datetime, timedelta
+from netCDF4 import num2date, date2num
+from argparse import ArgumentParser
+
+
+
+def convert_var(filename, varname):
+  
+  driver = gdal.GetDriverByName('AAIGrid')
+
+  infile=Dataset(filename,"r")
+  var = infile.variables[varname]
+  x = infile.variables["x"]
+  y = infile.variables["y"]
+
+  newname="%s_%s.asc"%(filename[:-3],varname)
+  ncols = len(x)
+  nrows = len(y)
+  x_off = x[0]-(x[1]-x[0])/2.
+  y_off = y[0]-(y[1]-y[0])/2.
+  cellsize = x[1]-x[0]
+  NODATA_VALUE = var._FillValue
+
+  outfile=open(newname,"w")
+  outfile.write ("ncols %i\n"%ncols)
+  outfile.write("nrows  %i\n"%nrows)
+  outfile.write("xllcorner %i\n"%x_off)
+  outfile.write("yllcorner %i\n"%y_off)
+  outfile.write("cellsize %i\n"%cellsize)
+  outfile.write("NODATA_VALUE %i\n"%NODATA_VALUE)
+  ascii= [" ".join([ "%.2f"%y for y in x  ])+"\n" for x in np.squeeze(var[:])]
+  ascii.reverse()
+  outfile.writelines(ascii)
+  outfile.close()
+
+  
+  # print (dir(driver))
+  # src_ds = gdal.Open( template )
+  # outDataset = driver.CreateCopy(newname, src_ds, 0 )
+  # print outDataset
+  # outBand = outDataset.GetRasterBand(1)
+  # outBand.WriteArray(np.squeeze(var[:]), 0,0)
+  
+  
+
+
+def parse_args():
+  parser = ArgumentParser()
+  parser.description = "Convert netcdf to ascii"
+  parser.add_argument("FILE", nargs='*')
+  parser.add_argument("-v", "--variable", 
+                    help='''Variables to convert, e.g. = 'usurf,cbar,...'.''', default=None)
+
+  options = parser.parse_args()
+  return options
+
+
+def main(argv):
+  options = parse_args()
+  #  print (dir(options))
+  convert_var(options.FILE[0], options.variable)
+  
+if __name__ == "__main__":
+    main(sys.argv)
+
