@@ -1,0 +1,92 @@
+#!/usr/bin/env python
+
+from netCDF4 import Dataset
+import matplotlib.pyplot as mpl
+import sys
+from argparse import ArgumentParser
+
+def get_array(filename, varname, skip = 1):
+    infile = Dataset(filename, "r")
+    var = infile.variables[varname][:]
+    var = var.reshape(var.size)
+    return var[::skip], {x : infile.variables[varname].getncattr(x) for x in infile.variables[varname].ncattrs()}
+    
+def scatter_vars(xvecs, yvecs, plot_opts):
+    mpl.figure()
+    mpl.hold("on")
+    [ mpl.plot(xvec,yvec,'.') for (xvec,yvec) in zip(xvecs,yvecs) ]
+    mpl.axvline(0,zorder=-999, color="gray")
+    if "xlabel" in plot_opts.keys():
+        mpl.xlabel(plot_opts["xlabel"])
+    if "ylabel" in plot_opts.keys():
+        mpl.ylabel(plot_opts["ylabel"])
+    if "title" in plot_opts.keys():
+        mpl.title(plot_opts["title"])
+    mpl.show()
+
+
+
+def sort_labels(xattr, yattr):
+    xlabel = ""
+    ylabel = ""
+    title = ""
+    if "long_name" in xattr.keys():
+        xlabel = xattr["long_name"]
+        if "units" in xattr.keys():
+            xlabel = xlabel + " in %s"%xattr["units"]
+    if "long_name" in yattr.keys():
+        ylabel = yattr["long_name"]
+        if "units" in yattr.keys():
+            ylabel = ylabel + " in %s"%yattr["units"]
+    return {"xlabel"  : xlabel , "ylabel" : ylabel , "title" : title}
+
+    
+def parse_args():
+  parser = ArgumentParser()
+  parser.description = "Scatterplot two variables from a set of files"
+  parser.add_argument("FILES", nargs='*')
+  parser.add_argument("-v", "--verbose", 
+                    help='''Be verbose''', action="store_true")
+  parser.add_argument("-x", "--xvar", 
+                    help='''xvar''', default="climatic_mass_balance_original")
+  parser.add_argument("-y", "--yvar", 
+                    help='''yvar''', default="usurf")
+  parser.add_argument("-n", "--npoints", 
+                    help='''number of points to average over''', default=None, type = int)
+
+  parser.add_argument("-s", "--skip", 
+                    help='''skipping when reading''', default=1, type = int)
+
+  parser.add_argument("-t", "--title", 
+                    help='''plot title''', default = None)
+
+  options = parser.parse_args()
+  return options
+
+
+def main(argv):
+  options = parse_args()
+  if options.verbose:
+    print (dir(options))
+  xvecs = [ ]
+  yvecs = [ ]
+  for filename in options.FILES:
+    (xvec, xattr) = get_array(filename, options.xvar, skip = options.skip)
+    (yvec, yattr) = get_array(filename, options.yvar, skip = options.skip)
+    xvecs.append(xvec)
+    yvecs.append(yvec)
+
+  plot_opts = sort_labels(xattr, yattr)
+  if options.title:
+      plot_opts["title"] = options.title
+  
+  scatter_vars(xvecs, yvecs, plot_opts)
+
+
+  
+if __name__ == "__main__":
+    main(sys.argv)
+
+
+    
+    
