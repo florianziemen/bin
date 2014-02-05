@@ -22,6 +22,10 @@ def scatter_vars(xvecs, yvecs, plot_opts):
         mpl.ylabel(plot_opts["ylabel"])
     if "title" in plot_opts.keys():
         mpl.title(plot_opts["title"])
+    if "xlim" in plot_opts.keys():
+        mpl.xlim(plot_opts["xlim"])
+    if "ylim" in plot_opts.keys():
+        mpl.ylim(plot_opts["ylim"])
     mpl.show()
 
 
@@ -59,6 +63,16 @@ def parse_args():
 
   parser.add_argument("-t", "--title", 
                     help='''plot title''', default = None)
+  parser.add_argument("--xlabel", 
+                    help='''plot x-Axis label''', default = None)
+  parser.add_argument("--ylabel", 
+                    help='''plot y-Axis label''', default = None)
+  parser.add_argument("--mask_thk", 
+                    help='''mask with thickness''', action = "store_true")
+  parser.add_argument("--xlim", 
+                    help='''x limits''', type = float , nargs = 2)
+  parser.add_argument("--ylim", 
+                    help='''y limits''', type = float , nargs = 2)
 
   options = parser.parse_args()
   return options
@@ -73,13 +87,24 @@ def main(argv):
   for filename in options.FILES:
     (xvec, xattr) = get_array(filename, options.xvar, skip = options.skip)
     (yvec, yattr) = get_array(filename, options.yvar, skip = options.skip)
+    if options.mask_thk:
+        (thk, thkatts) = get_array(filename, "thk", skip = options.skip)
+        mask = thk > 10
+        xvec = xvec [mask]
+        yvec = yvec [mask]
+    print (xvec.size)
+            
     xvecs.append(xvec)
     yvecs.append(yvec)
+    mpl.show()
 
   plot_opts = sort_labels(xattr, yattr)
-  if options.title:
-      plot_opts["title"] = options.title
-  
+  options_dict = vars(options)
+  for x in options_dict.keys():
+      if not options_dict[x] is  None :
+          plot_opts[x] = options_dict[x]
+
+      
   scatter_vars(xvecs, yvecs, plot_opts)
 
 
