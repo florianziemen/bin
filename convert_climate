@@ -1,0 +1,86 @@
+#!/usr/bin/env python
+
+import gdal
+import math
+from gdalconst import *
+import struct
+from netCDF4 import Dataset
+import matplotlib.pylab as mpl
+import numpy as np
+import sys
+import glob
+# fill in times.
+from datetime import datetime, timedelta
+from netCDF4 import num2date, date2num
+increment = 2000.
+
+
+x_offset = 1000010.8
+y_offset = 1000028.1
+
+for     filename in  glob.glob("*.asc"): # .grid
+
+    dataset = gdal.Open(filename, GA_ReadOnly)
+    driver = dataset.GetDriver().LongName
+    geotransform = dataset.GetGeoTransform()
+
+    band = dataset.GetRasterBand(1)
+    bandtype = gdal.GetDataTypeName(band.DataType)
+    scanline = band.ReadRaster( 0, 0, band.XSize, 1,band.XSize, 1, band.DataType)
+    cols = dataset.RasterXSize
+    rows = dataset.RasterYSize
+    bands = dataset.RasterCount
+    fincrement = - geotransform[-1]
+    if fincrement != increment:
+        print "GRID INCREMENTS DON'T MATCH! EXPECTING " + str(increment) + " GOT " + str(fincrement)
+        print filename
+        continue
+#        sys.exit(666)
+    xll = geotransform [0]
+    xur = xll + cols * increment # remap to ur corner.
+    yur = geotransform [3] 
+    yll = yur - rows * increment # remap to ll corner.
+    data = band.ReadAsArray(0, 0, cols, rows)
+    #mpl.imshow(data, interpolation = "nearest")
+    #mpl.colorbar()
+    #mpl.show()
+#    print geotransform
+    xpos = np.arange(cols) * increment + xll + increment *.5
+    ypos = np.arange(rows) * increment + yll + increment *.5
+
+    writesingle = True
+    if writesingle :
+        base_string = filename.split(".")[0]
+        (varname, mon, year) = base_string.split("_")
+        (m,y) = (int (x) for x in (mon,year))
+        
+        single_outfilename = "%s_%d-%02d.nc"%(varname,y,m)
+        single_outfile = Dataset(single_outfilename, 'w', format='NETCDF4')
+#        print single_outfile.file_format
+        lon  = single_outfile.createDimension('lon', cols)
+        lat  = single_outfile.createDimension('lat', rows)
+        time = single_outfile.createDimension('time', None)
+        latitudes = single_outfile.createVariable('lat','f4',('lat',))
+        longitudes = single_outfile.createVariable('lon','f4',('lon',))
+        times = single_outfile.createVariable('time','f4',('time',))
+        time_obj = datetime(y,m,15)
+        field = single_outfile.createVariable((filename.split(".")[0]).split("_")[0],'f4',('time', 'lat', 'lon'),fill_value=-9999)
+        times.units = 'days since 0001-01-01 00:00:00.0'
+        times.calendar = 'gregorian'
+
+
+        times[0] = date2num(time_obj, units=times.units, calendar = times.calendar )
+        print xpos.shape
+        print ypos.shape
+        print data.shape
+
+        longitudes[:] = xpos
+        latitudes[:] = ypos
+        field[0,:,:] = data[::-1,:]
+        single_outfile.close()
+
+
+    # print xpos.shape
+    # print ypos.shape
+    # print data.shape
+
