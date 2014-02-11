@@ -1,0 +1,119 @@
+#!/usr/bin/env python
+
+import netCDF4
+from matplotlib.pylab import *
+import  matplotlib.pylab  as mpl
+import numpy as np
+from scipy import stats
+from argparse import ArgumentParser
+
+
+
+def compare_slopes(var_a_file_name, var_a_var, var_b_file_name, var_b_var):
+
+    var_a_file = netCDF4.Dataset(var_a_file_name, "r")
+    print var_a_file.variables.keys()
+    var_a = var_a_file.variables[var_a_var][:]
+    var_b_file = netCDF4.Dataset(var_b_file_name, "r")
+    print var_b_file.variables.keys()
+    var_b = var_b_file.variables[var_b_var][:]
+    var_b.shape
+    var_a.shape
+    var_a = np.squeeze(var_a)
+    var_b = squeeze(var_b)
+    var_b.shape
+    d_var_b_dx=var_b[:,1:]-var_b[:,:-1]
+    d_var_a_dx = var_a[:,1:] - var_a[:,:-1]
+    ratio = d_var_b_dx / d_var_a_dx
+    mpl.figure()
+    mpl.imshow(ratio, vmin=-2, vmax=2, interpolation = "nearest")
+    mpl.colorbar()
+    mpl.title("db/dx / da/dx")
+    mpl.figure()
+    mpl.imshow(var_a, interpolation = "nearest")
+    mpl.title ("var a")
+    mpl.colorbar()
+    mpl.figure()
+    mpl.imshow(var_b, interpolation = "nearest")
+    mpl.title ("var b")
+    mpl.colorbar()
+    mpl.figure()
+    mpl.imshow(d_var_a_dx, interpolation = "nearest")
+    mpl.title("da/dx")
+    mpl.colorbar()
+    mpl.figure()
+    mpl.imshow(d_var_b_dx, interpolation = "nearest")
+    mpl.title("db/dx")
+    mpl.colorbar()
+    mpl.figure()
+    mpl.imshow(-d_var_a_dx, interpolation = "nearest")
+    mpl.title("-da/dx")
+    mpl.colorbar()
+    
+    mpl.figure()
+    alla = var_a.reshape(var_a.size)
+    allb = var_b.reshape(var_b.size)
+    mpl.xlabel("a")
+    mpl.ylabel("b")
+    mpl.plot(alla, allb, '.')
+    mpl.hold("on")
+    slope, intercept, r_value, p_value, std_err = stats.linregress(alla, allb)
+    print "slope, intercept, r_value, p_value, std_err"
+    print slope, intercept, r_value, p_value, std_err
+    mpl.plot([alla.min(),alla.max()],[slope*alla.min()+intercept,slope*alla.max()+intercept],'-')
+    mpl.figure()
+    mpl.imshow(slope*var_a+intercept, interpolation = "nearest")
+    mpl.title("b obtained from lin reg to a")
+    mpl.colorbar()
+
+    mpl.figure()
+    mpl.imshow(slope*var_a+intercept-var_b, interpolation = "nearest")
+    mpl.title("b not explained by lin reg to a")
+    mpl.colorbar()
+
+    mpl.figure()
+    allda_dx = d_var_a_dx.reshape(d_var_a_dx.size)
+    alldb_dx = d_var_b_dx.reshape(d_var_b_dx.size)
+    mpl.xlabel("da/dx")
+    mpl.ylabel("db/dx")
+    mpl.plot(allda_dx, alldb_dx, '.')
+
+
+    mpl.show()
+    
+    
+def parse_args():
+  parser = ArgumentParser()
+  parser.description = "compare slopes of two variables from two files"
+  parser.add_argument("FILES", nargs=2)
+  parser.add_argument("-v", "--verbose", 
+                    help='''Be verbose''', action="store_true")
+  parser.add_argument("-a", "--var_a", 
+                      help='''variable a''', default="data")
+  parser.add_argument("-b", "--var_b", 
+                     help='''variable b''', default="data")
+   # parser.add_argument("-A", "--file_A", 
+   #                   help='''file for variable a''', required = True)
+   # parser.add_argument("-B", "--file_B", 
+   #                   help='''file for variable b''', required = True)
+  options = parser.parse_args()
+  return options
+
+
+def main():
+  options = parse_args()
+  if options.verbose:
+    print (dir(options))
+    print options.FILES
+  compare_slopes(options.FILES[0], options.var_a, options.FILES[1], options.var_b)
+      
+if __name__ == "__main__":
+    main()
+
+
+
+
+
+    # print xpos.shape
+    # print ypos.shape
+    # print data.shape
