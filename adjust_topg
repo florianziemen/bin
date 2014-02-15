@@ -23,11 +23,13 @@ def adjust_topo(filename, reference, state):
   current_smb      = np.squeeze(dataset.variables["climatic_mass_balance"][:])
   current_smb_correction = current_smb - current_smb_orig
 
-  factors = current_smb_correction/100./910. # ice density...
+  # Wenn die Korrektur negativ ist, habe ich zu viel Eis, d.h. das Eis muss dicker werden, damit es schneller abfliesst, d.h. ich baue mir einen positiven Faktor.
+  # Deshalb - in dieser Gleichung.
+  factors = - current_smb_correction/100./910. # ice density... 
   if fu.debug:
     mpl.figure()
     mpl.imshow(factors)
-    mpl.title("smb/100./910")
+    mpl.title("-smb/100./910")
     mpl.colorbar()
   factors = factors + (factors==0)*1e-30
   factors = (factors > 0 )* (1+factors) + (factors<0)/(1-factors) 
@@ -45,8 +47,13 @@ def adjust_topo(filename, reference, state):
     mpl.imshow(factors)
     mpl.title("final factors")
     mpl.colorbar()
-  mpl.show()
   new_thk = reference_thickness * factors
+  if fu.debug:
+    mpl.figure()
+    mpl.imshow(- (new_thk - reference_thickness))
+    mpl.title("topg change")
+    mpl.colorbar()
+  mpl.show()
   new_topg = usurf_target - new_thk
   dataset.variables["topg"][0,:] = new_topg
   state.variables["factor"][0,:] = factors
