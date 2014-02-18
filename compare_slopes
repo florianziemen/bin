@@ -67,7 +67,7 @@ def compare_slopes(var_a_file_name, var_a_var, var_b_file_name, var_b_var):
     mpl.colorbar()
 
     mpl.figure()
-    mpl.imshow(slope*var_a+intercept-var_b, interpolation = "nearest")
+    mpl.imshow(var_b - slope*var_a+intercept, interpolation = "nearest")
     mpl.title("b not explained by lin reg to a")
     mpl.colorbar()
 
