@@ -1,0 +1,31 @@
+#!/usr/bin/env python
+
+from osgeo import gdal
+import matplotlib.pyplot as mpl
+import sys
+
+def plotit (filename):
+    ds = gdal.Open(filename, gdal.GA_ReadOnly)
+    (X, deltaX, rotation, Y, rotation, deltaY) = ds.GetGeoTransform()
+    srs_wkt = ds.GetProjection()
+    Nx = ds.RasterXSize
+    Ny = ds.RasterYSize
+    arys=[]
+    for i in xrange(1, ds.RasterCount+1):
+        arys.append(ds.GetRasterBand(i).ReadAsArray())
+
+    for band  in  arys:
+        mpl.figure()
+        mpl.imshow(band,interpolation="nearest")
+        mpl.colorbar()
+        mpl.figure()
+        mpl.imshow(arys[0],interpolation="nearest", vmin=0,vmax=3000, cmap="Paired")
+        mpl.colorbar()
+        mpl.figure()
+        mpl.imshow(arys[0],interpolation="nearest", vmin=0,vmax=300, cmap="Paired")
+        mpl.colorbar()
+        mpl.show()
+
+for i in sys.argv[1:]:
+    plotit(i)
+
