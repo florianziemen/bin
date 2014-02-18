@@ -12,41 +12,48 @@ import glob
 # fill in times.
 from datetime import datetime, timedelta
 from netCDF4 import num2date, date2num
-increment = 2000.
+from argparse import ArgumentParser
 
 
-x_offset = 1000010.8
-y_offset = 1000028.1
+# x_offset = 1000010.8
+# y_offset = 1000028.1
 
-for     filename in  glob.glob("*.asc"): # .grid
+def convert_file(filename):
 
     dataset = gdal.Open(filename, GA_ReadOnly)
     driver = dataset.GetDriver().LongName
     geotransform = dataset.GetGeoTransform()
-
+    print geotransform
     band = dataset.GetRasterBand(1)
     bandtype = gdal.GetDataTypeName(band.DataType)
     scanline = band.ReadRaster( 0, 0, band.XSize, 1,band.XSize, 1, band.DataType)
     cols = dataset.RasterXSize
     rows = dataset.RasterYSize
     bands = dataset.RasterCount
-    fincrement = - geotransform[-1]
-    if fincrement != increment:
-        print "GRID INCREMENTS DON'T MATCH! EXPECTING " + str(increment) + " GOT " + str(fincrement)
-        print filename
-        continue
-#        sys.exit(666)
-    xll = geotransform [0]
-    xur = xll + cols * increment # remap to ur corner.
-    yur = geotransform [3] 
-    yll = yur - rows * increment # remap to ll corner.
+    x_increment = geotransform[1]
+    y_increment = geotransform[-1]
+    print "GRID INCREMENTS: (%d,%d)"%(x_increment, y_increment)
+    if x_increment > 0 :
+        xll = geotransform [0]
+        xur = xll + cols * x_increment # remap to ur corner.
+    else:
+        xll = xll + cols * x_increment # remap to ur corner.
+        xur = geotransform [0]
+        
+    if y_increment > 0 :
+        yur = yur + rows * y_increment # remap to ll corner.
+        yll = geotransform [3]
+    else:
+        yur = geotransform [3]
+        yll = yur + rows * y_increment # remap to ll corner.
+
     data = band.ReadAsArray(0, 0, cols, rows)
     #mpl.imshow(data, interpolation = "nearest")
     #mpl.colorbar()
     #mpl.show()
 #    print geotransform
-    xpos = np.arange(cols) * increment + xll + increment *.5
-    ypos = np.arange(rows) * increment + yll + increment *.5
+    xpos = np.arange(cols) * x_increment + xll + x_increment *.5
+    ypos = np.arange(rows) * abs(y_increment) + yll + abs(y_increment) *.5
 
     writesingle = True
     if writesingle :
@@ -76,8 +83,59 @@ for     filename in  glob.glob("*.asc"): # .grid
 
         longitudes[:] = xpos
         latitudes[:] = ypos
-        field[0,:,:] = data[::-1,:]
+        if y_increment > 0 :
+            field[0,:,:] = data[:,:]
+        else:
+            field[0,:,:] = data[::-1,:]
         single_outfile.close()
+
+
+    
+def parse_args():
+  parser = ArgumentParser()
+  parser.description = "Scatterplot two variables from a set of files"
+  parser.add_argument("FILES", nargs='*')
+  parser.add_argument("-v", "--verbose", 
+                    help='''Be verbose''', action="store_true")
+  # parser.add_argument("-x", "--xvar", 
+  #                   help='''xvar''', default="climatic_mass_balance_original")
+  # parser.add_argument("-y", "--yvar", 
+  #                   help='''yvar''', default="usurf")
+  # parser.add_argument("-n", "--npoints", 
+  #                   help='''number of points to average over''', default=None, type = int)
+
+  # parser.add_argument("-s", "--skip", 
+  #                   help='''skipping when reading''', default=1, type = int)
+
+  # parser.add_argument("-t", "--title", 
+  #                   help='''plot title''', default = None)
+  # parser.add_argument("--xlabel", 
+  #                   help='''plot x-Axis label''', default = None)
+  # parser.add_argument("--ylabel", 
+  #                   help='''plot y-Axis label''', default = None)
+  # parser.add_argument("--mask_thk", 
+  #                   help='''mask with thickness''', action = "store_true")
+  # parser.add_argument("--xlim", 
+  #                   help='''x limits''', type = float , nargs = 2)
+  # parser.add_argument("--ylim", 
+  #                   help='''y limits''', type = float , nargs = 2)
+
+  options = parser.parse_args()
+  return options
+
+
+def main(argv):
+  options = parse_args()
+  if options.verbose:
+    print (dir(options))
+  for filename in options.FILES:
+      convert_file(filename)
+      
+if __name__ == "__main__":
+    main(sys.argv)
+
+
+
 
 
     # print xpos.shape
