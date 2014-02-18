@@ -8,7 +8,7 @@ from argparse import ArgumentParser
 import shutil
 import numpy as np
 
-def adjust_topo(filename, reference, state):
+def adjust_topo(filename, reference, state, opts):
   dataset = nc.Dataset(filename, "r+")
   reference = nc.Dataset(reference, "r")
   state = nc.Dataset(state, "r+")
@@ -19,17 +19,22 @@ def adjust_topo(filename, reference, state):
 
   old_factors = np.squeeze(state.variables["factor"][:])
 
-  current_smb_orig = np.squeeze(dataset.variables["climatic_mass_balance_original"][:])
-  current_smb      = np.squeeze(dataset.variables["climatic_mass_balance"][:])
-  current_smb_correction = current_smb - current_smb_orig
+  if opts["target"] == "smb":
+      current_smb_orig = np.squeeze(dataset.variables["climatic_mass_balance_original"][:])
+      current_smb      = np.squeeze(dataset.variables["climatic_mass_balance"][:])
+      current_smb_correction = current_smb - current_smb_orig
 
-  # Wenn die Korrektur negativ ist, habe ich zu viel Eis, d.h. das Eis muss dicker werden, damit es schneller abfliesst, d.h. ich baue mir einen positiven Faktor.
-  # Deshalb - in dieser Gleichung.
-  factors = - current_smb_correction/100./910. # ice density... 
+      # Wenn die Korrektur negativ ist, habe ich zu viel Eis, d.h. das Eis muss dicker werden, damit es schneller abfliesst, d.h. ich baue mir einen positiven Faktor.
+      # Deshalb - in dieser Gleichung.
+      factors = - current_smb_correction/100./910. # ice density...
+  else:
+      current_csurf = np.squeeze(dataset.variables["csurf"][:])
+      reference_csurf = np.squeeze(reference.variables["csurf"][:])
+      factors = - ((current_csurf - reference_csurf) / (current_csurf + reference_csurf)/10.).filled(0.)
   if fu.debug:
     mpl.figure()
     mpl.imshow(factors)
-    mpl.title("-smb/100./910")
+    mpl.title("error term")
     mpl.colorbar()
   factors = factors + (factors==0)*1e-30
   factors = (factors > 0 )* (1+factors) + (factors<0)/(1-factors) 
@@ -55,7 +60,9 @@ def adjust_topo(filename, reference, state):
     mpl.colorbar()
   mpl.show()
   new_topg = usurf_target - new_thk
-  dataset.variables["topg"][0,:] = new_topg
+  dataset.variables["topg"][0,:] = (new_topg*(new_topg <=usurf_target))+ (usurf_target*(new_topg >usurf_target))
+  dataset.variables["thk"][0,:] = (dataset.variables["thk"][0,:] - (dataset.variables["topg"][:] - current_topg))
+  dataset.variables["thk"][0,:] = (dataset.variables["thk"][:])*(dataset.variables["thk"][:]>0)
   state.variables["factor"][0,:] = factors
   
   
@@ -71,6 +78,8 @@ def parse_args():
                        help='''file with reference values''', default="reference.nc") 
   parser.add_argument("-s", "--state", 
                        help='''file with reference values''', required = True) 
+  parser.add_argument("-t", "--target", 
+                       help='''reference variable''', default = "csurf") 
   # parser.add_argument("-b", "--var_b", 
   #                    help='''variable b''', default="data")
   options = parser.parse_args()
@@ -83,7 +92,7 @@ def main():
     print (dir(options))
     print options.FILES
     fu.debug=True
-  adjust_topo(options.FILES[0], options.reference, options.state)
+  adjust_topo(options.FILES[0], options.reference, options.state, vars(options))
       
 if __name__ == "__main__":
     main()
