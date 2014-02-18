@@ -39,7 +39,7 @@ def convert_var(filename, varname):
   outfile.write("xllcorner %i\n"%x_off)
   outfile.write("yllcorner %i\n"%y_off)
   outfile.write("cellsize %i\n"%cellsize)
-  outfile.write("NODATA_VALUE %i\n"%NODATA_VALUE)
+  outfile.write("NODATA_VALUE %i\n"%(int(NODATA_VALUE)))
   ascii= [" ".join([ "%.2f"%y for y in x  ])+"\n" for x in np.squeeze(var[:])]
   ascii.reverse()
   outfile.writelines(ascii)
