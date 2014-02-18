@@ -8,7 +8,7 @@ import shlex
 import shutil
 import subprocess
 import sys
-    
+import flo_utils as fu
 
 def backup_file(filename):
     if os.access(filename, os.R_OK):
@@ -34,11 +34,16 @@ parser.add_argument("-r", "--regrid_file", help="regrid file (if desired)" , def
 parser.add_argument("--config_overwrite", help="config_overwrite file (if desired)" , default = None )
 parser.add_argument("-p" ,"--pass_arguments", help="extra arguments to be passed on" , default = None ) 
 parser.add_argument("--force_to_thk", help="surface forcing file" , default = None ) 
-parser.add_argument("--force_to_thk_alpha", help="surface forcing alpha" , default = None ) 
+parser.add_argument("--force_to_thk_alpha", help="surface forcing alpha" , default = None )
+parser.add_argument("--smb_only", help="only compute SMB, no flow fields" , action = "store_true" , default=False) 
 
 group = parser.add_mutually_exclusive_group()
-group.add_argument("--ssa", action='store_true', help="use ssa")
-group.add_argument("--no-ssa", action='store_false', help="do not use ssa")
+group.add_argument("--ssa", action="store_true", help="use ssa")
+group.add_argument("--no-ssa", action="store_false", dest = "ssa", help="do not use ssa")
+
+group = parser.add_mutually_exclusive_group()
+group.add_argument("--no_mpi", action="store_true", help="run without mpi", default = False)
+group.add_argument("--mpi", action="store_false", dest = "no_mpi", help="run with mpi (default)")
 
 
 
@@ -51,7 +56,7 @@ pism_args = []
 
 config = {}
 if os.access(args.config, os.R_OK):
-    config = json.load(open("run_pism.conf","r"))
+    config = json.load(open(args.config,"r"))
 
 for x in args_dict.keys():
     if not args_dict[x] is  None :
@@ -73,6 +78,9 @@ if args.input:
 
 if args.output[-3:] == ".nc":
     output_start = args.output[:-3]
+    fu.mkdir(output_start)
+    output_start="%s/%s"%(output_start,output_start)
+    
 else:
     print "run_pism: ERROR: need netcdf output file name ending on '.nc' ! GOING TO EXIT!"
     errors = errors + 1
@@ -81,9 +89,16 @@ else:
     
 if errors:
     sys.exit(1)
+
+if args.smb_only:
+    config["ssa"] = False
+    pism_args.append("-test_climate_models -no_mass")
+
     
 if config["ssa"]:
-    pism_args.append("-ssa_sliding")
+#    pism_args.append("-ssa_sliding")
+    pism_args.append("-stress_balance ssa+sia")
+
 
 if args.boot_file:
     boot=" -boot_file  " + args.boot_file +  " -no_model_strip 2  -boot_no_smb_in_temp " + config["geometry"]
@@ -94,7 +109,7 @@ if args.regrid_file:
     pism_args.append(regrid)
     
 pism_args.append(" -y " + config["years"])
-if config["ys"]:
+if "ys" in config.keys():
     pism_args.append("-ys " + config["ys"])
 
 pism_args.append("-o " + args.output)
@@ -110,11 +125,19 @@ atmosphere = " -atmosphere given,lapse_rate "  + \
              " -temp_lapse_rate " + config["temp_lapse_rate"] 
 pism_args.append(atmosphere)
 
-surface = " -surface pdd"
+if "atmosphere_given_period" in config.keys() :
+    pism_args.append("-atmosphere_given_period " + config["atmosphere_given_period"])
+
+surface = "pdd"
 if config["force_to_thk"]:
-    surface = " -surface pdd,forcing -force_to_thk " + config["force_to_thk"]
-pism_args.append(surface)
-    
+    surface = surface + ",forcing"
+    pism_args.append(" -force_to_thk " + config["force_to_thk"])
+
+if config["surface_cache_update_interval"]:
+    surface = surface + ",cache"
+    pism_args.append("-surface_cache_update_interval " + config["surface_cache_update_interval"])
+
+pism_args.append("-surface "+ surface)
     
 if config["force_to_thk_alpha"]:
     pism_args.append("-force_to_thk_alpha " + config["force_to_thk_alpha"] )
@@ -123,7 +146,7 @@ if config["force_to_thk_alpha"]:
 
 
 if "ocean_kill_file" in config.keys():
-    pism_args.append(" -ocean_kill " + config["ocean_kill_file"])
+    pism_args.append(" -calving ocean_kill -ocean_kill_file " + config["ocean_kill_file"])
 
 if "config_override" in config.keys():
     pism_args.append("-config_override " + config["config_override"])
@@ -139,19 +162,28 @@ pism_args.append(" -ts_times " + config["ts_times"])
 pism_args.append(" -ts_vars " + config["ts_vars"])
 pism_args.append("-ts_file " + output_start + "_ts.nc")
 
-if pass_arguments in config.keys(): # anything - coming from the command line
-    config["direct"] = config["direct"] + " " + config["pass_arguments"]
+if "pass_arguments" in config.keys(): # anything - coming from the command line
+    if ["direct"] in config.keys():
+        config["direct"].append(config["pass_arguments"])
+    else:
+        config["direct"] = [config["pass_arguments"]]
 
 # pism_args.append(config["skip"])
-pism_args.append(config["direct"])
+pism_args.append(" ".join(config["direct"]))
 
-if args.pass_arguments:
-    pism_args.append(args.pass_arguments)
+# if args.pass_arguments:
+#     pism_args.append(args.pass_arguments)
 
-start = " ".join((config["mpi"], config["pism"]))
+if args.no_mpi:
+    start = config["pism"]
+else:
+    start = " ".join((config["mpi"], config["pism"]))
 
+print pism_args
 
+full_pism_call = start + " " + " ".join(pism_args)
 
+config["full_pism_call"] = full_pism_call
 config_file_name = output_start + ".conf"
 backup_file(config_file_name)
 json.dump(config, open(config_file_name, "w"), sort_keys=True, indent=2)
@@ -162,10 +194,9 @@ backup_file(error_file)
 log_file = output_start + ".log"
 backup_file(log_file)
 
-full_string = start + " " + " ".join(pism_args)
-print " running " + full_string
+print " running " + full_pism_call
 
 print "tail -f ", log_file , error_file
 
-spc = subprocess.check_call(shlex.split(full_string), stdout = open(log_file, "w"), stderr= open(error_file, "w"))
+spc = subprocess.check_call(shlex.split(full_pism_call), stdout = open(log_file, "w"), stderr= open(error_file, "w"))
 # spc.communicate()
