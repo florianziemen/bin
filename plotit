@@ -12,7 +12,14 @@ parser.add_argument("-v", "--variables", dest="varname",
                   help='''Variables to plot, default = 'usurf,cbar,...'.''', default="cbar,usurf,thk,cbase,diffusivity,topg")
 parser.add_argument("-n", "--noshow", dest="noshow", action="store_true",
                   help='''do not open eog on results''', default=False)
+parser.add_argument("-l", "--level",  default= None,
+                  help='''level to plot''', type = int)
 
+parser.add_argument("-s", "--sub",  
+                  help='''File to substract''', default=None)
+
+parser.add_argument("--bounds", dest="bounds", nargs=2, type=float,
+                  help="lower and upper bound for colorbar, eg. -1 1", default=None)
 
 options = parser.parse_args()
 variables = (options.varname).split(",")
@@ -22,11 +29,28 @@ outfiles  = []
 filenames = options.FILE
 print filenames
 fu.debug=True
+
+miscopts = ""
+levelstring = ""
+if options.level:
+  miscopts = miscopts + " --level %i"%(options.level)
+  levelstring = "_l%i"%(options.level)
+
+if options.bounds:
+  miscopts = miscopts + " --bounds %f %f"%(options.bounds[0], options.bounds[1])
+
+
+  
+substring = ""
+if options.sub:
+  miscopts = miscopts + " --obs_file %s"%(options.sub)
+  substring = "-%s"%(options.sub)
+  
 for variable in variables:
   for filename in filenames:
     print "plotting %s from %s"%(variable, filename)
-    outfilename = "%s_%s.png"%(variable, filename)
-    ret = fu.qo("/home/flo/Apps/pypismtools/scripts/basemap-plot.py --singlerow -v " + variable + " --colorbar_label -o %s %s"%(outfilename, filename))
+    outfilename = "%s%s_%s%s.png"%(variable, levelstring, filename, substring)
+    ret = fu.qo("/home/flo/Apps/pypismtools/scripts/basemap-plot.py --singlerow -v " + variable + " --colorbar_label %s -o %s %s"%(miscopts, outfilename, filename))
     print (ret)
     outfiles.append( outfilename )
 
