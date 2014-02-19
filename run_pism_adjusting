@@ -54,7 +54,7 @@ def main():
     print options.FILES
     fu.debug=True
 
-  run_pism(filename_start, start, end, config, vars(options))
+  run_pism(options.filename_start, optios.start, options.end, options.config, vars(options))
       
 if __name__ == "__main__":
     main()
