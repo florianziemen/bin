@@ -34,14 +34,14 @@ def parse_args():
   parser.description = "compare slopes of two variables from two files"
 #  parser.add_argument("FILES", nargs=1)
   parser.add_argument("-v", "--verbose", 
-                    help='''Be verbose''', action="store_true")
-   parser.add_argument("-f", "--filename_start", 
-                        help='''start of file name ''', required = True) 
-   parser.add_argument("-s", "--start", 
-                       help='''number of start file''', required = True, type = int) 
-   parser.add_argument("-e", "--end", 
+                      help='''Be verbose''', action="store_true")
+  parser.add_argument("-f", "--filename_start", 
+                      help='''start of file name ''', required = True) 
+  parser.add_argument("-s", "--start", 
+                      help='''number of start file''', required = True, type = int) 
+  parser.add_argument("-e", "--end", 
                       help='''number of end file''', required = True, type = int)
-   parser.add_argument("-c", "--config", 
+  parser.add_argument("-c", "--config", 
                       help='''config file''', required = True)
   options = parser.parse_args()
   return options
