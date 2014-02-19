@@ -10,14 +10,14 @@ import shutil
 import numpy as np
 
 
-def run_pism():
-  filename_start = "adjust_test"
-  ## repeat until dead:
-  for counter in xrange(38,100) :
+def run_pism(filename_start, start, end, config, options):
+#  filename_start = "adjust_test"
+  ## repeat:
+  for counter in xrange(start,  end) :
     # run pism 
     input_file = filename_start + "_input_%04i.nc"%(counter)
     output_file = filename_start + "_output_%04i.nc"%(counter)
-    options_geloet = " -c run_pism_flo-binary.conf -y 10  --force_to_thk topo_hand.nc --force_to_thk_alpha 0.2  --no-ssa "
+    options_geloet = " -c %s -y 10  --force_to_thk topo_hand.nc --force_to_thk_alpha 0.2  --no-ssa "%(config)
     fu.qo("run_pism -i %s -o %s %s"%(input_file, output_file, options_geloet))
 
     # copy the output file
@@ -35,12 +35,14 @@ def parse_args():
 #  parser.add_argument("FILES", nargs=1)
   parser.add_argument("-v", "--verbose", 
                     help='''Be verbose''', action="store_true")
-  # parser.add_argument("-r", "--reference", 
-  #                      help='''file with reference values''', default="reference.nc") 
-  # parser.add_argument("-s", "--state", 
-  #                      help='''file with reference values''', required = True) 
-  # parser.add_argument("-b", "--var_b", 
-  #                    help='''variable b''', default="data")
+   parser.add_argument("-f", "--filename_start", 
+                        help='''start of file name ''', required = True) 
+   parser.add_argument("-s", "--start", 
+                       help='''number of start file''', required = True, type = int) 
+   parser.add_argument("-e", "--end", 
+                      help='''number of end file''', required = True, type = int)
+   parser.add_argument("-c", "--config", 
+                      help='''config file''', required = True)
   options = parser.parse_args()
   return options
 
@@ -52,7 +54,7 @@ def main():
     print options.FILES
     fu.debug=True
 
-  run_pism()
+  run_pism(filename_start, start, end, config, vars(options))
       
 if __name__ == "__main__":
     main()
