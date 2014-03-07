@@ -1,0 +1,140 @@
+#!/usr/bin/env python
+
+import netCDF4 as nc
+import scipy
+import scipy.misc
+import scipy.stats
+import matplotlib.pylab as mpl
+import matplotlib.widgets as mpw
+import numpy as np
+import sys
+
+save=1
+
+# mpl.ion()
+
+for infilename in (sys.argv[1:]):
+    infile = nc.Dataset(infilename, "r")
+    usurf = np.squeeze(infile.variables["usurf"][:])
+    thk = np.squeeze(infile.variables["thk"][:])
+    x = infile.variables["x"][:]
+    y = infile.variables["y"][:]
+    dx = np.abs(x[1]-x[0])
+    dy = np.abs(y[1]-y[0])
+    # mpl.figure()
+    # mpl.imshow (usurf , interpolation="nearest")
+    # mpl.title ("usurf from %s"%(infilename))
+    # mpl.colorbar() 
+    
+    xslopes = (usurf[1:]-usurf[:-1])[:,1:-1]/dx
+    yslopes = (usurf[:,1:]-usurf[:,:-1])[1:-1]/dy
+    pos_xslopes=xslopes*(xslopes > 0)
+    neg_xslopes=xslopes*(xslopes < 0)
+    pos_yslopes=yslopes*(yslopes > 0)
+    neg_yslopes=yslopes*(yslopes < 0)
+    x_comparison = np.greater_equal(pos_xslopes[:-1],-neg_xslopes[1:])
+    y_comparison = np.greater_equal(pos_yslopes[:,:-1],-neg_yslopes[:,1:])
+    pxp = pos_xslopes[:-1]*x_comparison
+    nxn = neg_xslopes[1:]*(1-x_comparison)
+    pyp = pos_yslopes[:,:-1]*y_comparison
+    nyn = neg_yslopes[:,1:]*(1-y_comparison)
+    pos_xslopes_sorted = pxp - nxn
+    pos_yslopes_sorted = pyp - nyn
+    total_slopes=np.sqrt(pos_xslopes_sorted**2+pos_yslopes_sorted**2)
+    
+
+    
+#    mpl.figure()
+#    mpl.imshow (total_slopes, interpolation = "nearest")
+#    mpl.colorbar()
+#    mpl.title("sorted slopes")
+
+
+    cut_thk=thk[1:-1,1:-1]
+#    mpl.figure()
+#    mpl.plot(total_slopes[(cut_thk<10.)], usurf[1:-1,1:-1].reshape(cut_thk.size), '.')
+    # mpl.plot(total_slopes, (usurf[1:-1,1:-1]), '.k')
+    # mpl.plot(total_slopes[(cut_thk<10.)], (usurf[1:-1,1:-1])[(cut_thk<10.)], '.b')
+#    mpl.figure()
+#    mpl.plot(total_slopes[(cut_thk<10.)], usurf[1:-1,1:-1].reshape(cut_thk.size), '.')
+#    mpl.plot(total_slopes[(cut_thk<10.)], (usurf[1:-1,1:-1])[(cut_thk<10.)], '.b')
+#    mpl.plot(total_slopes[(cut_thk > 10.)], (usurf[1:-1,1:-1])[(cut_thk > 10.)], '.r')
+    
+
+
+    mpl.figure(77)
+    mpl.subplots_adjust( bottom=0.2)
+    duckweed = cut_thk * 1.0
+    duckfreeweed = total_slopes * 1.0
+    dw = mpl.imshow (duckweed , interpolation="nearest", vmax=100.)
+    mpl.colorbar()
+
+    weedax = mpl.axes([0.25, 0.1, 0.65, 0.03])
+    weedsl = mpw.Slider(weedax, 'Threshold', 0, 3, valinit = 100)
+    
+    dw.set_data(duckweed)
+#    mpl.figure(78)
+#    dfw = mpl.imshow (duckfreeweed , interpolation="nearest")
+#    dfw.set_data(duckfreeweed)
+#    mpl.colorbar()
+    
+    def update(val):
+        print "Threshold = " + str(np.ceil(weedsl.val) )
+        duckweed = total_slopes*(cut_thk <  weedsl.val)*(usurf[1:-1,1:-1] > 1000.)
+        duckweed = cut_thk*(total_slopes >  weedsl.val)
+        duckfreeweed = total_slopes*(cut_thk <= weedsl.val)
+        mpl.figure(77)
+        dw.set_data(duckweed)
+#        mpl.figure(78)
+#        dfw.set_data(duckfreeweed)
+   
+    weedsl.on_changed(update)
+
+    mpl.show()
+    # sys.exit(0)
+
+
+    # reshaped_red = data[:,:,0].reshape(data.shape[0]*data.shape[1])
+    # bincounts_red=(np.bincount(reshaped_red,minlength=256))
+
+    # mpl.figure()
+    # mpl.plot(np.cumsum(bincounts_blue))
+    # mpl.hold("on")
+    # mpl.plot(np.cumsum(bincounts_green))
+    # mpl.plot(np.cumsum(bincounts_red))
+    # mpl.xlim([0,255])
+
+    # duckweed = data[:,:,1] > 100
+
+    # mpl.figure(77)
+    # mpl.subplots_adjust( bottom=0.2)
+    # dw = mpl.imshow (duckweed , interpolation="nearest")
+    # mpl.colorbar()
+    # if ( save == 1 ): 
+    #     mpl.savefig(file+"_filt.jpg",format='jpg')  
+    # mpl.close('all')
+
+    # weedax = mpl.axes([0.25, 0.1, 0.65, 0.03])
+    # weedsl = mpw.Slider(weedax, 'Threshold', 0, 255,valinit = 100)
+
+    # dw.set_data(duckweed)
+    # ratio = (duckweed * 1.0).sum() / duckweed.shape[0] / duckweed.shape[1]
+    # print  file+ ": Duckweed ratio =" + str(ratio)
+
+    # def update(val):
+    #     print "Threshold = " + str(np.ceil(weedsl.val) )
+    #     duckweed = data[:,:,1] > weedsl.val
+    # #    print duckweed
+    #     mpl.figure(77)
+    #     dw.set_data(duckweed)
+    #     ratio = (duckweed * 1.0).sum() / duckweed.shape[0] / duckweed.shape[1]
+    #     print "Duckweed ratio =" + str(ratio)
+    
+    # weedsl.on_changed(update)
+
+
+#raw_input('Press enter...')   
+
+
+
+

@@ -1,0 +1,91 @@
+#!/usr/bin/env python
+import sys
+import numpy as np
+sys.path.append('/home/flo/UAF/PISM/')
+import three_equations
+
+import flo_utils as fu
+import matplotlib.pylab as mpl
+import subprocess as sp
+
+print (dir (three_equations))
+
+num_T = 20
+num_S = 20
+num_thk = 20
+
+T_min = -1.75
+T_max = 2.25
+
+S_min = 10
+S_max = 35
+
+thk_min = 10
+thk_max = 350
+
+temperatures = np.arange(num_T)*(T_max-T_min)/(num_T-1)+T_min
+thicknesses = np.arange(num_thk)*(thk_max-thk_min)/(num_thk-1)+thk_min
+salinities = np.arange(num_S)*(S_max-S_min)/(num_S-1)+S_min
+
+Tb = np.zeros([2,num_T, num_S, num_thk])
+Sb = np.zeros([2,num_T, num_S, num_thk])
+M  = np.zeros([2,num_T, num_S, num_thk])
+print "starting into loop"
+for iS, S in enumerate(salinities):
+    for iT, T in enumerate(temperatures):
+        for ithk, thk in enumerate(thicknesses):
+            print T, S, thk
+            (Sb[0,iT,iS, ithk], Tb[0,iT,iS, ithk], M[0,iT,iS, ithk]) = three_equations.three_equation_model (S, T, thk)
+            mtf = sp.Popen("melt_test_fu", stdin=sp.PIPE, stdout=sp.PIPE)
+            (out, err ) = mtf.communicate ("%f %f %f %f %f"%(thk,-20,thk*910*9.81,S,T))
+            out = [float (x) for x in out.split()]
+            (Sb[1,iT,iS, ithk], Tb[1,iT,iS, ithk], M[1,iT,iS, ithk]) = out
+            print (Tb[0,iT,iS, ithk], Sb[0,iT,iS, ithk], M[0,iT,iS, ithk])
+            print (Tb[1,iT,iS, ithk], Sb[1,iT,iS, ithk], M[1,iT,iS, ithk])
+            # while (cin >> dz0 >> Tice >> press >> salt >> temp){
+#            print three_equations.three_equation_model (S, T, thk)
+  #      mpl.plot(thicknesses, M[iT,iS,:], 'o-')
+ #       mpl.title("S=%f, T=%f"%(S,T))
+#        mpl.show()
+
+
+# for ithk, thk in enumerate(thicknesses):
+#     print (ithk)
+#     mpl.figure()
+#     mpl.imshow(M[0,:,:,ithk], interpolation = "nearest", extent = ([ salinities.min(), salinities.max(),temperatures.min(),temperatures.max()]), aspect='auto', vmin=M.min(), vmax=M.max())
+#     mpl.title("Constantine: thk=%f"%(thk))
+#     mpl.colorbar()
+#     mpl.figure()
+#     mpl.imshow(M[1,:,:,ithk], interpolation = "nearest", extent = ([ salinities.min(), salinities.max(),temperatures.min(),temperatures.max()]), aspect='auto', vmin=M.min(), vmax=M.max())
+#     mpl.title("Flo: thk=%f"%(thk))
+#     mpl.colorbar()
+mpl.figure()
+mpl.plot(M[0].reshape((M[0].size)),M[1].reshape((M[1].size)), '.')
+mpl.hold("on")
+mpl.plot(mpl.xlim(),mpl.xlim())
+mpl.xlabel ("Meltrate Constantine (m/yr)")
+mpl.ylabel ("Meltrate Flo (m/yr)")
+mpl.savefig("meltrate.png")
+mpl.figure()
+mpl.plot(Tb[0].reshape((M[0].size)),Tb[1].reshape((M[1].size)), '.')
+mpl.xlabel ("Basal temperature Constantine (deg C)")
+mpl.ylabel ("Basal temperature Flo (deg C)")
+mpl.hold("on")
+mpl.plot(mpl.xlim(),mpl.xlim())
+mpl.savefig("temperature.png")
+mpl.figure()
+mpl.plot(Sb[0].reshape((M[0].size)),Sb[1].reshape((M[1].size)), '.')
+mpl.xlabel ("Basal salinity Constantine (g/kg)")
+mpl.ylabel ("Basal salinity Flo (g/kg)")
+mpl.hold("on")
+mpl.plot(mpl.xlim(),mpl.xlim())
+mpl.savefig("salinity.png")
+mpl.figure()
+mpl.plot(M[0].reshape((M[0].size))/M[1].reshape((M[1].size)), '.')
+mpl.hold("on")
+mpl.plot(mpl.xlim(),[1,1])
+mpl.xlabel ("")
+mpl.ylabel ("Meltrate Constantine /Meltrate Flo")
+mpl.ylim(-2,2)
+mpl.savefig("meltrate_ratio.png")
+mpl.show()
