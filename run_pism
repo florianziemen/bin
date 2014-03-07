@@ -49,7 +49,8 @@ group.add_argument("--mpi", action="store_false", dest = "no_mpi", help="run wit
 
 args = parser.parse_args()
 
-
+if args.verbose:
+    fu.debug = True
 args_dict = vars(args) 
 
 pism_args = []
@@ -129,9 +130,12 @@ if "atmosphere_given_period" in config.keys() :
     pism_args.append("-atmosphere_given_period " + config["atmosphere_given_period"])
 
 surface = "pdd"
-if config["force_to_thk"]:
+if "force_to_thk" in config.keys():
     surface = surface + ",forcing"
     pism_args.append(" -force_to_thk " + config["force_to_thk"])
+
+if "force_to_thk_alpha" in config.keys():
+    pism_args.append("-force_to_thk_alpha " + config["force_to_thk_alpha"] )
 
 if config["surface_cache_update_interval"]:
     surface = surface + ",cache"
@@ -139,8 +143,6 @@ if config["surface_cache_update_interval"]:
 
 pism_args.append("-surface "+ surface)
     
-if config["force_to_thk_alpha"]:
-    pism_args.append("-force_to_thk_alpha " + config["force_to_thk_alpha"] )
 
     
 
@@ -199,4 +201,7 @@ print " running " + full_pism_call
 print "tail -f ", log_file , error_file
 
 spc = subprocess.check_call(shlex.split(full_pism_call), stdout = open(log_file, "w"), stderr= open(error_file, "w"))
+
+if not os.access(args.output, os.R_OK):
+    sys.exit(1)
 # spc.communicate()

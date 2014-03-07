@@ -15,17 +15,17 @@ def run_pism(filename_start, start, end, config, options):
   ## repeat:
   for counter in xrange(start,  end) :
     # run pism 
-    input_file = filename_start + "_input_%04i.nc"%(counter)
-    output_file = filename_start + "_output_%04i.nc"%(counter)
+    input_file = filename_start + "_output_%04i.nc"%(counter)
+    output_file = filename_start + "_output_%04i.nc"%(counter+1)
     options_geloet = " -c %s -y 10  --force_to_thk topo_hand.nc --force_to_thk_alpha 0.2  --no-ssa "%(config)
-    fu.qo("run_pism -i %s -o %s %s"%(input_file, output_file, options_geloet))
+    fu.qo(fu.my_bin + "run_pism -v -i %s -o %s %s"%(input_file, output_file, options_geloet))
 
-    # copy the output file
-    input_file = filename_start + "_input_%04i.nc"%(counter+1)
-    shutil.copyfile(output_file, input_file)
-    # call adjust_topg
-    fu.qo("adjust_topg %s -s state.nc"%(input_file))
-    shutil.copyfile("state.nc", "state_" + input_file)
+    # # copy the output file
+    # input_file = filename_start + "_input_%04i.nc"%(counter+1)
+    # shutil.copyfile(output_file, input_file)
+    # # call adjust_topg
+    # fu.qo(fu.my_bin + "adjust_topg %s -s state.nc"%(input_file))
+    # shutil.copyfile("state.nc", "state_" + input_file)
 
 
     
@@ -51,10 +51,10 @@ def main():
   options = parse_args()
   if options.verbose:
     print (dir(options))
-    print options.FILES
+#    print options.FILES
     fu.debug=True
 
-  run_pism(options.filename_start, optios.start, options.end, options.config, vars(options))
+  run_pism(options.filename_start, options.start, options.end, options.config, vars(options))
       
 if __name__ == "__main__":
     main()
