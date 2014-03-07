@@ -137,7 +137,7 @@ if "force_to_thk" in config.keys():
 if "force_to_thk_alpha" in config.keys():
     pism_args.append("-force_to_thk_alpha " + config["force_to_thk_alpha"] )
 
-if config["surface_cache_update_interval"]:
+if "surface_cache_update_interval" in config.keys():
     surface = surface + ",cache"
     pism_args.append("-surface_cache_update_interval " + config["surface_cache_update_interval"])
 
