@@ -1,0 +1,58 @@
+#!/usr/bin/env python
+import numpy as np
+import sys
+import netCDF4 as nc
+import time
+import re
+import datetime
+
+labels = {"AABW" : "m^3 / s", "NADW": "m^3 / s", "SST" : "deg C", "SSS" : "PSU" , "WFL" : "m^3 / s", "ICEVO" : "m^3", "ICEAR" : "m^2", "T" : "deg C" , "S" : "PSU" , "HFL" : "W", "TVQUER" : "W", "SVQUER": "PSU m^3 / s" , "TDENMARK" : "m^3 / s","TFAAROE" : "m^3 / s", "SFRAM" : "m^3 ice / s" , "PSIGOLF" : "m^3 / s", "PSIKURO" : "m^3 / s", "PSIBANDA" : "m^3 / s", "PSIDRAKE" : "m^3 / s" , "PSIBERING" : "m^3 / s", "AMAXLAT" : "m^3 / s", "TMERCI" : "m^3 / s", "Date" : "YYYYMMDD" , "T": "deg C"}
+names=["time", "T_max", "T_min"]
+
+
+
+def convert (filename):
+    data = np.squeeze(np.array([ np.genfromtxt(filename, unpack=True) ] ))[:,1:]
+
+    outfilename = filename + ".nc"
+    f = nc.Dataset(outfilename, 'w', format = "NETCDF3_CLASSIC")
+    f.history = 'Created ' + time.ctime(time.time())
+    #    f = Nio.open_file(outfilename,"w",opt,"created "+datetime.datetime.now().isoformat() + " by  findmax ")
+    my_time = f.createDimension('time', None)
+    vars = names
+    for (num,var) in enumerate(vars):
+        v = f.createVariable(var,'f4',('time',), fill_value=-999.9)
+        #    f.variables['moc_glo'].units= "m^3/s"
+        pattern=re.compile("[A-Z]*")
+        unit=labels.get(pattern.match(var).group(), "")
+        v.units = unit
+        v.long_name = names[num]
+#    f.variables['time'].units = 'years since 1-1-1 0:0:0'
+    f.variables['time'].calendar="proleptic_gregorian "
+        
+        
+    ld=data.shape[1]
+
+    for (num,var) in enumerate (vars):
+        print (num,var)
+        if var == "time":
+            dt=data[num,:]
+            print dt
+            dt=["%08i"%(x) for x in dt]
+            print dt
+            f.variables[var].units = "days since 0000-00-00 00:00:00"
+            f.variables[var][0:ld] = nc.date2num([datetime.datetime(int(x[0:4]),int(x[4:6]),int(x[6:8])) for x in dt],f.variables[var].units)
+            
+        else:
+            dt=data[num,:].astype('float32')
+            f.variables[var][0:ld] = dt
+    
+
+
+def main(args):
+    print "in main"
+    convert (args[0])
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
