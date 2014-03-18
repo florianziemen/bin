@@ -4,6 +4,10 @@ from netCDF4 import Dataset
 import matplotlib.pyplot as mpl
 import sys
 from argparse import ArgumentParser
+from scipy import stats
+import flo_utils as fu
+import seaborn as sns
+#plt.xkcd()
 
 def get_array(filename, varname, skip = 1):
     infile = Dataset(filename, "r")
@@ -52,9 +56,13 @@ def parse_args():
   parser.add_argument("-v", "--verbose", 
                     help='''Be verbose''', action="store_true")
   parser.add_argument("-x", "--xvar", 
-                    help='''xvar''', default="climatic_mass_balance_original")
+                    help='''xvar''', default="climatic_mass_balance")
   parser.add_argument("-y", "--yvar", 
                     help='''yvar''', default="usurf")
+  parser.add_argument("-X", "--x_file", 
+                    help='''file for x-var''', default=None)
+  parser.add_argument("-Y", "--y_file", 
+                    help='''file for y-var''', default=None)
   parser.add_argument("-n", "--npoints", 
                     help='''number of points to average over''', default=None, type = int)
 
@@ -84,6 +92,28 @@ def main(argv):
     print (dir(options))
   xvecs = [ ]
   yvecs = [ ]
+  if options.x_file and not options.y_file:
+      cerr("Need y-file to match x-file")
+      sys.exit(1)
+  if options.x_file and options.y_file:
+    (xvec, xattr) = get_array(options.x_file, options.xvar, skip = options.skip)
+    (yvec, yattr) = get_array(options.y_file, options.yvar, skip = options.skip)
+    options.FILES = []
+    xvecs.append(xvec)
+    yvecs.append(yvec)
+    xvec = [x for (num,x) in enumerate(xvec) if yvec[num]]
+    yvec = [y for (num,y) in enumerate(yvec) if yvec[num]]
+    yvec = [y for (num,y) in enumerate(yvec) if xvec[num]]
+    xvec = [x for (num,x) in enumerate(xvec) if xvec[num]]
+    slope, intercept, r_value, p_value, std_err = stats.linregress(xvec, yvec)
+    print "(slope, intercept, r_value, p_value, std_err)"
+    print (slope, intercept, r_value, p_value, std_err)
+  if options.y_file and not options.x_file:
+    (yvec, yattr) = get_array(option.y_file, options.yvar, skip = options.skip)
+    (xvec, xattr) = (np.arange(len(yvec)), {})
+    options.FILES = []
+    xvecs.append(xvec)
+    yvecs.append(yvec)
   for filename in options.FILES:
     (xvec, xattr) = get_array(filename, options.xvar, skip = options.skip)
     (yvec, yattr) = get_array(filename, options.yvar, skip = options.skip)
@@ -92,11 +122,11 @@ def main(argv):
         mask = thk > 10
         xvec = xvec [mask]
         yvec = yvec [mask]
-    print (xvec.size)
+    fu.debug_cerr (xvec.size)
             
     xvecs.append(xvec)
     yvecs.append(yvec)
-    mpl.show()
+
 
   plot_opts = sort_labels(xattr, yattr)
   options_dict = vars(options)
@@ -105,7 +135,8 @@ def main(argv):
           plot_opts[x] = options_dict[x]
 
       
-  scatter_vars(xvecs, yvecs, plot_opts)
+  with sns.palette_context("PuBuGn_d"):
+      scatter_vars(xvecs, yvecs, plot_opts)
 
 
   
