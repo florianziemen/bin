@@ -20,6 +20,8 @@ parser.add_argument("-s", "--sub",
 
 parser.add_argument("--bounds", dest="bounds", nargs=2, type=float,
                   help="lower and upper bound for colorbar, eg. -1 1", default=None)
+parser.add_argument("--numcol", dest="numcol", type=int,
+                  help="number of color steps", default=None)
 
 options = parser.parse_args()
 variables = (options.varname).split(",")
@@ -30,20 +32,21 @@ filenames = options.FILE
 print filenames
 fu.debug=True
 
-miscopts = ""
+miscopts = " -a "   # alaska albers
 levelstring = ""
 if options.level:
   miscopts = miscopts + " --level %i"%(options.level)
   levelstring = "_l%i"%(options.level)
 
 if options.bounds:
-  miscopts = miscopts + " --bounds %f %f"%(options.bounds[0], options.bounds[1])
+  miscopts = miscopts + " --bounds %f %f "%(options.bounds[0], options.bounds[1])
 
-
+if options.numcol:
+    miscopts = miscopts + " --numcol %i "%(options.numcol)
   
 substring = ""
 if options.sub:
-  miscopts = miscopts + " --obs_file %s"%(options.sub)
+  miscopts = miscopts + " --obs_file %s "%(options.sub)
   substring = "-%s"%(options.sub)
   
 for variable in variables:
