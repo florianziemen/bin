@@ -30,7 +30,10 @@ def scatter_vars(xvecs, yvecs, plot_opts):
         mpl.xlim(plot_opts["xlim"])
     if "ylim" in plot_opts.keys():
         mpl.ylim(plot_opts["ylim"])
+    if "output" in plot_opts.keys():
+        mpl.savefig(plot_opts["output"])
     mpl.show()
+    
 
 
 
@@ -59,6 +62,8 @@ def parse_args():
                     help='''xvar''', default="climatic_mass_balance")
   parser.add_argument("-y", "--yvar", 
                     help='''yvar''', default="usurf")
+  parser.add_argument("-o", "--output", 
+                    help='''output file to save image to''', default=None)
   parser.add_argument("-X", "--x_file", 
                     help='''file for x-var''', default=None)
   parser.add_argument("-Y", "--y_file", 
@@ -137,7 +142,7 @@ def main(argv):
       
   with sns.palette_context("PuBuGn_d"):
       scatter_vars(xvecs, yvecs, plot_opts)
-
+  
 
   
 if __name__ == "__main__":
