@@ -61,8 +61,8 @@ def copy_dimensions(infile, outfile, average_dimensions, npoints):
                     out_dim_v =  outfile.createVariable( dim,in_dim_v.dtype, (dim,) ) 
                     out_dim_v[:] = 0.
                     for x in xrange(npoints):
-                        out_dim_v[:] = out_dim_v[:] + in_dim_v[x:len(out_dim_v)*2:npoints]
-                        out_dim_v[:] = out_dim_v[:] / npoints
+                        out_dim_v[:] = out_dim_v[:] + in_dim_v[x:len(out_dim_v)*npoints:npoints]
+                    out_dim_v[:] = out_dim_v[:] / npoints
         if dim in infile.variables:
             copy_atts(infile, outfile, dim)
 
