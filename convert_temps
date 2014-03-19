@@ -12,39 +12,43 @@ names=["time", "T_max", "T_min"]
 
 
 def convert (filename):
-    data = np.squeeze(np.array([ np.genfromtxt(filename, unpack=True) ] ))[:,1:]
-
+    data = np.squeeze(np.array([ np.genfromtxt(filename, unpack=True, delimiter=",") ] ))[:,1:]
+    names = open(filename, "r").readline()[:-1].split(",")
     outfilename = filename + ".nc"
     f = nc.Dataset(outfilename, 'w', format = "NETCDF3_CLASSIC")
     f.history = 'Created ' + time.ctime(time.time())
     #    f = Nio.open_file(outfilename,"w",opt,"created "+datetime.datetime.now().isoformat() + " by  findmax ")
-    my_time = f.createDimension('time', None)
+    my_time = f.createDimension('DATE', None)
     vars = names
     for (num,var) in enumerate(vars):
-        v = f.createVariable(var,'f4',('time',), fill_value=-999.9)
+        print "creating variable \"%s\""%(var)
+        print data[num,3].dtype
+        v = f.createVariable(var,'f4',('DATE',), fill_value=-9999)
         #    f.variables['moc_glo'].units= "m^3/s"
         pattern=re.compile("[A-Z]*")
-        unit=labels.get(pattern.match(var).group(), "")
-        v.units = unit
+        # unit=labels.get(pattern.match(var).group(), "")
+        #        v.units = unit
         v.long_name = names[num]
-#    f.variables['time'].units = 'years since 1-1-1 0:0:0'
-    f.variables['time'].calendar="proleptic_gregorian "
+#    f.variables['DATE'].units = 'years since 1-1-1 0:0:0'
+    f.variables['DATE'].calendar="proleptic_gregorian "
         
         
     ld=data.shape[1]
 
     for (num,var) in enumerate (vars):
         print (num,var)
-        if var == "time":
+        if var == "DATE":
             dt=data[num,:]
-            print dt
+            #print dt
             dt=["%08i"%(x) for x in dt]
-            print dt
-            f.variables[var].units = "days since 0000-00-00 00:00:00"
+            #print dt
+            f.variables[var].units = "days since 1900-00-00 00:00:00"
             f.variables[var][0:ld] = nc.date2num([datetime.datetime(int(x[0:4]),int(x[4:6]),int(x[6:8])) for x in dt],f.variables[var].units)
+            print f.variables[var][:]
             
         else:
             dt=data[num,:].astype('float32')
+            print dt
             f.variables[var][0:ld] = dt
     
 
