@@ -3,6 +3,7 @@
 from osgeo import gdal
 import matplotlib.pyplot as mpl
 import sys
+import numpy.ma as ma
 
 def plotit (filename):
     ds = gdal.Open(filename, gdal.GA_ReadOnly)
