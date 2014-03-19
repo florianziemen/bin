@@ -66,11 +66,13 @@ for infilename in (sys.argv[1:]):
     mpl.subplots_adjust( bottom=0.2)
     duckweed = cut_thk * 1.0
     duckfreeweed = total_slopes * 1.0
-    dw = mpl.imshow (duckweed , interpolation="nearest", vmax=100.)
+    dw = mpl.imshow (duckweed , interpolation="nearest", vmin=-3000, vmax=3000, origin = "lower")
     mpl.colorbar()
 
     weedax = mpl.axes([0.25, 0.1, 0.65, 0.03])
-    weedsl = mpw.Slider(weedax, 'Threshold', 0, 3, valinit = 100)
+    weedsl = mpw.Slider(weedax, 'slope threshold', 0, 3, valinit = .2)
+    weedax2 = mpl.axes([0.25, 0.05, 0.65, 0.03])
+    weedsl2 = mpw.Slider(weedax2, 'thk_threshold', -1, 1000, valinit = 100)
     
     dw.set_data(duckweed)
 #    mpl.figure(78)
@@ -80,15 +82,14 @@ for infilename in (sys.argv[1:]):
     
     def update(val):
         print "Threshold = " + str(np.ceil(weedsl.val) )
-        duckweed = total_slopes*(cut_thk <  weedsl.val)*(usurf[1:-1,1:-1] > 1000.)
-        duckweed = cut_thk*(total_slopes >  weedsl.val)
-        duckfreeweed = total_slopes*(cut_thk <= weedsl.val)
+        duckweed = usurf[1:-1,1:-1]*(1 - 2 * (cut_thk >   weedsl2.val)*(total_slopes > weedsl.val))
         mpl.figure(77)
         dw.set_data(duckweed)
 #        mpl.figure(78)
 #        dfw.set_data(duckfreeweed)
    
     weedsl.on_changed(update)
+    weedsl2.on_changed(update)
 
     mpl.show()
     # sys.exit(0)
