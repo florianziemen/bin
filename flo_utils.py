@@ -1,3 +1,4 @@
+from __future__ import print_function
 import subprocess as sp
 import shlex
 import sys
@@ -14,11 +15,17 @@ from  local_conf import *
 debug = False
 
 
+def cerr(*objs):
+    print( *objs, file=sys.stderr)
+
+def debug_cerr(*objs):
+    if debug:
+        print( *objs, file=sys.stderr)
+
 def gen_names(start, end):
     nums=[int(start)] + range(int(start)+ 50 - (int(start)%50),int(end)+2,50)
     names= ["%s-%s"%(nums[x],nums[x+1]-1) for x in range (len(nums)-1)]
-    if debug:
-        print names
+    debug_cerr(names)
     return names
 
 
@@ -42,8 +49,8 @@ def query (question, stdin_string=False):
     if type(question) is str:
         question=shlex.split(question)
 
-    if (debug):
-        print ("FU: trying " + " ".join(question))
+
+        debug_cerr("FU: trying " + " ".join(question))
     a = sp.Popen(question, stdin = sp.PIPE, stdout = sp.PIPE, stderr = sp.PIPE)
     
     if stdin_string:
@@ -51,14 +58,14 @@ def query (question, stdin_string=False):
     else:
         (so, se) = a.communicate()
     if debug:
-        print >>sys.stderr, "returned " + str( a.returncode) 
+        cerr( "returned " + str( a.returncode) )
     if a.returncode:
-        print >>sys.stderr, "FU: attempting " + str(question) + " in  " + os.getcwd()
-        print >>sys.stderr, "FU: returned " + str( a.returncode) 
-        print >>sys.stderr, "FU: program stdout:"
-        print >>sys.stderr, so
-        print >>sys.stderr, "FU: program stderr:"
-        print >>sys.stderr, se
+        cerr( "FU: attempting " + str(question) + " in  " + os.getcwd())
+        cerr( "FU: returned " + str( a.returncode) )
+        cerr( "FU: program stdout:")
+        cerr( so)
+        cerr( "FU: program stderr:")
+        cerr( se)
         exit (a.returncode)
     return (so,se)
 
@@ -69,18 +76,16 @@ def qo(question, stdin_string=False):
 
 def check_call_ncl(arguments):
     if (debug):
-        print "trying ncl " " ".join(arguments)
+        cerr( "trying ncl " " ".join(arguments))
     return sp.check_call(["/sw/lenny-x64/ncl-5.2.1-gccsys/bin/ncl"] + arguments, env= {"NCARG_ROOT" : "/sw/lenny-x64/ncl-5.2.1-gccsys", "PATH" : os.environ["PATH"]})
 
 def rm_if_exist(files):
     if type (files) is str:
         files = [files]
     for filename in files:
-        if (debug):
-            print "FU: removing %s if exists"%(filename)
+        debug_cerr( "FU: removing %s if exists"%(filename))
         if ( os.access(filename,os.R_OK) ) :
-            if (debug):
-                print "FU: %s exists. Removing it"%(filename)
+            debug_cerr( "FU: %s exists. Removing it"%(filename))
             os.remove(filename)
 
 def guess_name_from_dir():
@@ -89,28 +94,25 @@ def guess_name_from_dir():
         try:
             num=int(currdir[-4:])
         except:
-            print "FU: Could not guess run from directory name %s"%(currdir)
+            cerr( "FU: Could not guess run from directory name %s"%(currdir))
             exit(2)
         flo_name = currdir[-7:]
-        if debug:
-            print "using flo_name %s"%flo_name
+        debug_cerr( "using flo_name %s"%flo_name)
     if currdir[-4:-2] == '/F':
         try:
             num=int(currdir[-2:])
         except:
-            print "FU: Could not guess run from directory name %s"%(currdir)
+            cerr( "FU: Could not guess run from directory name %s"%(currdir))
             exit(2)
         flo_name = "flo00" + currdir[-2:]
-        if debug:
-            print "FU: using flo_name %s"%flo_name
+        debug_cerr( "FU: using flo_name %s"%flo_name)
     return flo_name
    
 
 
 def goto_dir(directory):
     if os.path.isdir(directory):
-        if (debug):
-            print "FU: directory  %s  exists. Entering it."%(directory)
+        debug_cerr( "FU: directory  %s  exists. Entering it."%(directory))
     else:
         sys.exit("FU: no data found\n" + directory + "\ndoes not exist")
     os.chdir(directory)
@@ -127,7 +129,7 @@ def check_files(filenames, fatal = True):
             if fatal:
                 sys.exit("FU: file '" + filename + "' does not exist! Exiting!")
             else:
-                print ("FU: file '" + filename + "' does not exist! Continuing anyway since not considered fatal.")
+                cerr("FU: file '" + filename + "' does not exist! Continuing anyway since not considered fatal.")
         
     return ok
 
@@ -141,8 +143,7 @@ def get_dir(floname):
     se = scratch + "/cosmos_work/experiments/"
     for x in [ke, oke, se]:
         if os.path.isdir(x+floname):
-            if (debug):
-                print "FU: directory %s exists. using it"%(x+floname)
+            debug_cerr( "FU: directory %s exists. using it"%(x+floname))
             return x+floname
     sys.exit("FU: no directory found for " + floname + "! Exiting!")
 
@@ -156,8 +157,7 @@ def get_meanplot_dir(floname):
 
 def mkdir(target):
     if not os.path.isdir(target):
-        if (debug):
-            print "FU: creating directory " + target
+        debug_cerr( "FU: creating directory " + target)
         os.makedirs(target)
 
     return target
@@ -173,8 +173,7 @@ def make_p2e_dir(floname):
 
 
 def copy_files(files,target):
-    if debug:
-        print "copying \n%s\nto %s"%("\n".join(files), target)
+    debug_cerr( "copying \n%s\nto %s"%("\n".join(files), target))
     for x in files:
         shutil.copy2(x,target)
 
@@ -186,16 +185,14 @@ def pushd(directory = False):
     global cache_dirs
     if (not directory):
         directory = os.getcwd() 
-    if (debug):
-        print "FU: pushing directory %s"%directory
+    debug_cerr( "FU: pushing directory %s"%directory)
     cache_dirs.append (directory)
 
 def popd():
     global cache_dirs
     directory = (cache_dirs[-1])
     cache_dirs = cache_dirs[:-1]
-    if (debug):
-        print "FU: popping directory %s"%directory
+    debug_cerr( "FU: popping directory %s"%directory)
     return directory
 
 
@@ -216,8 +213,8 @@ def parse_years (arg):
         if start <= stop:
             years = years + [str(x) for x in xrange (start,stop)]
         else:
-            print "trouble parsing year argument " + arg
-            print "start year must be <= end year for ranges"
+            cerr( "trouble parsing year argument " + arg)
+            cerr( "start year must be <= end year for ranges")
             exit(2)
     elif mys and mys.group() == arg:
         (start,stop,stride) = mys.groups()
@@ -227,12 +224,12 @@ def parse_years (arg):
         if (stop - start) * stride > 0 :
             years = years + [str(x) for x in xrange (start,stop,stride)]
         else:
-            print "trouble parsing year argument " + arg
-            print "start year must be <= end year for ranges with positive stride and the other way around for neg strides"
+            cerr( "trouble parsing year argument " + arg)
+            cerr( "start year must be <= end year for ranges with positive stride and the other way around for neg strides")
             exit(2)
 
     else:
-        print "can't parse year argument " + arg
+        cerr( "can't parse year argument " + arg)
         usage()
         sys.exit(2)
     return years
