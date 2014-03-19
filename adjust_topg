@@ -30,7 +30,7 @@ def adjust_topo(filename, reference, state, opts):
   else:
       current_csurf = np.squeeze(dataset.variables["csurf"][:])
       reference_csurf = np.squeeze(reference.variables["csurf"][:])
-      factors = - ((current_csurf - reference_csurf) / (current_csurf + reference_csurf)/10.).filled(0.)
+      factors = - ((current_csurf - reference_csurf) / (current_csurf + reference_csurf)/1000.).filled(0.) # 1000. is arbitrary damping constant
   if fu.debug:
     mpl.figure()
     mpl.imshow(factors)
