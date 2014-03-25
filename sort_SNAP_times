@@ -1,0 +1,6 @@
+#!/bin/bash
+for x in $@ ; do 
+		mon=$(echo $x|sed -r 's/.*_([0-9][0-9])_[0-9][0-9][0-9][0-9].nc/\1/')
+		year=$(echo $x|sed -r 's/.*_[0-9][0-9]_([0-9][0-9][0-9][0-9]).nc/\1/')
+		echo $year$mon $x 
+done| sort | awk '{print $2}'
