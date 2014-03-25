@@ -70,6 +70,7 @@ def convert_file(filename):
 #        times = single_outfile.createVariable('time','f4',('time',))
 #        time_obj = datetime(y,m,15)
         field = single_outfile.createVariable("data",'f4',( 'y', 'x'),fill_value=missval) # time',
+        field.coordinates="lat lon"
 #        times.units = 'days since 0001-01-01 00:00:00.0'
 #        times.calendar = 'gregorian'
 
