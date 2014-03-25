@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import netCDF4 as nc
-import matplotlib.pylab as mpl
+# import matplotlib.pylab as mpl
 import sys
 import flo_utils as fu
 from argparse import ArgumentParser
@@ -30,35 +30,35 @@ def adjust_topo(filename, reference, state, opts):
   else:
       current_csurf = np.squeeze(dataset.variables["csurf"][:])
       reference_csurf = np.squeeze(reference.variables["csurf"][:])
-      factors = - ((current_csurf - reference_csurf) / (current_csurf + reference_csurf)/10.).filled(0.)
-  if fu.debug:
-    mpl.figure()
-    mpl.imshow(factors)
-    mpl.title("error term")
-    mpl.colorbar()
+      factors = - ((current_csurf - reference_csurf) / (current_csurf + reference_csurf)/1000.).filled(0.) # damping factor of 1000. arbitrary choice
+ # if fu.debug:
+    # mpl.figure()
+    # mpl.imshow(factors)
+    # mpl.title("error term")
+    # mpl.colorbar()
   factors = factors + (factors==0)*1e-30
   factors = (factors > 0 )* (1+factors) + (factors<0)/(1-factors) 
-  if fu.debug:
-    mpl.figure()
-    mpl.imshow(factors)
-    mpl.title("raw factor change")
-    mpl.colorbar()
+ # if fu.debug:
+    # mpl.figure()
+    # mpl.imshow(factors)
+    # mpl.title("raw factor change")
+    # mpl.colorbar()
 
 
   factors = factors * old_factors
   factors = (factors < 2) * (factors > .5) * factors + (factors >=2) * 2 + (factors <=0.5)*0.5
-  if fu.debug:
-    mpl.figure()
-    mpl.imshow(factors)
-    mpl.title("final factors")
-    mpl.colorbar()
+#  if fu.debug:
+    # mpl.figure()
+    # mpl.imshow(factors)
+    # mpl.title("final factors")
+    # mpl.colorbar()
   new_thk = reference_thickness * factors
-  if fu.debug:
-    mpl.figure()
-    mpl.imshow(- (new_thk - reference_thickness))
-    mpl.title("topg change")
-    mpl.colorbar()
-  mpl.show()
+#  if fu.debug:
+    # mpl.figure()
+    # mpl.imshow(- (new_thk - reference_thickness))
+    # mpl.title("topg change")
+    # mpl.colorbar()
+  # mpl.show()
   new_topg = usurf_target - new_thk
   dataset.variables["topg"][0,:] = (new_topg*(new_topg <=usurf_target))+ (usurf_target*(new_topg >usurf_target))
   dataset.variables["thk"][0,:] = (dataset.variables["thk"][0,:] - (dataset.variables["topg"][:] - current_topg))
