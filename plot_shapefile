@@ -1,0 +1,10 @@
+#!/usr/bin/env python
+
+import shapefile
+
+filename = "Juneau_Icefield.shp"
+sf = shapefile.Reader("Juneau_Icefield.shp")
+shapes = sf.shapes()
+for x in shapes:
+    plot([y[0] for y in x.points], [y[1] for y in x.points])
+
