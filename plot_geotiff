@@ -15,18 +15,22 @@ def plotit (filename):
     for i in xrange(1, ds.RasterCount+1):
         data = ds.GetRasterBand(i).ReadAsArray()
         ndv = ds.GetRasterBand(i).GetNoDataValue()
-        data = ma.masked_where(data == ndv, data)
+        print ndv
+        data = ma.masked_values(data, ndv)
+        print data
         arys.append(data)
-
+    cmap = mpl.cm.afmhot
+    cmap.set_bad('w',1.)
+    print arys[0][2,2]
     for band  in  arys:
         mpl.figure()
-        mpl.imshow(band,interpolation="nearest")
+        mpl.imshow(band,interpolation="nearest", cmap=cmap)
         mpl.colorbar()
         mpl.figure()
-        mpl.imshow(arys[0],interpolation="nearest", vmin=0,vmax=3000, cmap="afmhot")
+        mpl.imshow(arys[0],interpolation="nearest", vmin=0,vmax=3000, cmap=cmap)
         mpl.colorbar()
         mpl.figure()
-        mpl.imshow(arys[0],interpolation="nearest", vmin=0,vmax=300, cmap="afmhot")
+        mpl.imshow(arys[0],interpolation="nearest", vmin=0,vmax=300, cmap=cmap)
         mpl.colorbar()
         mpl.show()
 
