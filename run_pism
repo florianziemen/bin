@@ -32,7 +32,7 @@ parser.add_argument("--ys", help="startyear", default = None)
 parser.add_argument("-b", "--boot_file", help="boot file (if desired)" , default = None )
 parser.add_argument("-r", "--regrid_file", help="regrid file (if desired)" , default = None ) 
 parser.add_argument("--config_overwrite", help="config_overwrite file (if desired)" , default = None )
-parser.add_argument("-p" ,"--pass_arguments", help="extra arguments to be passed on" , default = None ) 
+parser.add_argument("-p" ,"--pass_arguments", help="extra arguments to be passed on, quote and start with a space" , default = None ) 
 parser.add_argument("--force_to_thk", help="surface forcing file" , default = None ) 
 parser.add_argument("--force_to_thk_alpha", help="surface forcing alpha" , default = None )
 parser.add_argument("--smb_only", help="only compute SMB, no flow fields" , action = "store_true" , default=False) 
@@ -164,12 +164,15 @@ pism_args.append(" -ts_times " + config["ts_times"])
 pism_args.append(" -ts_vars " + config["ts_vars"])
 pism_args.append("-ts_file " + output_start + "_ts.nc")
 
+print config["direct"]
+
 if "pass_arguments" in config.keys(): # anything - coming from the command line
-    if ["direct"] in config.keys():
+    if "direct" in config.keys():
         config["direct"].append(config["pass_arguments"])
     else:
         config["direct"] = [config["pass_arguments"]]
 
+print config["direct"]
 # pism_args.append(config["skip"])
 pism_args.append(" ".join(config["direct"]))
 
