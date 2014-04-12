@@ -1,0 +1,161 @@
+#!/usr/bin/env python
+
+from argparse import ArgumentParser
+import osr
+import math
+from gdalconst import *
+from netCDF4 import Dataset
+import numpy as np
+import sys
+import scatter_vars
+import matplotlib.pyplot as mpl
+import seaborn as sns
+
+# lon lat = input coordinates
+# x,y = coordinates in netcdf coordinate system
+# i,j = indices in netcdf
+
+def ll_to_xy(lat, lon, in_projection =4326, out_projection = 3338 ): # in = WGS 1984, out= alaska albers
+    print lat
+    print lon
+    coords = np.array((np.array((lon)), np.array((lat)))).transpose()
+    print coords
+    print coords.shape
+
+    # setup projection thingy
+    inSpatialRef = osr.SpatialReference() # orig projection
+    inSpatialRef.ImportFromEPSG(in_projection)
+
+    outSpatialRef = osr.SpatialReference() # target projection
+    outSpatialRef.ImportFromEPSG(out_projection) 
+
+    # run points through projection
+    coordTransform = osr.CoordinateTransformation(inSpatialRef, outSpatialRef)
+    (xyz) = coordTransform.TransformPoints(coords)
+    xyz = np.array(xyz)
+    # return points
+    print xyz
+    return xyz[:,0:2]
+
+def xy_to_index(xy, file_x, file_y):
+    # assumes constant spacing
+    x=xy[:,0]
+    y=xy[:,1]
+    # check out of bounds
+    if min(x) < min(file_x):
+        print "Error: x-val too small : " + str(min(x)) + " vs " + str(min (file_x))
+        sys.exit(5)
+    if max(x) > max(file_x):
+        print "Error: x-val out of bounds: " + str(max(x)) + " vs " + str(max (file_x))
+        sys.exit(5)
+    if min(y) < min(file_y):
+        print "Error: y-val out of bounds: " + str(min(y)) + " vs " + str(max (file_y))
+        sys.exit(5)
+    if max(y) > max(file_y):
+        print "Error: y-val out of bounds: " + str(max(y)) + " vs " + str(max (file_y))
+        sys.exit(5)
+    # find index
+    print x
+    print y
+    i = ((x - file_x[0]) / (file_x[1] - file_x[0])).astype('int')
+    j = ((y - file_y[0]) / (file_y[1] - file_y[0])).astype('int')
+    print i
+    print j
+    # verify - or maybe not.
+    return np.array((i,j)).transpose()
+
+def read_file_coords (filename):
+    # open file
+    ds = Dataset(filename,"r")
+    # get lat, lon, x, y
+    file_x = np.squeeze(ds.variables["x"][:])
+    file_y = np.squeeze(ds.variables["y"][:])
+    # return them w/ squeeze
+    return ((file_x, file_y))
+
+
+def parse_options():
+    # initialize parser
+    parser = ArgumentParser()
+    parser.description = "Compare measured SMB with modeled SMB"
+    # specify options
+    parser.add_argument("-f" , "--filename", help = "filename",)
+    parser.add_argument("-v", "--verbose", 
+                        help='''Be verbose''', action="store_true")
+    
+    parser.add_argument( "--in_projection", 
+                         help='''Input Projection, default = WGS1984''', default=4326, type = int)
+    parser.add_argument( "--out_projection", 
+                         help='''File Projection, default = Alaska Albers''', default=3338, type = int)
+    parser.add_argument( "--lon", help='''Input Longitudes''', required=True)
+    parser.add_argument( "--lat", help='''Input Latitudes''', required=True)
+    parser.add_argument( "-x", help='''x-values for markers''', default = None)
+    parser.add_argument( "-y", help='''y-values for markers''', default = None)
+    
+    parser.add_argument( "--scatter_x", help='''x-variable to scatterplot''', default = "climatic_mass_balance")
+    parser.add_argument( "--scatter_y", help='''y-variable to scatterplot''', default = "usurf")
+    # run argparse
+    options = parser.parse_args()
+    return options  
+
+def print_points(points):
+    print points
+    return 0
+
+def regionalize(points, halo):
+    blocksize = (2*halo+1)*(2*halo+1)
+    offsets=np.arange(2*halo+1)-halo
+    print offsets
+    xmask = np.zeros(((2*halo+1),(2*halo+1)))
+    for x in xmask:
+        x[:] = offsets
+    ymask=xmask.transpose()
+    xmask=xmask.reshape(xmask.size)
+    ymask=ymask.reshape(ymask.size)
+    print xmask
+    print ymask
+    regions=np.zeros((blocksize*len(points),2),dtype="int")
+    for x in xrange(len(points)):
+        print "rshape"
+        print regions[x*blocksize:x+1*blocksize,1].shape
+        print "xshape"
+        print (xmask + points[x,0]).shape
+        regions[x*blocksize:(x+1)*blocksize,0] = xmask + points[x,0]
+        regions[x*blocksize:(x+1)*blocksize,1] = ymask + points[x,1]
+    return regions
+    
+def get_data(points, filename, scatter_x, scatter_y):
+    infile = Dataset(filename, "r")
+    sx=infile.variables[scatter_x][:]
+    sy=infile.variables[scatter_y][:]
+
+    ii=points[:,0]
+    jj=points[:,1]
+
+    scatter_x = sx[:,ii,jj]
+    scatter_y = sy[:,ii,jj]
+    return(scatter_x, scatter_y)
+
+def add_markers(x,y):
+    if len(x) and len(y):
+        with sns.palette_context("PuBuGn_d"):
+            mpl.plot(x,y,'o')
+
+def main():
+    options = parse_options()
+    lat=[float (x) for x in options.lat.split(",")]
+    lon=[float (x) for x in options.lon.split(",")]
+    (file_x, file_y) = read_file_coords(options.filename)
+    xy = ll_to_xy(lat, lon, options.in_projection, options.out_projection)
+    ij = xy_to_index(xy, file_x, file_y)
+    print_points(ij)
+    rr = regionalize(ij, 2)
+    print_points (rr)
+    (scatter_x, scatter_y) = get_data(rr, options.filename, options.scatter_x, options.scatter_y)
+    fig = scatter_vars.scatter_vars(scatter_x, scatter_y)
+    add_markers([float (x) for x in options.x.split(",")], [float (y) for y in options.y.split(",")])
+    scatter_vars.show()
+
+    
+if __name__ == "__main__":
+    main()
