@@ -2,8 +2,11 @@
 
 name=$1
 
-sed "s/JOBNAME/${name}/" $HOME/jobs/template.sh ${name}
+sed "s|JOBNAME|${name}___$(echo ${PWD}|sed 's|/|_|g')|" $HOME/jobs/template.sh > ${name}
 
-emacsclient  ${name}
+emacsclient  -c +17 ${name}
+
+echo qsub ${name}
+
 
 
