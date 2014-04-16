@@ -1,0 +1,13 @@
+#!/bin/bash
+
+file=$1
+
+ncatted \
+    -a "units,lat,o,c,degrees"  \
+    -a "units,lon,o,c,degrees"  \
+    -a 'long_name,lat,o,c,latitude'  \
+    -a 'long_name,lon,o,c,longitude' \
+    -a '_CoordinateAxisType,lon,o,c,Lon' \
+    -a '_CoordinateAxisType,lat,o,c,Lat' \
+    $file
+

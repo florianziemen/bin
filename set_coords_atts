@@ -1,0 +1,9 @@
+#!/bin/bash
+
+set -evx
+
+var=$1
+file=$2
+
+ncatted -a "coordinates,${var},o,c,lat lon" ${file}
+
