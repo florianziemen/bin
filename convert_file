@@ -5,7 +5,7 @@ import math
 from gdalconst import *
 import struct
 from netCDF4 import Dataset
-import matplotlib.pylab as mpl
+#import matplotlib.pylab as mpl
 import numpy as np
 import sys
 import glob
@@ -65,11 +65,11 @@ def convert_file(filename):
         x  = single_outfile.createDimension('x', cols)
         y  = single_outfile.createDimension('y', rows)
 #         time = single_outfile.createDimension('time', None)
-        y_vals = single_outfile.createVariable('y','f4',('y',))
-        x_vals = single_outfile.createVariable('x','f4',('x',))
-#        times = single_outfile.createVariable('time','f4',('time',))
+        y_vals = single_outfile.createVariable('y','f8',('y',))
+        x_vals = single_outfile.createVariable('x','f8',('x',))
+#        times = single_outfile.createVariable('time','f8',('time',))
 #        time_obj = datetime(y,m,15)
-        field = single_outfile.createVariable("data",'f4',( 'y', 'x'),fill_value=missval) # time',
+        field = single_outfile.createVariable("data",'f8',( 'y', 'x'),fill_value=missval) # time',
         field.coordinates="lat lon"
 #        times.units = 'days since 0001-01-01 00:00:00.0'
 #        times.calendar = 'gregorian'
