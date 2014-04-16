@@ -1,0 +1,9 @@
+#!/bin/bash
+
+name=$1
+
+sed "s/JOBNAME/${name}/" $HOME/jobs/template.sh ${name}
+
+emacsclient  ${name}
+
+
