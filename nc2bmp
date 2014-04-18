@@ -1,0 +1,56 @@
+#!/usr/bin/env python
+
+import netCDF4 as nc
+from  PIL import Image
+import numpy as np
+from argparse import ArgumentParser
+
+
+def get_field(filename, var, level=0, timestep=0):
+    infile=nc.Dataset(filename,"r")
+    data=np.squeeze(infile.variables[var])
+    return data
+
+def rescale_data(data, prescale_function=False):
+    if prescale_function:
+        data=prescale_function(data)
+    dmin = data.min()
+    dmax = data.max()
+    data = ((data+dmin)/(dmax-dmin)*255).round().astype(np.uint8)
+    return data
+
+def store_image(data, filename, opts=False):
+    result = Image.fromarray(data)
+    result.save(filename)
+    return 0
+
+
+
+def parse_options():
+    # initialize parser
+    parser = ArgumentParser()
+    parser.description = "Convert a netcdf field into a bmp image"
+    # specify options
+    parser.add_argument("-f" , "--filename", help = "filename", required = True)
+    parser.add_argument("-n" , "--var_name", help = "variable name", required = True)
+    parser.add_argument("-o" , "--bitmap_name", help = "filename for output, default VAR_FILENAME.bmp", default = None )
+    parser.add_argument("-v", "--verbose", 
+                        help='''Be verbose''', action="store_true")
+    
+    # run argparse
+    options = parser.parse_args()
+    return options  
+
+
+def main():
+    options = parse_options()
+    data = get_field(options.filename, options.var_name)
+    data = rescale_data(data)
+    if options.bitmap_name:
+        outname = options.bitmap_name
+    else:
+        outname = "%s_%s.bmp"%(options.filename[:-3], options.var_name)
+    store_image(data, outname)
+    
+if __name__ == "__main__":
+    main()

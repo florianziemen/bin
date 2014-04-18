@@ -1,0 +1,62 @@
+#!/usr/bin/env python
+
+import netCDF4 as nc
+from  PIL import Image
+import numpy as np
+from argparse import ArgumentParser
+
+
+def write_field(filename, data):
+    file=nc.Dataset(filename,"w")
+    file.createDimension("x",data.shape[0])
+    file.createDimension("y",data.shape[1])
+    file.createVariable("imagedata",'i4',("x","y"))
+    file.variables["imagedata"][:]=data
+
+
+# def rescale_data(data, prescale_function=False):
+#     if prescale_function:
+#         data=prescale_function(data)
+#     dmin = data.min()
+#     dmax = data.max()
+#     data = ((data+dmin)/(dmax-dmin)*255).round().astype(np.uint8)
+#     return data
+
+def read_image(filename, opts=False):
+    pic = Image.open(filename)
+    pix = np.asarray(pic) # .reshape(pic.size[0], pic.size[1], 3)
+    if len(pix.shape) == 3:
+        pix= pix[:,:,0]*(256*256)+pix[:,:,1]*256+pix[:,:,2]
+    values=np.unique(pix)
+    pix2=np.zeros(pix.shape,dtype='i8')
+    for (n,x) in enumerate (values):
+        pix2[pix==x]=n
+    return pix2
+
+
+
+def parse_options():
+    # initialize parser
+    parser = ArgumentParser()
+    parser.description = "Convert a netcdf field into a bmp image"
+    # specify options
+    parser.add_argument("-f" , "--filename", help = "filename", required = True)
+#    parser.add_argument("-n" , "--var_name", help = "variable name", required = True)
+    parser.add_argument("-o" , "--out_name", help = "filename for output, default file.nc for input name file.bmp ", default = None )
+    parser.add_argument("-v", "--verbose", 
+                        help='''Be verbose''', action="store_true")
+    
+    # run argparse
+    options = parser.parse_args()
+    return options  
+
+
+def main():
+    options = parse_options()
+    data = read_image(options.filename, opts=False)
+    outfilename = options.filename[:-4]+".nc"
+    if options.out_name:
+        outfilename = options.out_name
+    write_field(outfilename,  data)
+if __name__ == "__main__":
+    main()
