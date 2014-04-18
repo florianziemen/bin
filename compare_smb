@@ -74,30 +74,6 @@ def read_file_coords (filename):
     return ((file_x, file_y))
 
 
-def parse_options():
-    # initialize parser
-    parser = ArgumentParser()
-    parser.description = "Compare measured SMB with modeled SMB"
-    # specify options
-    parser.add_argument("-f" , "--filename", help = "filename",)
-    parser.add_argument("-v", "--verbose", 
-                        help='''Be verbose''', action="store_true")
-    
-    parser.add_argument( "--in_projection", 
-                         help='''Input Projection, default = WGS1984''', default=4326, type = int)
-    parser.add_argument( "--out_projection", 
-                         help='''File Projection, default = Alaska Albers''', default=3338, type = int)
-    parser.add_argument( "--lon", help='''Input Longitudes''', required=True)
-    parser.add_argument( "--lat", help='''Input Latitudes''', required=True)
-    parser.add_argument( "-x", help='''x-values for markers''', default = None)
-    parser.add_argument( "-y", help='''y-values for markers''', default = None)
-    
-    parser.add_argument( "--scatter_x", help='''x-variable to scatterplot''', default = "climatic_mass_balance")
-    parser.add_argument( "--scatter_y", help='''y-variable to scatterplot''', default = "usurf")
-    # run argparse
-    options = parser.parse_args()
-    return options  
-
 def print_points(points):
     print points
     return 0
@@ -140,6 +116,30 @@ def add_markers(x,y):
     if len(x) and len(y):
         with sns.palette_context("PuBuGn_d"):
             mpl.plot(x,y,'o')
+
+def parse_options():
+    # initialize parser
+    parser = ArgumentParser()
+    parser.description = "Compare measured SMB with modeled SMB"
+    # specify options
+    parser.add_argument("-f" , "--filename", help = "filename",)
+    parser.add_argument("-v", "--verbose", 
+                        help='''Be verbose''', action="store_true")
+    
+    parser.add_argument( "--in_projection", 
+                         help='''Input Projection, default = WGS1984''', default=4326, type = int)
+    parser.add_argument( "--out_projection", 
+                         help='''File Projection, default = Alaska Albers''', default=3338, type = int)
+    parser.add_argument( "--lon", help='''Input Longitudes''', required=True)
+    parser.add_argument( "--lat", help='''Input Latitudes''', required=True)
+    parser.add_argument( "-x", help='''x-values for markers''', default = None)
+    parser.add_argument( "-y", help='''y-values for markers''', default = None)
+    
+    parser.add_argument( "--scatter_x", help='''x-variable to scatterplot''', default = "climatic_mass_balance")
+    parser.add_argument( "--scatter_y", help='''y-variable to scatterplot''', default = "usurf")
+    # run argparse
+    options = parser.parse_args()
+    return options  
 
 def main():
     options = parse_options()
