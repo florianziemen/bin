@@ -1,10 +1,13 @@
 #!/usr/bin/env python
 
 import shapefile
+import sys
+import matplotlib.pylab as mpl
 
-filename = "Juneau_Icefield.shp"
-sf = shapefile.Reader("Juneau_Icefield.shp")
+filename = sys.argv[1]
+sf = shapefile.Reader(filename)
 shapes = sf.shapes()
 for x in shapes:
-    plot([y[0] for y in x.points], [y[1] for y in x.points])
+    mpl.plot([y[0] for y in x.points], [y[1] for y in x.points], '.')
+mpl.show()
 
