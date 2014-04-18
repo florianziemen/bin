@@ -9,14 +9,18 @@ import flo_utils as fu
 import seaborn as sns
 #plt.xkcd()
 
-def get_array(filename, varname, skip = 1):
+def get_array(filename, varname, skip = 1, selindexbox = False):
     infile = Dataset(filename, "r")
-    var = infile.variables[varname][:]
+    if selindexbox:
+        (a,b,c,d)=(int(x) for x in selindexbox.split(","))
+        var = infile.variables[varname][:,a:b,c:d]
+    else:
+        var = infile.variables[varname][:]
     var = var.reshape(var.size)
     return var[::skip], {x : infile.variables[varname].getncattr(x) for x in infile.variables[varname].ncattrs()}
     
-def scatter_vars(xvecs, yvecs, plot_opts):
-    mpl.figure()
+def scatter_vars(xvecs, yvecs, plot_opts = {}):
+    fig = mpl.figure()
     mpl.hold("on")
     [ mpl.plot(xvec,yvec,'.') for (xvec,yvec) in zip(xvecs,yvecs) ]
     mpl.axvline(0,zorder=-999, color="gray")
@@ -32,10 +36,11 @@ def scatter_vars(xvecs, yvecs, plot_opts):
         mpl.ylim(plot_opts["ylim"])
     if "output" in plot_opts.keys():
         mpl.savefig(plot_opts["output"])
-    mpl.show()
+    return fig
     
 
-
+def show():
+    mpl.show()
 
 def sort_labels(xattr, yattr):
     xlabel = ""
@@ -86,7 +91,7 @@ def parse_args():
                     help='''x limits''', type = float , nargs = 2)
   parser.add_argument("--ylim", 
                     help='''y limits''', type = float , nargs = 2)
-
+  parser.add_argument("--selindexbox", help = "index box to subset from the model output, provide as a,b,c,d, will be applied as :,a:b,c:d -- MIND INDEX ORDER IN NETDCF!", default=False) 
   options = parser.parse_args()
   return options
 
@@ -101,8 +106,8 @@ def main(argv):
       cerr("Need y-file to match x-file")
       sys.exit(1)
   if options.x_file and options.y_file:
-    (xvec, xattr) = get_array(options.x_file, options.xvar, skip = options.skip)
-    (yvec, yattr) = get_array(options.y_file, options.yvar, skip = options.skip)
+    (xvec, xattr) = get_array(options.x_file, options.xvar, skip = options.skip, selindexbox = options.selindexbox)
+    (yvec, yattr) = get_array(options.y_file, options.yvar, skip = options.skip, selindexbox = options.selindexbox)
     options.FILES = []
     xvecs.append(xvec)
     yvecs.append(yvec)
@@ -114,16 +119,16 @@ def main(argv):
     print "(slope, intercept, r_value, p_value, std_err)"
     print (slope, intercept, r_value, p_value, std_err)
   if options.y_file and not options.x_file:
-    (yvec, yattr) = get_array(option.y_file, options.yvar, skip = options.skip)
+    (yvec, yattr) = get_array(option.y_file, options.yvar, skip = options.skip, selindexbox = options.selindexbox)
     (xvec, xattr) = (np.arange(len(yvec)), {})
     options.FILES = []
     xvecs.append(xvec)
     yvecs.append(yvec)
   for filename in options.FILES:
-    (xvec, xattr) = get_array(filename, options.xvar, skip = options.skip)
-    (yvec, yattr) = get_array(filename, options.yvar, skip = options.skip)
+    (xvec, xattr) = get_array(filename, options.xvar, skip = options.skip, selindexbox = options.selindexbox)
+    (yvec, yattr) = get_array(filename, options.yvar, skip = options.skip, selindexbox = options.selindexbox)
     if options.mask_thk:
-        (thk, thkatts) = get_array(filename, "thk", skip = options.skip)
+        (thk, thkatts) = get_array(filename, "thk", skip = options.skip, selindexbox = options.selindexbox)
         mask = thk > 10
         xvec = xvec [mask]
         yvec = yvec [mask]
@@ -141,8 +146,8 @@ def main(argv):
 
       
   with sns.palette_context("PuBuGn_d"):
-      scatter_vars(xvecs, yvecs, plot_opts)
-  
+      fig = scatter_vars(xvecs, yvecs, plot_opts)
+  mpl.show()
 
   
 if __name__ == "__main__":
