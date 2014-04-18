@@ -3,7 +3,7 @@
 import sys
 import flo_utils as fu
 from argparse import ArgumentParser
-
+import re
 
 parser = ArgumentParser()
 parser.description = "A script to plot a variable in a netCDF file over a GeoTiff. Uses GDAL python bindings, Proj4, and Basemap. Script is fine-tuned for whole Greenland plots, but can be adapted for other needs."
@@ -22,6 +22,12 @@ parser.add_argument("--bounds", dest="bounds", nargs=2, type=float,
                   help="lower and upper bound for colorbar, eg. -1 1", default=None)
 parser.add_argument("--numcol", dest="numcol", type=int,
                   help="number of color steps", default=None)
+parser.add_argument("--overlay", dest="overlay", 
+                  help="overlay variable", default=None)
+parser.add_argument("--colormap", dest="colormap", 
+                  help="colormap", default=None)
+parser.add_argument("--title", dest="title", 
+                  help="inner plot title", default=None)
 
 options = parser.parse_args()
 variables = (options.varname).split(",")
@@ -43,11 +49,20 @@ if options.bounds:
 
 if options.numcol:
     miscopts = miscopts + " --numcol %i "%(options.numcol)
-  
+
+if options.colormap:
+    miscopts = miscopts + " --colormap %s "%(options.colormap)
+
+if options.overlay:
+    miscopts = miscopts + " --overlay %s "%(options.overlay)
+
+if options.title:
+    miscopts = miscopts+ " --inner_titles '%s' "%(options.title)
+    
 substring = ""
 if options.sub:
   miscopts = miscopts + " --obs_file %s "%(options.sub)
-  substring = "-%s"%(options.sub)
+  substring = "-%s"%(re.sub("/","_",options.sub))
   
 for variable in variables:
   for filename in filenames:
