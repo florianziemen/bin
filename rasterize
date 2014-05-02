@@ -3,14 +3,11 @@
 import shapefile
 import Image, ImageDraw
 import sys
+import netCDF4 as nc
 
-def rasterize(filename, width, height, bg, fg, x_range = None, y_range = None):
+def rasterize(filename, resolution, bg,  x_range = None, y_range = None):
     # Read in a shapefile
     data = shapefile.Reader(filename)
-
-    img = Image.new("L", (width, height), bg)
-    draw = ImageDraw.Draw(img)
-
     # domain width and height
     if x_range is None or y_range is None:
         x_min, x_max = data.bbox[0], data.bbox[2]
@@ -19,12 +16,24 @@ def rasterize(filename, width, height, bg, fg, x_range = None, y_range = None):
         x_min, x_max = x_range
         y_min, y_max = y_range
 
+    print x_min, x_max
+    print y_min, y_max
+    width=int(round((x_max-x_min)/resolution))
+    height=int(round((y_max-y_min)/resolution))
+    img = Image.new("RGB", (width, height), bg)
+    draw = ImageDraw.Draw(img)
+
+
     xdist = x_max - x_min
     ydist = y_max - y_min
 
     xratio = width / xdist
     yratio = height / ydist
 
+    def num2col(num):
+        string = "rgb(%i,%i,%i)"%(min(255,num/255/255),(num/256)%256,num%256)
+        return string
+        
     def rasterize_poly(points, color):
         pixels = []
         for x,y in points:
@@ -40,7 +49,7 @@ def rasterize(filename, width, height, bg, fg, x_range = None, y_range = None):
         if len(parts) == 1:
             rasterize_poly(shape.points, fg)
         else:
-            for j in range(0, len(parts)-1):
+            for j in range(0, 1) # len(parts)-1):
                 if j != 0:
                     fg = bg
 
@@ -48,12 +57,23 @@ def rasterize(filename, width, height, bg, fg, x_range = None, y_range = None):
                 end = parts[j+1]
                 rasterize_poly(shape.points[start:end], fg)
 
-    for shape in data.shapes():
-        rasterize_shape(shape, bg, fg)
+    for (num,shape) in enumerate(data.shapes()):
+        rasterize_shape(shape, bg, num2col(num))
 
     return img
 
 if __name__ == "__main__":
-    img = rasterize(sys.argv[1], 4853, 3046, "white", "black")
+    if len(sys.argv) == 3:
+        nc_file = nc.Dataset(sys.argv[2],"r")
+        ncv=nc_file.variables
+        x=ncv["x"][:]
+        y=ncv["y"][:]
+        x_inc=x[1]-x[0]
+        y_inc=y[1]-y[0]
+        x_range=(x[0]-x_inc/2.,x[-1]+x_inc/2.)
+        y_range=(y[0]-y_inc/2.,y[-1]+y_inc/2.)
+        img = rasterize(sys.argv[1], x_inc, "white", x_range, y_range )
+    else:
+        img = rasterize(sys.argv[1], 300, "white")
 
-    img.save("chugach.png")
+    img.save(sys.argv[1][:-4]+".bmp")
