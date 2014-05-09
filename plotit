@@ -30,6 +30,7 @@ parser.add_argument("--colormap", dest="colormap",
                   help="colormap", default=None)
 parser.add_argument("--title", dest="title", 
                   help="inner plot title", default=None)
+parser.add_argument("--colorbar_label", help="use colorbar label", action = "store_true")
 
 options = parser.parse_args()
 variables = (options.varname).split(",")
@@ -63,6 +64,9 @@ if options.title:
 
 if options.coords:
     miscopts = miscopts + " --coords %s "%(options.coords)
+
+if options.colorbar_label:
+    miscopts = miscopts + " --colorbar_label "
     
 substring = ""
 if options.sub:
@@ -73,7 +77,7 @@ for variable in variables:
   for filename in filenames:
     print "plotting %s from %s"%(variable, filename)
     outfilename = "%s%s_%s%s.png"%(variable, levelstring, filename, substring)
-    ret = fu.qo("/home/flo/Apps/pypismtools/scripts/basemap-plot.py --singlerow -v " + variable + " --colorbar_label %s -o %s %s"%(miscopts, outfilename, filename))
+    ret = fu.qo("/home/flo/Apps/pypismtools/scripts/basemap-plot.py --singlerow -v " + variable + "  %s -o %s %s"%(miscopts, outfilename, filename)) 
     print (ret)
     outfiles.append( outfilename )
 
