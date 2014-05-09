@@ -14,6 +14,8 @@ parser.add_argument("-n", "--noshow", dest="noshow", action="store_true",
                   help='''do not open eog on results''', default=False)
 parser.add_argument("-l", "--level",  default= None,
                   help='''level to plot''', type = int)
+parser.add_argument("--coords",  default= None,
+                  help='''coordinate file''')
 
 parser.add_argument("-s", "--sub",  
                   help='''File to substract''', default=None)
@@ -58,6 +60,9 @@ if options.overlay:
 
 if options.title:
     miscopts = miscopts+ " --inner_titles '%s' "%(options.title)
+
+if options.coords:
+    miscopts = miscopts + " --coords %s "%(options.coords)
     
 substring = ""
 if options.sub:
