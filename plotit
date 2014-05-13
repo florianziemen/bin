@@ -24,8 +24,12 @@ parser.add_argument("--bounds", dest="bounds", nargs=2, type=float,
                   help="lower and upper bound for colorbar, eg. -1 1", default=None)
 parser.add_argument("--numcol", dest="numcol", type=int,
                   help="number of color steps", default=None)
+parser.add_argument("--centergray", dest="centergray",
+                  help='''Set center of color map to gray''', action="store_true")
 parser.add_argument("--overlay", dest="overlay", 
                   help="overlay variable", default=None)
+parser.add_argument("--overlay_file", dest="overlay_file", 
+                  help="overlay file", default=None)
 parser.add_argument("--colormap", dest="colormap", 
                   help="colormap", default=None)
 parser.add_argument("--title", dest="title", 
@@ -52,12 +56,17 @@ if options.bounds:
 
 if options.numcol:
     miscopts = miscopts + " --numcol %i "%(options.numcol)
+if options.centergray:
+    miscopts = miscopts + " --centergray "
 
 if options.colormap:
     miscopts = miscopts + " --colormap %s "%(options.colormap)
 
 if options.overlay:
     miscopts = miscopts + " --overlay %s "%(options.overlay)
+
+if options.overlay_file:
+    miscopts = miscopts + " --overlay_file %s "%(options.overlay_file)
 
 if options.title:
     miscopts = miscopts+ " --inner_titles '%s' "%(options.title)
