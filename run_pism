@@ -31,7 +31,7 @@ parser.add_argument("-y", "--years", help="years to run", default = None)
 parser.add_argument("--ys", help="startyear", default = None)
 parser.add_argument("-b", "--boot_file", help="boot file (if desired)" , default = None )
 parser.add_argument("-r", "--regrid_file", help="regrid file (if desired)" , default = None ) 
-parser.add_argument("--config_overwrite", help="config_overwrite file (if desired)" , default = None )
+parser.add_argument("--config_override", help="config_override file (if desired)" , default = None )
 parser.add_argument("-p" ,"--pass_arguments", help="extra arguments to be passed on, quote and start with a space" , default = None ) 
 parser.add_argument("--force_to_thk", help="surface forcing file" , default = None ) 
 parser.add_argument("--force_to_thk_alpha", help="surface forcing alpha" , default = None )
@@ -152,6 +152,20 @@ if "ocean_kill_file" in config.keys():
 
 if "config_override" in config.keys():
     pism_args.append("-config_override " + config["config_override"])
+    config_override=(config["config_override"])
+    cdl_file = config_override[:-3] + ".cdl"
+    if os.access(cdl_file, os.R_OK):
+        if os.stat(cdl_file).st_mtime > os.stat(config_override).st_mtime:
+            fu.cerr("\n\nERROR: CONFIG HAS A NEWER CDL FILE! REFUSING TO USE NETCDF")
+            fu.cerr("run")
+            fu.cerr("ncgen -o %s %s"%(config_override, cdl_file))
+            fu.cerr("or")
+            fu.cerr("touch %s"%(config_override))
+            fu.cerr("to fix")
+            sys.exit(333)
+# test if there is a newer cdl. Die and issue warning, if so.
+
+    
 
 pism_args.append("-bed_smoother_range " + config["bed_smoother_range"])
 

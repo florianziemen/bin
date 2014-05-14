@@ -1,0 +1,30 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import flo_utils as fu
+start=1970
+end=1991
+monlen = [ 31, 28, 31, 30, 31, 30, 31 , 31, 30, 31, 30, 31]
+
+totalmiss=0
+for year in xrange (start, end):
+    for mon in xrange(12):
+        monmiss=0
+        filenames=[]
+        for day in xrange(monlen[mon]):
+            filename ="TEMP-%04i/dailyavg-%04i-%02i-%02i.nc"%(year,year,mon+1,day+1)
+#            filename ="PRCPT-%04i/prcpt-%04i-%02i-%02i.nc"%(year,year,mon+1,day+1)
+            filenames.append("-selvar,T2")
+            filenames.append(filename)
+            if not os.access(filename,os.R_OK):
+                print "%s missing"%(filename)
+                totalmiss +=1
+                monmiss+=1
+        if not monmiss:
+            fu.qo(["/usr/local/bin/cdo", "-cat"] +filenames + ["t2_%04i_%02i.nc"%(year,mon+1)])
+        else:
+            monmiss=0
+
+print totalmiss                
+sys.exit(totalmiss)
