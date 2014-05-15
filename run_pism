@@ -27,7 +27,6 @@ parser.add_argument("-e", "--echo", help="only print command",
 parser.add_argument("-i", "--input",  help="input file", default = None)
 parser.add_argument("-c", "--config",  help="run_pism config file", default="run_pism.conf")
 parser.add_argument("-o", "--output", help="output file", default = None)
-parser.add_argument("-y", "--years", help="years to run", default = None)
 parser.add_argument("--ys", help="startyear", default = None)
 parser.add_argument("-b", "--boot_file", help="boot file (if desired)" , default = None )
 parser.add_argument("-r", "--regrid_file", help="regrid file (if desired)" , default = None ) 
@@ -36,6 +35,10 @@ parser.add_argument("-p" ,"--pass_arguments", help="extra arguments to be passed
 parser.add_argument("--force_to_thk", help="surface forcing file" , default = None ) 
 parser.add_argument("--force_to_thk_alpha", help="surface forcing alpha" , default = None )
 parser.add_argument("--smb_only", help="only compute SMB, no flow fields" , action = "store_true" , default=False) 
+
+group = parser.add_mutually_exclusive_group()
+group.add_argument("-y", "--years", help="years to run", default = None)
+group.add_argument("--time_file", help="time file to specify run duration", default = None)
 
 group = parser.add_mutually_exclusive_group()
 group.add_argument("--ssa", action="store_true", help="use ssa")
@@ -64,12 +67,17 @@ for x in args_dict.keys():
         config[x] = args_dict[x]
 
 errors = 0 
-required = ( "output", "years")
+required = ( "output",)
 for x in required:
     if not x in config.keys():
         print "run_pism:ERROR: option " + x + " missing! GOING TO EXIT"
         errors = errors + 1
 
+if not "years" in config.keys() and not "time_file" in config.keys():
+        print "run_pism:ERROR: Don't know for how long to run. Need -y or --time_file! GOING TO EXIT"
+        errors = errors + 1
+  
+        
 if ( not args.input)  and (not args.boot_file):
     print "run_pism: ERROR: need some input --input or --boot_file! GOING TO EXIT!"
     errors = errors + 1
@@ -89,7 +97,11 @@ else:
 
     
 if errors:
-    sys.exit(1)
+  print "arguments:"
+  print args_dict
+  print "full config:"
+  print config
+  sys.exit(1)
 
 if args.smb_only:
     config["ssa"] = False
@@ -108,10 +120,16 @@ if args.boot_file:
 if args.regrid_file:
     regrid=" -regrid_vars litho_temp,thk,enthalpy,tillwat,bmelt -regrid_file" + args.regrid_file
     pism_args.append(regrid)
-    
-pism_args.append(" -y " + config["years"])
-if "ys" in config.keys():
+
+if "years" in config.keys():
+  pism_args.append(" -y " + config["years"])
+  if "ys" in config.keys():
     pism_args.append("-ys " + config["ys"])
+elif "time_file" in config.keys():
+  pism_args.append(" -time_file %s "%(config["time_file"]))
+else:
+  fu.cerr("GOT NEITHER years nor time_file. Should not have got this far in the code. WHATEVER I'll call it a day...'")
+  sys.exit(666)
 
 pism_args.append("-o " + args.output)
     
