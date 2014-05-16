@@ -1,0 +1,179 @@
+#!/usr/bin/env python
+
+from netCDF4 import Dataset
+import matplotlib.pyplot as mpl
+import sys
+from argparse import ArgumentParser
+from scipy import stats
+import flo_utils as fu
+import seaborn as sns
+import numpy as np
+#plt.xkcd()
+
+def get_array(filename, varname, skip = 1, selindexbox = False):
+    infile = Dataset(filename, "r")
+    if selindexbox:
+        (a,b,c,d)=(int(x) for x in selindexbox.split(","))
+        if len (infile.variables[varname].dimensions) == 3:
+            var = infile.variables[varname][:,a:b,c:d]
+        else:
+            var = infile.variables[varname][a:b,c:d]
+    else:
+        var = infile.variables[varname][:]
+    print infile.variables[varname].shape
+#    var = np.squeeze(var)
+    var = var.reshape(var.size)
+    return var[::skip], {x : infile.variables[varname].getncattr(x) for x in infile.variables[varname].ncattrs()}
+    
+def scatter_vars(xvecs, yvecs, plot_opts = {}):
+    fig = mpl.figure()
+    mpl.hold("on")
+    [ mpl.plot(xvec,yvec,'.') for (xvec,yvec) in zip(xvecs,yvecs) ]
+    mpl.axvline(0,zorder=-999, color="gray")
+    if "xlabel" in plot_opts.keys():
+        mpl.xlabel(plot_opts["xlabel"])
+    if "ylabel" in plot_opts.keys():
+        mpl.ylabel(plot_opts["ylabel"])
+    if "title" in plot_opts.keys():
+        mpl.title(plot_opts["title"])
+    if "xlim" in plot_opts.keys():
+        mpl.xlim(plot_opts["xlim"])
+    if "ylim" in plot_opts.keys():
+        mpl.ylim(plot_opts["ylim"])
+    if "smb_usurf_taku" in plot_opts.keys() and plot_opts["smb_usurf_taku"]:
+        mpl.plot([-12000,0,2000],[0, 920, 1900], color = 'k' , linewidth = 5)
+    if "output" in plot_opts.keys():
+        mpl.savefig(plot_opts["output"])
+    return fig
+    
+
+def show():
+    mpl.show()
+
+def sort_labels(xattr, yattr):
+    xlabel = ""
+    ylabel = ""
+    title = ""
+    if "long_name" in xattr.keys():
+        xlabel = xattr["long_name"]
+        if "units" in xattr.keys():
+            xlabel = xlabel + " in %s"%xattr["units"]
+    if "long_name" in yattr.keys():
+        ylabel = yattr["long_name"]
+        if "units" in yattr.keys():
+            ylabel = ylabel + " in %s"%yattr["units"]
+    return {"xlabel"  : xlabel , "ylabel" : ylabel , "title" : title}
+
+    
+def parse_args():
+  parser = ArgumentParser()
+  parser.description = "Scatterplot two variables from a set of files"
+  parser.add_argument("FILES", nargs='*')
+  parser.add_argument("-v", "--verbose", 
+                    help='''Be verbose''', action="store_true")
+  parser.add_argument("-x", "--xvar", 
+                    help='''xvar''', default="climatic_mass_balance")
+  parser.add_argument("-y", "--yvar", 
+                    help='''yvar''', default="usurf")
+  parser.add_argument("-o", "--output", 
+                    help='''output file to save image to''', default=None)
+  parser.add_argument("-X", "--x_file", 
+                    help='''file for x-var''', default=None)
+  parser.add_argument("-Y", "--y_file", 
+                    help='''file for y-var''', default=None)
+  parser.add_argument("-n", "--npoints", 
+                    help='''number of points to average over''', default=None, type = int)
+
+  parser.add_argument("-s", "--skip", 
+                    help='''skipping when reading''', default=1, type = int)
+  parser.add_argument("-m", "--mask_file", 
+                    help='''apply 1/0 mask from file mask_file''', default = None)
+
+  parser.add_argument("-t", "--title", 
+                    help='''plot title''', default = None)
+  parser.add_argument("--xlabel", 
+                    help='''plot x-Axis label''', default = None)
+  parser.add_argument("--ylabel", 
+                    help='''plot y-Axis label''', default = None)
+  parser.add_argument("--mask_thk", 
+                    help='''mask with thickness''', action = "store_true")
+  parser.add_argument("--xlim", 
+                    help='''x limits''', type = float , nargs = 2)
+  parser.add_argument("--ylim", 
+                    help='''y limits''', type = float , nargs = 2)
+  parser.add_argument("--smb_usurf_taku", 
+                    help='''adds taku SMB vs USURF curve''', action = "store_true")
+  parser.add_argument("--selindexbox", help = "index box to subset from the model output, provide as a,b,c,d, will be applied as :,a:b,c:d -- MIND INDEX ORDER IN NETDCF!", default=False) 
+  options = parser.parse_args()
+  return options
+
+
+def main(argv):
+  options = parse_args()
+  if options.verbose:
+    print (dir(options))
+  xvecs = [ ]
+  yvecs = [ ]
+  if options.x_file and not options.y_file:
+      cerr("Need y-file to match x-file")
+      sys.exit(1)
+  if options.x_file and options.y_file:
+    (xvec, xattr) = get_array(options.x_file, options.xvar, skip = options.skip, selindexbox = options.selindexbox)
+    (yvec, yattr) = get_array(options.y_file, options.yvar, skip = options.skip, selindexbox = options.selindexbox)
+    
+    options.FILES = []
+    xvecs.append(xvec)
+    yvecs.append(yvec)
+    xvec = [x for (num,x) in enumerate(xvec) if yvec[num]]
+    yvec = [y for (num,y) in enumerate(yvec) if yvec[num]]
+    yvec = [y for (num,y) in enumerate(yvec) if xvec[num]]
+    xvec = [x for (num,x) in enumerate(xvec) if xvec[num]]
+    slope, intercept, r_value, p_value, std_err = stats.linregress(xvec, yvec)
+    print "(slope, intercept, r_value, p_value, std_err)"
+    print (slope, intercept, r_value, p_value, std_err)
+  if options.y_file and not options.x_file:
+    (yvec, yattr) = get_array(options.y_file, options.yvar, skip = options.skip, selindexbox = options.selindexbox)
+    (xvec, xattr) = (np.arange(len(yvec)), {})
+    options.FILES = []
+    xvecs.append(xvec)
+    yvecs.append(yvec)
+  for filename in options.FILES:
+    (xvec, xattr) = get_array(filename, options.xvar, skip = options.skip, selindexbox = options.selindexbox)
+    (yvec, yattr) = get_array(filename, options.yvar, skip = options.skip, selindexbox = options.selindexbox)
+    if options.mask_thk:
+        (thk, thkatts) = get_array(filename, "thk", skip = options.skip, selindexbox = options.selindexbox)
+        mask = thk > 10
+        xvec = xvec [mask]
+        yvec = yvec [mask]
+    fu.debug_cerr (xvec.size)
+
+    
+    xvecs.append(xvec)
+    yvecs.append(yvec)
+  if options.mask_file:
+      (mask, maskatts) = get_array(options.mask_file, "mask", skip = options.skip, selindexbox = options.selindexbox)
+      if not mask.dtype is bool:
+          mask  = (mask == 1)
+      xvecs = [vec [mask] for vec in xvecs ]
+      yvecs = [vec [mask] for vec in yvecs ]
+  for x in xvecs:
+      print (x.mean())
+  plot_opts = sort_labels(xattr, yattr)
+  options_dict = vars(options)
+  for x in options_dict.keys():
+      if not options_dict[x] is  None :
+          plot_opts[x] = options_dict[x]
+
+      
+  with sns.palette_context("PuBuGn_d"):
+      fig = scatter_vars(xvecs, yvecs, plot_opts)
+  if not options.output:
+      mpl.show()
+
+  
+if __name__ == "__main__":
+    main(sys.argv)
+
+
+    
+    
