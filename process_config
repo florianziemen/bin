@@ -1,0 +1,65 @@
+#!/usr/bin/env python
+# -*- mode:python -*-
+
+import argparse
+import json
+import os
+import shlex
+import shutil
+import subprocess
+import sys
+import flo_utils as fu
+
+def read_config(options):
+    config = json.load(open(options.config,"r"))
+    return config
+
+
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-v", "--verbose", help="verbose output",
+                        action="store_true", default = False)
+
+    parser.add_argument("-c", "--config",  help="run_pism config file", default="run_pism.conf")
+
+
+    options = parser.parse_args()
+
+    if options.verbose:
+        fu.debug = True
+    options_dict = vars(options) 
+    return (options, options_dict)
+
+def process_config(pism_config):
+    my_config = json.load(open("/home/flo/Apps/bin/UAF/process_config.conf","r"))
+    order=my_config["order"]
+    del my_config["order"]
+    direct = my_config["direct"]
+    del my_config["direct"]
+    print order
+    print direct
+    for x in order:
+        print x
+        for y in my_config[x]:
+            val=pism_config.get(y, "N/A")
+            if val == False:
+                val =  "$\circ$"
+            elif val == True:
+                val = "$\bullet"
+            print "%s & %s\\\\"%(y, val)
+        print ""
+
+def main():
+    (options, options_dict) = parse_args()
+    pism_config = read_config(options)
+    process_config(pism_config)
+    
+
+if __name__ == "__main__":
+    main()
+
+
+    
+    
