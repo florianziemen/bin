@@ -79,6 +79,7 @@ def copy_leftovers(infile, outfile, average_dimensions):
             outfile.createVariable(v, var.dtype, dims)
             outfile.variables[v][:]= var[:]
             copy_atts(infile, outfile, v)
+
 def check_var_dims(infile, varname, average_dimensions):
     dims =  infile.variables[varname].dimensions
     debug(varname)
