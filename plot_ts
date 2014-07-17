@@ -122,6 +122,9 @@ def parse_args():
                     help='''smooth filter function''', default = None)
   parser.add_argument("--no_legend", 
                     help='''suppress legend''', action = "store_true")
+
+  parser.add_argument("--white_grid", 
+                    help='''white grid''', action = "store_true")
   options = parser.parse_args()
   return options
 def convert_year(year, cal):
@@ -193,6 +196,8 @@ def main(argv):
 
   with sns.palette_context("Set2"):
       sns.set(context="poster")
+      if options.white_grid:
+        sns.set(style="whitegrid")
       fig = plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts)
   if not options.output:
       mpl.show()
