@@ -4,12 +4,13 @@ import sys
 import flo_utils as fu
 from argparse import ArgumentParser
 import re
+import threading
 
 parser = ArgumentParser()
 parser.description = "A script to plot a variable in a netCDF file over a GeoTiff. Uses GDAL python bindings, Proj4, and Basemap. Script is fine-tuned for whole Greenland plots, but can be adapted for other needs."
 parser.add_argument("FILE", nargs='*')
 parser.add_argument("-v", "--variables", dest="varname",
-                  help='''Variables to plot, default = 'usurf,cbar,...'.''', default="cbar,usurf,thk,cbase,diffusivity,topg")
+                  help='''Variables to plot, default = 'csurf,usurf,thk,cbase,diffusivity,topg.'.''', default="csurf,usurf,thk,cbase,diffusivity,topg")
 parser.add_argument("-n", "--noshow", dest="noshow", action="store_true",
                   help='''do not open eog on results''', default=False)
 parser.add_argument("-l", "--level",  default= None,
@@ -19,6 +20,14 @@ parser.add_argument("--coords",  default= None,
 
 parser.add_argument("-s", "--sub",  
                   help='''File to substract''', default=None)
+parser.add_argument("--mask_file", dest="mask_file",
+                  help="Mask filename", default=None)
+parser.add_argument("--mask_var", dest="mask_var",
+                  help="Mask variable name, default=mask", default="mask")
+parser.add_argument("--mask_threshold", dest="mask_threshold",
+                    help="Threshold for mask variable", default=None, type=float)
+parser.add_argument("--mask_abs", dest="mask_abs",
+                  help="Use absolute value for Masking", action="store_true")
 
 parser.add_argument("--bounds", dest="bounds", nargs=2, type=float,
                   help="lower and upper bound for colorbar, eg. -1 1", default=None)
@@ -36,6 +45,11 @@ parser.add_argument("--title", dest="title",
                   help="inner plot title", default=None)
 parser.add_argument("--colorbar_label", help="use colorbar label", action = "store_true")
 
+parser.add_argument("--ticks", dest="colorbar_ticks",
+                  help="Colorbar ticks", default=None)
+parser.add_argument("--log_norm",
+                  help='''use log norm''', action="store_true")
+
 options = parser.parse_args()
 variables = (options.varname).split(",")
 print options.varname
@@ -43,7 +57,7 @@ print variables
 outfiles  = []
 filenames = options.FILE
 print filenames
-fu.debug=True
+fu.debug=False
 
 miscopts = " -a "   # alaska albers
 levelstring = ""
@@ -54,6 +68,9 @@ if options.level:
 if options.bounds:
   miscopts = miscopts + " --bounds %f %f "%(options.bounds[0], options.bounds[1])
 
+if options.log_norm:
+  miscopts = miscopts + " --log_norm "
+
 if options.numcol:
     miscopts = miscopts + " --numcol %i "%(options.numcol)
 if options.centergray:
@@ -61,6 +78,21 @@ if options.centergray:
 
 if options.colormap:
     miscopts = miscopts + " --colormap %s "%(options.colormap)
+
+if options.mask_file:
+    miscopts = miscopts + " --mask_file %s "%(options.mask_file)
+
+if options.mask_var:
+    miscopts = miscopts + " --mask_var %s "%(options.mask_var)
+
+if options.mask_threshold:
+    miscopts = miscopts + " --mask_threshold %f "%(options.mask_threshold)
+
+if options.mask_abs:
+    miscopts = miscopts + " --mask_abs "
+    
+if options.colorbar_ticks:
+    miscopts = miscopts + " --ticks %s"%(options.colorbar_ticks)
 
 if options.overlay:
     miscopts = miscopts + " --overlay %s "%(options.overlay)
@@ -74,26 +106,30 @@ if options.title:
 if options.coords:
     miscopts = miscopts + " --coords %s "%(options.coords)
 
-if options.colorbar_label:
-    miscopts = miscopts + " --colorbar_label "
-    
 substring = ""
 if options.sub:
   miscopts = miscopts + " --obs_file %s "%(options.sub)
   substring = "-%s"%(re.sub("/","_",options.sub))
-  
+  substring = (re.sub(".nc","",substring))
+
+threads = []
 for variable in variables:
   for filename in filenames:
     print "plotting %s from %s"%(variable, filename)
-    outfilename = "%s%s_%s%s.png"%(variable, levelstring, filename, substring)
-    ret = fu.qo("/home/flo/Apps/pypismtools/scripts/basemap-plot.py --singlerow -v " + variable + "  %s -o %s %s"%(miscopts, outfilename, filename)) 
-    print (ret)
+    outfilename = "%s%s_%s%s.pdf"%(variable, levelstring, re.sub("/","_",filename[:-3]), substring)
+
+    cmd = ("/home/flo/Apps/pypismtools/scripts/basemap-plot.py --singlerow -v " + variable + "  %s -o %s %s"%(miscopts, outfilename, filename)) 
+    t = threading.Thread(target=fu.qo, args=(cmd,))
+    threads.append(t)
+    t.start()
+
+
     outfiles.append( outfilename )
 
-if  options.noshow :
-  print "scp high1.gi.alaska.edu:t1/{" +  ",".join(outfiles) + "} ."
-else : 
-  fu.qo(["/usr/bin/eog"] + outfiles )
+#if  options.noshow :
+#  print "scp high1.gi.alaska.edu:t1/{" +  ",".join(outfiles) + "} ."
+#else : 
+#  fu.qo(["/usr/bin/eog"] + outfiles )
 
 
 
