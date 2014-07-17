@@ -3,15 +3,31 @@
 
 import argparse
 import json
-import os
-import shlex
-import shutil
-import subprocess
-import sys
+import netCDF4 as nc
+from collections import OrderedDict
+#import os
+#import shlex
+#import shutil
+#import subprocess
+#import sys
+import re
 import flo_utils as fu
 
 def read_config(options):
-    config = json.load(open(options.config,"r"))
+    if not type(options) is  dict:
+        options = vars(options)
+    config = json.load(open(options["config"],"r"))
+
+    overrides_file = config["config_override"]
+    if "overrides_file" in options.keys():
+        overrides_file = options["overrides_file"]
+
+    overrides = nc.Dataset(overrides_file, "r")
+    overrides = overrides.variables["pism_overrides"]
+    atts = overrides.ncattrs()
+    nc_config = {x: overrides.getncattr(x) for x in atts}
+    for x in nc_config.keys():
+        config[x] = nc_config[x]
     return config
 
 
@@ -22,7 +38,8 @@ def parse_args():
     parser.add_argument("-v", "--verbose", help="verbose output",
                         action="store_true", default = False)
 
-    parser.add_argument("-c", "--config",  help="run_pism config file", default="run_pism.conf")
+    parser.add_argument("-c", "--config",  help="run_pism config file", default=None)
+    parser.add_argument("-o", "--overrides_file",  help="pism output or override file", default=None)
 
 
     options = parser.parse_args()
@@ -33,29 +50,44 @@ def parse_args():
     return (options, options_dict)
 
 def process_config(pism_config):
-    my_config = json.load(open("/home/flo/Apps/bin/UAF/process_config.conf","r"))
+    my_config = json.load(open("/home/flo/Apps/bin/process_config.conf","r"))
     order=my_config["order"]
     del my_config["order"]
     direct = my_config["direct"]
     del my_config["direct"]
-    print order
-    print direct
+    out_dict = OrderedDict()
     for x in order:
-        print x
+        out_dict[x] = OrderedDict()
         for y in my_config[x]:
             val=pism_config.get(y, "N/A")
-            if val == False:
-                val =  "$\circ$"
-            elif val == True:
-                val = "$\bullet"
-            print "%s & %s\\\\"%(y, val)
+            out_dict[x][y]=val
         print ""
+    return out_dict
 
+def texesc(text):
+    return re.sub(",", ", ", re.sub("_","\\_", text))
+
+def texprint(out_dict):
+    output=[]
+    for x in out_dict.keys():
+        output.append( "\\midrule")
+        output.append( "\\multicolumn{2}{c}{%s}\\\\"%(texesc(x)))
+        output.append( "\\midrule")
+        for y in out_dict[x].keys():
+            val = out_dict[x][y]
+            if val == False:
+                val =  "no"
+            elif val == True:
+                val = "yes"
+            output.append( "%s & %s\\\\"%(texesc(y), texesc(str(val))))
+    return "\n".join(output)
+
+    
 def main():
     (options, options_dict) = parse_args()
     pism_config = read_config(options)
-    process_config(pism_config)
-    
+    out_dict = process_config(pism_config)
+    print texprint(out_dict)
 
 if __name__ == "__main__":
     main()
