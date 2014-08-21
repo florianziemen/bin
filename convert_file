@@ -13,6 +13,7 @@ import glob
 from datetime import datetime, timedelta
 from netCDF4 import num2date, date2num
 from argparse import ArgumentParser
+import numpy.ma as ma
 
 
 # x_offset = 1000010.8
@@ -48,7 +49,11 @@ def convert_file(filename):
         yur = geotransform [3]
         yll = yur + rows * y_increment # remap to ll corner.
 
+    if not missval:
+        missval=-9e9
     data = band.ReadAsArray(0, 0, cols, rows)
+    data = ma.masked_invalid(data)
+    print missval
     #mpl.imshow(data, interpolation = "nearest")
     #mpl.colorbar()
     #mpl.show()
