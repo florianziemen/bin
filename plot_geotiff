@@ -15,8 +15,11 @@ def plotit (filename):
     for i in xrange(1, ds.RasterCount+1):
         data = ds.GetRasterBand(i).ReadAsArray()
         ndv = ds.GetRasterBand(i).GetNoDataValue()
-        print ndv
-        data = ma.masked_values(data, ndv)
+        if  ndv:
+            data = ma.masked_values(data, ndv)
+        else:
+            ndv=-9e9
+        data=ma.masked_invalid(data)
         print data
         arys.append(data)
     cmap = mpl.cm.afmhot
