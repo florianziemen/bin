@@ -1,0 +1,22 @@
+#!/bin/bash
+
+set -evx
+
+from=$1
+to=$2
+if [ -f Configs/${to}.conf ] ; then
+		echo "TARGET ALREADY EXISTS! EXITING"
+		exit 666
+fi
+
+
+alias cp='cp -i'
+
+cp ${from}/${from}.conf Configs/${to}.conf 
+cp Configs/${from}_overrides.nc Configs/${to}_overrides.nc
+ncdump Configs/${to}_overrides.nc > Configs/${to}_overrides.cdl
+touch  Configs/${to}_overrides.nc
+
+
+sed -i  "s|Configs/${from}_overrides.nc|Configs/${to}_overrides.nc|"  Configs/${to}.conf 
+
