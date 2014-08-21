@@ -1,0 +1,211 @@
+#!/usr/bin/env python
+
+import  netCDF4 as nc
+import matplotlib.pyplot as mpl
+import sys
+from argparse import ArgumentParser
+from scipy import stats
+import flo_utils as fu
+import seaborn as sns
+import numpy as np
+from smoother import smooth
+from datetime import datetime, timedelta
+import re 
+
+#plt.xkcd()
+#mpl.rcParams['figure.figsize']=[3,2]
+def get_array(filename, varname, skip = 1):
+    fu.debug_cerr("reading %s from %s "%(varname,filename))
+    infile = nc.Dataset(filename, "r")
+    fu.debug_cerr(infile.variables[varname].shape)
+    var = np.squeeze(infile.variables[varname][:])
+    attrs = {x : infile.variables[varname].getncattr(x) for x in infile.variables[varname].ncattrs()}
+    attrs ["file_name"] = filename
+    attrs ["var_name"] = varname
+    return var[::skip],attrs
+
+
+def plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts = {}):
+    fig = mpl.figure()
+    mpl.hold("on")
+    def cleanup_name(filename):
+        return re.sub("_"," ", re.sub(".nc$", "", filename))
+    labels = [y.get("label", cleanup_name(y["file_name"])) for y in yattrs]
+    [ mpl.plot_date(xvec,yvec,'-',  label=lb) for (xvec,yvec,lb) in zip(xvecs,yvecs,labels) ]
+    if "no_legend" in plot_opts:
+        if plot_opts["no_legend"] == False :
+            mpl.legend()
+    else:
+        mpl.legend()
+    #    mpl.axvline(0,zorder=-999, color="gray")
+    if "xlabel" in plot_opts.keys():
+        mpl.xlabel(plot_opts["xlabel"])
+    if "ylabel" in plot_opts.keys():
+        mpl.ylabel(plot_opts["ylabel"])
+    if "title" in plot_opts.keys():
+        mpl.title(plot_opts["title"])
+    if "xlim" in plot_opts.keys():
+        mpl.xlim([convert_year(x,(xattrs[0])["calendar"]) for x in plot_opts["xlim"]] )
+    if "ylim" in plot_opts.keys():
+        mpl.ylim(plot_opts["ylim"])
+    if "output" in plot_opts.keys():
+        mpl.savefig(plot_opts["output"])
+    specials(fig, xattrs)
+    return fig
+
+def filter(vecs, plot_opts={}):
+    if "smooth_window_length" in plot_opts:
+        npoints = plot_opts["smooth_window_length"]
+    else:
+        npoints = 0
+    if "smooth_filter" in plot_opts:
+        window = plot_opts["smooth_filter"]
+    else:
+        window = "hanning"
+    if npoints:
+        vecs = [ smooth(x,npoints, window) for x in vecs]
+    return vecs
+
+def show():
+    mpl.show()
+
+def sort_labels(xattr, yattr):
+    xlabel = ""
+    ylabel = ""
+    title = ""
+    if "long_name" in xattr.keys():
+        xlabel = xattr["long_name"]
+        if "units" in xattr.keys():
+            xlabel = xlabel + " in %s"%xattr["units"]
+    if "long_name" in yattr.keys():
+        ylabel = yattr["long_name"]
+        if "units" in yattr.keys():
+            ylabel = ylabel + " in %s"%yattr["units"]
+    return {"xlabel"  : xlabel , "ylabel" : ylabel , "title" : title}
+
+    
+    
+def parse_args():
+  parser = ArgumentParser()
+  parser.description = "Scatterplot two variables from a set of files"
+  parser.add_argument("FILES", nargs='*')
+  parser.add_argument("-v", "--verbose", 
+                    help='''Be verbose''', action="store_true")
+  parser.add_argument("-x", "--xvar", 
+                    help='''xvar''', default="time")
+  parser.add_argument("-y", "--yvar", 
+                    help='''yvar''', default="ivol")
+  parser.add_argument("-o", "--output", 
+                    help='''output file to save image to''', default=None)
+  parser.add_argument("-X", "--x_file", 
+                    help='''file for x-var''', default=None)
+  parser.add_argument("-Y", "--y_file", 
+                    help='''file for y-var''', default=None)
+  parser.add_argument("--skip", 
+                    help='''skipping when reading''', default=1, type = int)
+
+  parser.add_argument("-t", "--title", 
+                    help='''plot title''', default = None)
+  parser.add_argument("--xlabel", 
+                    help='''plot x-Axis label''', default = None)
+  parser.add_argument("--ylabel", 
+                    help='''plot y-Axis label''', default = None)
+  parser.add_argument("--mask_thk", 
+                    help='''mask with thickness''', action = "store_true")
+  parser.add_argument("--xlim", 
+                    help='''x limits''', type = float , nargs = 2)
+  parser.add_argument("--ylim", 
+                    help='''y limits''', type = float , nargs = 2)
+  parser.add_argument("-s", "--smooth_window_length",
+                    help='''smooth function with window length N''', type = int)
+  parser.add_argument("--smooth_filter", 
+                    help='''smooth filter function''', default = None)
+  parser.add_argument("--no_legend", 
+                    help='''suppress legend''', action = "store_true")
+
+  parser.add_argument("--white_grid", 
+                    help='''white grid''', action = "store_true")
+  options = parser.parse_args()
+  return options
+def convert_year(year, cal):
+    return     nc.date2num(datetime (int(year),6,30),units="days since 0001-01-01 00:00:00", calendar=cal)
+
+    
+def specials(figure, xattrs):
+    attr = xattrs[0]
+    years = range(1980,2100,20)
+    print years
+    dates = [convert_year (x, cal=attr["calendar"]) for x in years]
+    print dates
+    mpl.xticks(dates )
+
+
+def main(argv):
+  options = parse_args()
+  if options.verbose:
+    fu.debug = True
+    fu.debug_cerr(dir(options))
+  xvecs = [ ]
+  yvecs = [ ]
+  xattrs = [ ]
+  yattrs = [ ]
+  if options.x_file and not options.y_file:
+      cerr("Need y-file to match x-file")
+      sys.exit(1)
+  if options.x_file and options.y_file:
+    (xvec, xattr) = get_array(options.x_file, options.xvar, skip = options.skip)
+    (yvec, yattr) = get_array(options.y_file, options.yvar, skip = options.skip)
+    
+    options.FILES = []
+    xvecs.append(xvec)
+    yvecs.append(yvec)
+    # xvec = [x for (num,x) in enumerate(xvec) if yvec[num]]
+    # yvec = [y for (num,y) in enumerate(yvec) if yvec[num]]
+    # yvec = [y for (num,y) in enumerate(yvec) if xvec[num]]
+    # xvec = [x for (num,x) in enumerate(xvec) if xvec[num]]
+    #    slope, intercept, r_value, p_value, std_err = stats.linregress(xvec, yvec)
+    # print "(slope, intercept, r_value, p_value, std_err)"
+    # print (slope, intercept, r_value, p_value, std_err)
+  if options.y_file and not options.x_file:
+    (yvec, yattr) = get_array(options.y_file, options.yvar, skip = options.skip)
+    (xvec, xattr) = (np.arange(len(yvec)), {})
+    options.FILES = []
+    xvecs.append(xvec)
+    yvecs.append(yvec)
+  for filename in options.FILES:
+    (xvec, xattr) = get_array(filename, options.xvar, skip = options.skip) 
+    (yvec, yattr) = get_array(filename, options.yvar, skip = options.skip)
+    fu.debug_cerr (xvec.size)
+    xvecs.append(xvec)
+    yvecs.append(yvec)
+    xattrs.append(xattr)
+    yattrs.append(yattr)
+
+  plot_opts = sort_labels(xattr, yattr)
+  options_dict = vars(options)
+  for x in options_dict.keys():
+      if not options_dict[x] is  None :
+          plot_opts[x] = options_dict[x]
+
+  if options.smooth_window_length:
+      xvecs=filter(xvecs, plot_opts)
+      yvecs=filter(yvecs, plot_opts)
+
+  if options.xvar == "time":
+      xvecs = [ nc.date2num(nc.num2date(vec , units=attr["units"] , calendar=attr["calendar"]), units="days since 0001-01-01 00:00:00", calendar=attr["calendar"] )       for (vec, attr) in zip (xvecs, xattrs) ]
+
+  with sns.palette_context("Set2"):
+      sns.set(context="poster")
+      if options.white_grid:
+        sns.set(style="whitegrid")
+      fig = plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts)
+  if not options.output:
+      mpl.show()
+
+  
+if __name__ == "__main__":
+    main(sys.argv)
+
+
+    
+    
