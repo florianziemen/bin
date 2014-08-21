@@ -165,8 +165,8 @@ def main(argv):
           plot_opts[x] = options_dict[x]
 
       
-  with sns.palette_context("PuBuGn_d"):
-      fig = scatter_vars(xvecs, yvecs, plot_opts)
+#  with sns.palette_context("PuBuGn_d"):
+  fig = scatter_vars(xvecs, yvecs, plot_opts)
   if not options.output:
       mpl.show()
 
