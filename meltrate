@@ -1,0 +1,5 @@
+#!/bin/bash
+set -evx
+start=$1
+end=$2
+cdo -s -infov -div  -fldsum -sub  -selvar,thk $end  -selvar,thk $start -fldsum -gtc,20 -add  -selvar,thk $start -selvar,thk $end 2> /dev/null

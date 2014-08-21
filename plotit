@@ -18,6 +18,8 @@ parser.add_argument("-l", "--level",  default= None,
 parser.add_argument("--coords",  default= None,
                   help='''coordinate file''')
 
+parser.add_argument("-e", "--evince",  
+                  help='''Show in evince''', action="store_true")
 parser.add_argument("-s", "--sub",  
                   help='''File to substract''', default=None)
 parser.add_argument("--mask_file", dest="mask_file",
@@ -49,6 +51,10 @@ parser.add_argument("--ticks", dest="colorbar_ticks",
                   help="Colorbar ticks", default=None)
 parser.add_argument("--log_norm",
                   help='''use log norm''', action="store_true")
+parser.add_argument("--levels", type=str,
+                  help="levels to use for plotting", default=None)
+parser.add_argument("--scale", dest="scale_factor", type=float, default=None,
+                  help="multiply data with scaling factor when plotting")
 
 options = parser.parse_args()
 variables = (options.varname).split(",")
@@ -57,7 +63,7 @@ print variables
 outfiles  = []
 filenames = options.FILE
 print filenames
-fu.debug=False
+fu.debug=True
 
 miscopts = " -a "   # alaska albers
 levelstring = ""
@@ -67,6 +73,8 @@ if options.level:
 
 if options.bounds:
   miscopts = miscopts + " --bounds %f %f "%(options.bounds[0], options.bounds[1])
+if options.levels:
+  miscopts = miscopts + " --levels=%s "%(options.levels)
 
 if options.log_norm:
   miscopts = miscopts + " --log_norm "
@@ -99,6 +107,8 @@ if options.overlay:
 
 if options.overlay_file:
     miscopts = miscopts + " --overlay_file %s "%(options.overlay_file)
+if options.scale_factor:
+    miscopts = miscopts + " --scale %s "%(options.scale_factor)
 
 if options.title:
     miscopts = miscopts+ " --inner_titles '%s' "%(options.title)
@@ -131,6 +141,8 @@ for variable in variables:
 #else : 
 #  fu.qo(["/usr/bin/eog"] + outfiles )
 
+if options.evince:
+    fu.qo(["/usr/bin/evince"] + outfiles)
 
 
 

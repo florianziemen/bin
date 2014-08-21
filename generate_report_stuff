@@ -24,7 +24,7 @@ def get_output_dir(run, options):
     return output_dir
     
 
-def run_plots(run, options):
+def run_plots(run, options, pism_config):
     '''Generate the plots for the documentation'''
 
     miscopts = []
@@ -46,7 +46,14 @@ def run_plots(run, options):
     fu.qo(call)
     if os.access(output_file, os.R_OK):
         fu.qo(["plotit", "-v", "thk,csurf", output_file, "--overlay", "usurf"])
-        for x in ["thk_%s.pdf"%(run), "csurf_%s.pdf"%(run)]:
+        if "input" in pism_config["io"].keys():
+            fu.qo(["plotit", "-v", "thk", output_file, "--overlay", "usurf", "--sub", pism_config["io"]["input"], '--levels=-400,-200,-100,-50,50,100,200,400', '--colormap=RdBu' ])
+        movefiles = ["thk_%s.pdf"%(run), "csurf_%s.pdf"%(run)]
+        if options.reference:
+            print (["plotit", "-v", "thk,csurf", output_file, "--overlay", "usurf", "--sub", options.reference+".nc", '--levels=-400,-200,-100,-50,50,100,200,400', '--colormap=RdBu' ])
+            fu.qo(["plotit", "-v", "thk,csurf", output_file, "--overlay", "usurf", "--sub", options.reference+".nc", '--levels=-400,-200,-100,-50,50,100,200,400', '--colormap=RdBu' ])
+            movefiles = movefiles + ["thk_%s-%s.pdf"%(run, options.reference), "csurf_%s-%s.pdf"%(run,options.reference)]
+        for x in movefiles:
             fu.rm_if_exist("%s/%s"%(output_dir, x))
             shutil.move(x, output_dir)
     
@@ -59,6 +66,7 @@ def proc_conf(run, options):
     out_dict = process_config.process_config(pism_config)
     tex_string = process_config.texprint(out_dict)
     open(output_dir+"/config.tex","w").write(tex_string)
+    return out_dict
     
 
 def parse_args():
@@ -92,8 +100,8 @@ def main():
     for run in options.RUNS:
         output_dir = get_output_dir(run, options)
         fu.mkdir(output_dir)
-        proc_conf(run, options)
-        run_plots(run, options)
+        pism_config = proc_conf(run, options)
+        run_plots(run, options, pism_config)
 if __name__ == "__main__":
     main()
 
