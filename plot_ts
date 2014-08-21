@@ -31,7 +31,8 @@ def plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts = {}):
     def cleanup_name(filename):
         return re.sub("_"," ", re.sub(".nc$", "", filename))
     labels = [y.get("label", cleanup_name(y["file_name"])) for y in yattrs]
-    [ mpl.plot_date(xvec,yvec,'-',  label=lb) for (xvec,yvec,lb) in zip(xvecs,yvecs,labels) ]
+    ax=mpl.subplot(1,1,1)
+    plots = [ mpl.plot_date(xvec,yvec,'-',  label=lb) for (xvec,yvec,lb) in zip(xvecs,yvecs,labels) ]
     if "no_legend" in plot_opts:
         if plot_opts["no_legend"] == False :
             mpl.legend()
@@ -50,7 +51,7 @@ def plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts = {}):
         mpl.ylim(plot_opts["ylim"])
     if "output" in plot_opts.keys():
         mpl.savefig(plot_opts["output"])
-    specials(fig, xattrs)
+    specials(fig, xattrs, plot_opts, ax)
     return fig
 
 def filter(vecs, plot_opts={}):
@@ -122,7 +123,7 @@ def parse_args():
                     help='''smooth filter function''', default = None)
   parser.add_argument("--no_legend", 
                     help='''suppress legend''', action = "store_true")
-
+  parser.add_argument("--JJAANNDJF-Legend", action = "store_true")
   parser.add_argument("--white_grid", 
                     help='''white grid''', action = "store_true")
   options = parser.parse_args()
@@ -131,13 +132,18 @@ def convert_year(year, cal):
     return     nc.date2num(datetime (int(year),6,30),units="days since 0001-01-01 00:00:00", calendar=cal)
 
     
-def specials(figure, xattrs):
+def specials(figure, xattrs, plot_opts, ax):
     attr = xattrs[0]
     years = range(1980,2100,20)
     print years
     dates = [convert_year (x, cal=attr["calendar"]) for x in years]
     print dates
     mpl.xticks(dates )
+    if "JJAANNDJF_Legend" in plot_opts.keys():
+        print "ADJUSTING LEGEND"
+        handles, labels = ax.get_legend_handles_labels()
+        # reverse the order
+        ax.legend(handles[::-1], ("JJA","ANN","DJF"), bbox_to_anchor=(0.7, .6, 1., .102), loc=3)
 
 
 def main(argv):
@@ -195,10 +201,11 @@ def main(argv):
       xvecs = [ nc.date2num(nc.num2date(vec , units=attr["units"] , calendar=attr["calendar"]), units="days since 0001-01-01 00:00:00", calendar=attr["calendar"] )       for (vec, attr) in zip (xvecs, xattrs) ]
 
   with sns.palette_context("Set2"):
-      sns.set(context="poster")
-      if options.white_grid:
-        sns.set(style="whitegrid")
-      fig = plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts)
+    sns.set(context="talk")
+    if options.white_grid:
+#        sns.set_context("poster", {"font_scale":30.})
+        sns.set(style="whitegrid", context="poster")
+    fig = plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts)
   if not options.output:
       mpl.show()
 
