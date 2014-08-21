@@ -75,7 +75,6 @@ __pycache__/
 # Distribution / packaging
 .Python
 env/
-bin/
 build/
 develop-eggs/
 dist/
