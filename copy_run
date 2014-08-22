@@ -20,3 +20,4 @@ touch  Configs/${to}_overrides.nc
 
 sed -i  "s|Configs/${from}_overrides.nc|Configs/${to}_overrides.nc|"  Configs/${to}.conf 
 
+sed  "s/${from}/${to}/" Configs/${from}.job > Configs/${to}.job
