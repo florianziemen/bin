@@ -11,6 +11,8 @@ import numpy as np
 import netCDF4 as nc
 import collections
 from  local_conf import * 
+from os.path import expanduser
+home = expanduser("~")
 
 debug = False
 
