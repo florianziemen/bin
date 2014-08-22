@@ -1,0 +1,26 @@
+#!/bin/bash
+
+set -evx 
+
+basedir=/import/c/w/jizhang/wrkdir2/wrfsfc-20km/daily-temperature-1970-1990/
+cd $basedir
+
+odir=$CENTER/Jing_T2/
+mkdir -p $odir
+
+
+for year in $(seq 1970 1989) ; do 
+    cd $basedir
+    cd TEMP-${year}
+    for op in avg maxT minT; do 
+	for mon in 01 02 03 04 05 06 07 08 09 10 11 12 ; do
+	    monfile=$odir/T2_${op}_${year}_${mon}.nc
+	    cdo -cat daily${op}-${year}-${mon}-??.nc ${monfile}
+	    monstd=$odir/T2_${op}_${year}_${mon}_std.nc
+	    cdo -timstd ${monfile} ${monstd}
+	done
+    done
+done
+
+	
+	

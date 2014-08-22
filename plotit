@@ -6,6 +6,7 @@ from argparse import ArgumentParser
 import re
 import threading
 
+
 parser = ArgumentParser()
 parser.description = "A script to plot a variable in a netCDF file over a GeoTiff. Uses GDAL python bindings, Proj4, and Basemap. Script is fine-tuned for whole Greenland plots, but can be adapted for other needs."
 parser.add_argument("FILE", nargs='*')
@@ -128,7 +129,7 @@ for variable in variables:
     print "plotting %s from %s"%(variable, filename)
     outfilename = "%s%s_%s%s.pdf"%(variable, levelstring, re.sub("/","_",filename[:-3]), substring)
 
-    cmd = ("/home/flo/Apps/pypismtools/scripts/basemap-plot.py --singlerow -v " + variable + "  %s -o %s %s"%(miscopts, outfilename, filename)) 
+    cmd = (fu.home+"/Apps/pypismtools/scripts/basemap-plot.py --singlerow -v " + variable + "  %s -o %s %s"%(miscopts, outfilename, filename)) 
     t = threading.Thread(target=fu.qo, args=(cmd,))
     threads.append(t)
     t.start()
