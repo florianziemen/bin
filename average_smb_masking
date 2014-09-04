@@ -1,5 +1,5 @@
 #!/bin/bash
-set -evx 
+set -e
 
 startyear=$1
 endyear=$2
@@ -11,7 +11,7 @@ name=$3
 	
  		ncra ${name}-${year}-0[2-9]-01.nc ${name}-${year}-1[01]-01.nc ${name}-${ny}-01-01.nc ${name}_${year}.nc -O
  		 rm -f ${name}_${year}_smb.nc 
-		 cdo merge -selvar,usurf ${name}_${year}.nc -ifthen -gtc,10 -selvar,thk  ${name}_${year}.nc -selvar,climatic_mass_balance,csurf ${name}_${year}.nc ${name}_${year}_smb.nc
+		 cdo merge -selvar,usurf ${name}_${year}.nc -ifthen -gtc,10 -selvar,thk  ${name}_${year}.nc -selvar,climatic_mass_balance,csurf ${name}_${year}.nc ${name}_${year}_smb.nc >/dev/null  2>/dev/null
  		files="${files} ${name}_${year}_smb.nc" 
  done
 	 
