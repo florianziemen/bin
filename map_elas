@@ -1,0 +1,146 @@
+#!/usr/bin/env python
+
+from netCDF4 import Dataset
+import matplotlib.pyplot as mpl
+import numpy as np
+import sys
+from argparse import ArgumentParser
+from numpy.lib.polynomial import polyfit
+import os
+# ok, what is to do?
+
+# read the smb file
+# read the glacier mask
+# figure out the numbers of the glaciers in the mask
+# for each glacier in the mask, bin the smb values sensibly
+## figure out the range they cover
+## do we have pos and neg values
+## are they enough for any binning?
+## yes -> bin them
+## get the bins above and below zero
+## put the ela in the middle
+
+
+
+
+
+def get_field(filename, varname):
+    infile = Dataset(filename, "r")
+    var = infile.variables[varname]
+    return var
+
+
+def read_files(icefile, maskfile):
+    smb = get_field(icefile, "climatic_mass_balance")
+    usurf = get_field(icefile, "usurf")
+    mask = get_field (maskfile, "output_mask")
+    if not (np.squeeze(smb).shape == mask.shape):
+        fu.cerr("SMB has different shape than mask: ")
+        fu.cerr("SMB:")
+        fu.cerr(smb.shape)
+        fu.cerr("mask:")
+        fu.cerr(mask.shape)
+        sys.exit(123)
+    return (smb, usurf, mask)
+    
+def extract_glaciers(field, mask):
+    longfield = field[:].reshape(field[:].size)
+    longmask = mask[:].reshape(field.size)
+    ids=np.unique(longmask)
+    glaciers={}
+    for id in ids:
+        glaciers[str(id)] = longfield[(longmask==id)]
+    return glaciers
+
+def define_ela(smb, usurf):
+    dz = 50
+    if max(smb) < 0 :
+        return -1.
+    elif min(smb) > 0 :
+        return -1.
+    if len(smb) > 100:
+#        fit = (polyfit(usurf, smb,1))
+#        intercept = - fit[1]/ fit[0]
+#        return intercept
+        bins = np.arange(0,max(usurf)+dz,dz)
+        indices = np.digitize(usurf,bins)
+        smbs = [np.mean(smb[indices==x]) for x in xrange(len(bins))]
+        found = False
+        for (n,x) in enumerate(smbs):
+            if x > 0 and not found:
+                ela =  n * dz + dz/2.
+                found = True
+            elif x < 0:
+                last_neg = n * dz + dz/2.
+                if found:
+                    print "found negative value following positive value"
+                    print n , x 
+                    print smbs
+                    print ela
+                    print usurf
+        if found :
+            return (ela+last_neg)/2.
+        return n * dz + dz/2.
+    return -1.
+
+def assemble_elas(smb, usurf, mask):
+    smbs = extract_glaciers(smb, mask)
+    usurfs = extract_glaciers(usurf, mask)
+    elas = {}
+    ela=np.zeros(mask.shape)
+    for glac in smbs.keys():
+        e = define_ela(smbs[glac] , usurfs[glac])
+        elas[ glac ] = e
+        ela = np.where(mask[:]==int(glac), e, ela)
+    ela = np.where (mask[:]==mask[0,0], -1, ela)
+    return ela
+
+def write_to_file(ela, smb, smb_filename, filename):
+    of = Dataset(filename,"w")
+    smb_file = Dataset(smb_filename, "r")
+    for x in smb.dimensions:
+        if smb_file.dimensions[x].isunlimited():
+            of.createDimension(x,None)
+        else:
+            of.createDimension(x,len(smb_file.dimensions[x]))
+        if x in smb_file.variables.keys():
+            ix = smb_file.variables[x]
+            of.createVariable(x, ix.dtype, (x,))
+            of.variables[x][0:len(ix)]=ix[:]
+    of.createVariable("ELA", ela.dtype, smb.dimensions, fill_value=-1.)
+    of.variables["ELA"][0,:,:]=ela[:,:]
+
+
+def parse_args():
+  parser = ArgumentParser()
+  parser.description = "Map ELAs"
+  parser.add_argument("FILES",  nargs='*', help="Files must contain fields usurf and climatic_mass_balance")
+  parser.add_argument("-v", "--verbose", 
+                    help='''Be verbose''', action="store_true")
+  parser.add_argument("-m", "--output_mask", 
+                    help='''Output mask file''', default="output_mask.nc",  action="store_true")
+  
+  options = parser.parse_args()
+  return options
+
+
+def main(argv):
+    options = parse_args()
+    if options.verbose:
+        print (dir(options))
+    for fn in options.FILES:
+        (smb, usurf, mask) = read_files(fn, options.output_mask)
+        ela = assemble_elas (smb, usurf, mask)
+        ifn = os.path.split(fn)
+        write_to_file(ela, smb, fn, os.path.join(ifn[0],"ela_%s"%ifn[1]))
+    # mpl.figure()
+    # mpl.imshow(np.squeeze(np.where(ela< 0, np.nan,ela )))
+    # mpl.colorbar()
+    # mpl.show()
+
+if __name__ == "__main__":
+    main(sys.argv)
+
+
+    
+    
