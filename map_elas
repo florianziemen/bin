@@ -7,6 +7,7 @@ import sys
 from argparse import ArgumentParser
 from numpy.lib.polynomial import polyfit
 import os
+import flo_utils as fu
 # ok, what is to do?
 
 # read the smb file
