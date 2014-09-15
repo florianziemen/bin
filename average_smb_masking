@@ -8,10 +8,11 @@ name=$3
 
  for ((year=${startyear}; year <= ${endyear}; year++)); do
  		let ny=year+1
-	
- 		ncra ${name}-${year}-0[2-9]-01.nc ${name}-${year}-1[01]-01.nc ${name}-${ny}-01-01.nc ${name}_${year}.nc -O
- 		 rm -f ${name}_${year}_smb.nc 
-		 cdo merge -selvar,usurf ${name}_${year}.nc -ifthen -gtc,10 -selvar,thk  ${name}_${year}.nc -selvar,climatic_mass_balance,csurf ${name}_${year}.nc ${name}_${year}_smb.nc >/dev/null  2>/dev/null
+		if [ ! -f  ${name}_${year}_smb.nc ] ; then 
+ 		    ncra ${name}-${year}-0[2-9]-01.nc ${name}-${year}-1[01]-01.nc ${name}-${ny}-01-01.nc ${name}_${year}.nc -O
+ 		    rm -f ${name}_${year}_smb.nc 
+		    cdo merge -selvar,usurf ${name}_${year}.nc -ifthen -gtc,10 -selvar,thk  ${name}_${year}.nc -selvar,climatic_mass_balance,csurf ${name}_${year}.nc ${name}_${year}_smb.nc >/dev/null  2>/dev/null
+		fi
  		files="${files} ${name}_${year}_smb.nc" 
  done
 	 
