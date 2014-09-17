@@ -28,7 +28,7 @@ def get_array(filename, varname, skip = 1, selindexbox = False):
 def scatter_vars(xvecs, yvecs, plot_opts = {}):
     fig = mpl.figure()
     mpl.hold("on")
-    [ mpl.plot(xvec,yvec,'.') for (xvec,yvec) in zip(xvecs,yvecs) ]
+    [ mpl.plot(xvec,yvec,'.', ms=2) for (xvec,yvec) in zip(xvecs,yvecs) ]
     mpl.axvline(0,zorder=-999, color="gray")
     if "xlabel" in plot_opts.keys():
         mpl.xlabel(plot_opts["xlabel"])
@@ -42,7 +42,11 @@ def scatter_vars(xvecs, yvecs, plot_opts = {}):
         mpl.ylim(plot_opts["ylim"])
     if "smb_usurf_taku" in plot_opts.keys() and plot_opts["smb_usurf_taku"]:
         mpl.plot([-12000,0,1200,2800],[0, 920, 1200, 1900], color = 'k' , linewidth = 5)
-    if "output" in plot_opts.keys():
+    if "legend" in plot_opts.keys():
+        mpl.legend(plot_opts["legend"].split(":"), markerscale=5)
+
+
+    if "output" in plot_opts.keys(): # HAS TO GO LAST!
         mpl.savefig(plot_opts["output"])
     return fig
     
@@ -104,6 +108,13 @@ def parse_args():
   parser.add_argument("--smb_usurf_taku", 
                     help='''adds taku SMB vs USURF curve''', action = "store_true")
   parser.add_argument("--selindexbox", help = "index box to subset from the model output, provide as a,b,c,d, will be applied as :,a:b,c:d -- MIND INDEX ORDER IN NETDCF!", default=False) 
+  parser.add_argument("--white_grid", 
+                    help='''white grid''', action = "store_true")
+  parser.add_argument("--legend", 
+                    help='''legend entries, separate with :''', default=None)
+
+
+
   options = parser.parse_args()
   return options
 
@@ -166,6 +177,8 @@ def main(argv):
 
       
 #  with sns.palette_context("PuBuGn_d"):
+  if options.white_grid:
+    sns.set(style="whitegrid")
   fig = scatter_vars(xvecs, yvecs, plot_opts)
   if not options.output:
       mpl.show()
