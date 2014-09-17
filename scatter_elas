@@ -1,0 +1,122 @@
+#!/usr/bin/env python
+
+import shapefile
+import matplotlib.pylab as mpl
+import numpy as np
+from argparse import ArgumentParser
+from scipy.stats import linregress
+
+def merge_into_dict(master, addon):
+    print master
+    print addon
+    for x in  addon:
+        if x[0] in master.keys():
+            master[x[0]].append(x[1])
+        else:
+            master[x[0]]=[x[1]]
+    return master
+
+
+def read_file (filename):
+    elas = {}
+    temp_elas=[[ y[0], float(y[1]) ] for y in [ x.split () for x in open(filename).readlines()] if float (y[1])> 0 ]
+    elas = merge_into_dict(elas, temp_elas)
+
+    mins = dict([[ x,np.min(np.array(elas[x]))] for x in elas.keys()])
+    maxs = dict([[ x,np.max(np.array(elas[x]))] for x in elas.keys()])
+
+    means = dict([[ x,np.mean(np.array(elas[x]))] for x in elas.keys()])
+    errpos = dict([[x, maxs[x]-means[x]] for x in means.keys()])
+    errneg = dict([[x, -mins[x]+means[x]] for x in means.keys()])
+    return elas, means, errpos, errneg
+
+def scatter_elas(x_file, y_file, options):
+    # sf=shapefile.Reader(x_file)
+    # records = sf.records()
+    # snowlines = dict ([ [x[0], float(x[-1])] for x in records ] )
+
+
+    # elafile = y_file
+    # temp_elas=[[ y[0], float(y[1]) ] for y in [ x.split () for x in open(elafile).readlines()] if float (y[1])> 0 ]
+    # elas = merge_into_dict(elas, temp_elas)
+
+    # print elas
+    # mins = dict([[ x,np.min(np.array(elas[x]))] for x in elas.keys()])
+    # maxs = dict([[ x,np.max(np.array(elas[x]))] for x in elas.keys()])
+
+    # means = dict([[ x,np.mean(np.array(elas[x]))] for x in elas.keys()])
+    # errpos = dict([[x, maxs[x]-means[x]] for x in means.keys()])
+    # errneg = dict([[x, -mins[x]+means[x]] for x in means.keys()])
+
+
+    # elas = means
+    xvals, x_means, x_err_pos, x_err_neg = read_file(x_file)
+
+    yvals, y_means, y_err_pos, y_err_neg = read_file(y_file)
+    
+    finalkeys=[x for x in x_means.keys() if x in y_means.keys() ]
+    data= np.array([ [ x_means[x] for x in finalkeys], [y_means[x] for x in finalkeys]])
+    print data.shape
+    
+    
+    x_err = np.zeros([2,len(finalkeys)])
+    x_err[0] = np.array([x_err_neg[x] for x in finalkeys])
+    x_err[1] = np.array([x_err_pos[x] for x in finalkeys])
+    
+    y_err = np.zeros([2,len(finalkeys)])
+    y_err[0] = np.array([y_err_neg[x] for x in finalkeys])
+    y_err[1] = np.array([y_err_pos[x] for x in finalkeys])
+
+    data= np.array([ [ x_means[x], y_means[x] ] for x in finalkeys ]).transpose()
+    fig = mpl.figure()
+    mpl.plot(data[0],data[1], 'ob')
+    mpl.xlabel("observed snowline")
+    mpl.ylabel("modeled ELA")
+    # help(polyfit)
+    # polyfit(data[0],data[1],1, ful=True)
+    # polyfit(data[0],data[1],1, full=True)
+    # help(polyfit)
+    mpl.errorbar(data[0],data[1], xerr=x_err, yerr=y_err, linestyle = 'ok') # yerr=.2*np.mean(data[0])*np.random.rand(len(data[1])
+    xl=mpl.xlim()
+    yl=mpl.ylim()
+    xymax=max([mpl.xlim()[1],mpl.ylim()[1]])
+    xymin=min([mpl.xlim()[0],mpl.ylim()[0]])
+    mpl.plot([0,xymax], [0,xymax])
+    mpl.xlim([xymin,xymax])
+    mpl.ylim([xymin,xymax])
+    slope, intercept, r_value, p_value, std_err = linregress(data[0],data[1])
+    mpl.plot([xymin,xymax],[xymin * slope + intercept , xymax * slope + intercept], label="%2f x + %2f, r=%2f"%(slope, intercept, r_value))
+    mpl.legend()
+    if options.title:
+        mpl.title(options.title)
+    if options.outfile:
+        fig.savefig(options.outfile)
+    mpl.show()
+    return fig
+
+
+
+def parse_args():
+  parser = ArgumentParser()
+  parser.description = "Scatterplot two sets of ELAs against each other"
+  parser.add_argument("FILES",  nargs='*', help="Files must contain two columns. 1. column ID, 2. column ELA")
+  parser.add_argument("-v", "--verbose", 
+                    help='''Be verbose''', action="store_true")
+  parser.add_argument("-o", "--outfile", help='''Output file''', default=None)
+  parser.add_argument("-t", "--title", help='''Plot title''', default=None)
+  options = parser.parse_args()
+  return options
+
+
+def main():
+    options = parse_args()
+    if options.verbose:
+        print (dir(options))
+    fig=scatter_elas(options.FILES[0], options.FILES[1], options)
+    
+if __name__ == "__main__":
+    main()
+
+
+    
+    
