@@ -31,7 +31,7 @@ def rasterize(filename, resolution, bg,  x_range = None, y_range = None):
     yratio = height / ydist
 
     def num2col(num):
-        string = "rgb(%i,%i,%i)"%(min(255,num/255/255),(num/256)%256,num%256)
+        string = "rgb(%i,%i,%i)"%(min(255,num/256/256),(num/256)%256,num%256)
         return string
         
     def rasterize_poly(points, color):
