@@ -1,0 +1,39 @@
+#!/usr/bin/env python
+
+import shapefile
+from argparse import ArgumentParser
+
+
+def extract_elas(filename):
+    sf = shapefile.Reader(filename)
+    records = sf.records()
+    snowlines = dict ([ [x[0], float(x[-1])] for x in records ] )
+    outfilename = "elas_%s.dat"%(filename[:-4])
+    open(outfilename, "w").writelines(["%s\t %d\n"%(x,snowlines[x]) for x in snowlines.keys()])
+
+
+
+
+def parse_args():
+  parser = ArgumentParser()
+  parser.description = "Extract ELA information from shapefile and store it in two column (tab delimited) csv"
+  parser.add_argument("FILES",  nargs='*', help="Shapefiles")
+  parser.add_argument("-v", "--verbose", 
+                        help='''Be verbose''', action="store_true")
+  options = parser.parse_args()
+  return options
+
+
+def main():
+    options = parse_args()
+    if options.verbose:
+        print (dir(options))
+    for infile in options.FILES:
+        extract_elas(infile)
+
+if __name__ == "__main__":
+    main()
+
+
+    
+    
