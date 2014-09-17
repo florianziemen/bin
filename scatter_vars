@@ -108,6 +108,8 @@ def parse_args():
   parser.add_argument("--smb_usurf_taku", 
                     help='''adds taku SMB vs USURF curve''', action = "store_true")
   parser.add_argument("--selindexbox", help = "index box to subset from the model output, provide as a,b,c,d, will be applied as :,a:b,c:d -- MIND INDEX ORDER IN NETDCF!", default=False) 
+  parser.add_argument("--white_grid", 
+                    help='''white grid''', action = "store_true")
   parser.add_argument("--legend", 
                     help='''legend entries, separate with :''', default=None)
 
@@ -175,6 +177,8 @@ def main(argv):
 
       
 #  with sns.palette_context("PuBuGn_d"):
+  if options.white_grid:
+    sns.set(style="whitegrid")
   fig = scatter_vars(xvecs, yvecs, plot_opts)
   if not options.output:
       mpl.show()
