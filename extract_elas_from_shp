@@ -7,9 +7,12 @@ from argparse import ArgumentParser
 def extract_elas(filename):
     sf = shapefile.Reader(filename)
     records = sf.records()
-    snowlines = dict ([ [x[0], float(x[-1])] for x in records ] )
+    fields = sf.fields
+    names = dict([[x[0], num-1] for (num, x) in enumerate(fields)])
+    snowlines = dict ([ [x[names['RGIID']], x[names['MEAN']] ] for x in records ] )
+    areas = dict ([ [x[names['RGIID']], x[names['AREA']] ] for x in records ] )
     outfilename = "elas_%s.dat"%(filename[:-4])
-    open(outfilename, "w").writelines(["%s\t %d\n"%(x,snowlines[x]) for x in snowlines.keys()])
+    open(outfilename, "w").writelines(["%s\t%s\t%s\n"%(x,snowlines[x], areas[x]) for x in snowlines.keys()])
 
 
 
