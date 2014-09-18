@@ -27,12 +27,12 @@ def read_image(filename, opts=False):
     pix = np.asarray(pic) # .reshape(pic.size[0], pic.size[1], 3)
     if len(pix.shape) == 3:
         pix= pix[:,:,0]*(256*256)+pix[:,:,1]*256+pix[:,:,2]
-    values=np.unique(pix)
-    pix2=np.zeros(pix.shape,dtype='i8')
-    for (n,x) in enumerate (values):
-        pix2[pix==x]=n
-    return pix2
-
+    # values=np.unique(pix)
+    # pix2=np.zeros(pix.shape,dtype='i8')
+    # for (n,x) in enumerate (values):
+    #     pix2[pix==x]=n
+    # return pix2
+    return pix
 
 
 def parse_options():
