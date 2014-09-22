@@ -83,13 +83,26 @@ def scatter_elas(x_file, y_file, options):
     # polyfit(data[0],data[1],1, full=True)
     # help(polyfit)
     
-
     
+    matchx = []
+    matchy = []
+    allx = []
+    ally = []
+    for x in finalkeys:
+        allx += xvals[x]
+        ally += yvals[x]
+        matchx += len(yvals[x]) * [x_means[x]]
+        matchy += len(xvals[x]) * [y_means[x]]
+    
+    print matchx
+    print ally
     mpl.errorbar(data[0],data[1], xerr=x_err, yerr=y_err, linestyle = 'ok') # yerr=.2*np.mean(data[0])*np.random.rand(len(data[1])
     areas = read_areas(x_file)
     if areas:
         areas = np.array([areas[x] for x in finalkeys])
-        mpl.scatter(data[0],data[1], marker='o', s=(areas/10), c=areas, zorder=999, cmap=mpl.cm.Greys)
+        mpl.scatter(matchx, ally, marker='.')
+        mpl.scatter(allx, matchy, marker='.')
+        mpl.scatter(data[0],data[1], marker='o', s=(areas/3), c=areas, zorder=999, cmap=mpl.cm.Greys)
         mpl.colorbar()
     else:
         mpl.scatter(data[0],data[1], marker='o', c='b', zorder=9999)
