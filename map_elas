@@ -56,9 +56,9 @@ def extract_glaciers(field, mask):
 def define_ela(smb, usurf):
     dz = 50
     if max(smb) < 0 :
-        return -1.
+        return -1. , []
     elif min(smb) > 0 :
-        return -1.
+        return -1. , [] 
     if len(smb) > 100:
 #        fit = (polyfit(usurf, smb,1))
 #        intercept = - fit[1]/ fit[0]
@@ -67,12 +67,13 @@ def define_ela(smb, usurf):
         indices = np.digitize(usurf,bins)
         smbs = [np.mean(smb[indices==x]) for x in xrange(len(bins))]
         found = False
+        last_neg =  0.
         for (n,x) in enumerate(smbs):
             if x > 0 and not found:
-                ela =  n * dz + dz/2.
+                ela =  n * dz - dz/2.
                 found = True
             elif x < 0:
-                last_neg = n * dz + dz/2.
+                last_neg = n * dz - dz/2.
                 if found:
                     print "found negative value following positive value"
                     print n , x 
@@ -80,21 +81,23 @@ def define_ela(smb, usurf):
                     print ela
                     print usurf
         if found :
-            return (ela+last_neg)/2.
-        return n * dz + dz/2.
-    return -1.
+            return (ela+last_neg)/2., smbs
+        return n * dz - dz/2., smbs
+    return -1., []
 
 def assemble_elas(smb, usurf, mask):
     smbs = extract_glaciers(smb, mask)
     usurfs = extract_glaciers(usurf, mask)
     elas = {}
+    profiles = {}
     ela=np.zeros(mask.shape)
     for glac in smbs.keys():
-        e = define_ela(smbs[glac] , usurfs[glac])
+        e, profile = define_ela(smbs[glac] , usurfs[glac])
         elas[ glac ] = e
+        profiles[ glac ] = profile
         ela = np.where(mask[:]==int(glac), e, ela)
     ela = np.where (mask[:]==mask[0,0], -1, ela)
-    return ela, elas
+    return ela, elas, profiles
 
 def write_to_file(ela, smb, smb_filename, filename):
     of = Dataset(filename,"w")
@@ -131,11 +134,13 @@ def main(argv):
         print (dir(options))
     for fn in options.FILES:
         (smb, usurf, mask) = read_files(fn, options.output_mask)
-        (ela, elas) = assemble_elas (smb, usurf, mask)
+        (ela, elas, profiles) = assemble_elas (smb, usurf, mask)
         ifn = os.path.split(fn)
         write_to_file(ela, smb, fn, os.path.join(ifn[0],"ela_%s"%ifn[1]))
         ela_dat=open(os.path.join(ifn[0],"ela_%s"%ifn[1])[:-2]+"dat", 'w')
         ela_dat.writelines ([ "RGI32-01.%05i\t%f\n"%(int(x), elas[x]) for x in elas.keys()])
+        profile_dat=open(os.path.join(ifn[0],"profiles_%s"%ifn[1])[:-2]+"dat", 'w')
+        profile_dat.writelines ([ "RGI32-01.%05i\t%s\n"%(int(x), '\t'.join([str(y) for y in profiles[x] if profiles [x]])) for x in profiles.keys()])
     # mpl.figure()
     # mpl.imshow(np.squeeze(np.where(ela< 0, np.nan,ela )))
     # mpl.colorbar()
