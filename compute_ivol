@@ -1,0 +1,96 @@
+#!/usr/bin/env python
+
+from  argparse import ArgumentParser
+import json
+import glob
+import os
+import shlex
+import shutil
+import subprocess
+import sys
+import flo_utils as fu
+
+def file2date(name):
+    year = int(name[-13:-9] )
+    month = int(name[-8:-6]  )
+    day = int(name[-5:-3])
+    return (year, month, day)
+
+def date2file(run, ymd):
+    (year, month, day) = (ymd[0], ymd[1], ymd[2])
+    return "%s/%s_extra-%04i-%02i-%02i.nc"%(run, run, year, month, day)
+
+def year2october(run, year):
+    (year, month, day) = (year, 10, 1)
+    return "%s/%s_extra-%04i-%02i-%02i.nc"%(run, run, year, month, day)
+
+
+
+
+def generate_masks(run, years, options):
+    maskfiles=dict([[year, "%s/%s_mask_%04i.nc"%(run, run, year)] for year in set(years)])
+    for year in set(years):
+        maskfilename=maskfiles[year]
+        if not os.access(maskfilename, os.R_OK):
+            command = ['cdo', '-setname,mask', '-gtc,%s'%options['threshold'], '-selvar,thk', year2october(run, year), maskfilename]
+            fu.qo(command)
+    return maskfiles
+
+def get_files(run, options):
+    files=sorted(glob.glob("%s/%s_extra-????-??-01.nc"%(run,run)))
+    return files
+    
+def get_octobers(files, options):
+    ymd   = [file2date(x) for x in files] 
+    octobers = [ x[0] for x in ymd]
+    for (n,m) in enumerate(ymd):
+        if m[1] == 10:
+            continue
+        if m[1] < 10 :
+            if (m[0]-1, 10, 1) in ymd:
+                octobers[n]  = m[0]-1
+            elif (m[0] , 10, 1) in ymd:
+                octobers[n] = m[0]
+            continue
+        if m[1] > 10 :
+            if (m[0], 10 , 1) in ymd:
+                octobers[n] = m[0]
+            elif (m[0]+1 , 10 , 1) in ymd:
+                octobers[n] = m[0]+1
+    return octobers
+
+
+
+
+def parse_args():
+  parser = ArgumentParser()
+  parser.description = "Map ELAs"
+  parser.add_argument("RUNS",  nargs='*', help="Runs to process")
+  parser.add_argument("-v", "--verbose", 
+                    help='''Be verbose''', action="store_true")
+  parser.add_argument("-t", "--threshold", 
+                    help='''Masking threshold''', default="10")
+  options = parser.parse_args()
+  return vars(options)
+
+
+def main(argv):
+    options = parse_args()
+    if options.get('verbose', False):
+        print (options)
+    for run in options['RUNS']:
+        files = get_files(run, options)
+        octobers = get_octobers(files, options)
+        maskfiles = generate_masks(run, octobers, options)
+        for (f, o) in zip (files, octobers):
+            maskfile = maskfiles[o]
+            command = [ 'cdo', '-cat' , '-mulc,9e4', '-fldsum', '-ifthen', maskfile, '-selvar,thk', f, 'ice_volume_%s.nc'%run]
+            fu.qo(command)
+
+
+if __name__ == "__main__":
+    main(sys.argv)
+
+
+    
+    
