@@ -1,0 +1,16 @@
+#!/bin/bash
+
+set -evx 
+
+date=2005-09-01
+for run in $@ ; do
+    cd ${CENTER}/Full_grid/${run}
+
+    if [ ! -f   csurf_ratio_${date}.nc ] ; then 
+	cdo -merge -setname,csurf_ratio -div -selvar,csurf ${run}_extra-${date}.nc -selvar,csurf ../csurf_new_fine_noneg_xy.nc -setname,cbase_csurf_ratio -div -selvar,cbase ${run}_extra-${date}.nc -selvar,csurf  ${run}_extra-${date}.nc   csurf_ratio_${date}.nc
+	swap_xy csurf_ratio_${date}.nc
+	ncks -A -v x,y ${run}_extra-${date}.nc csurf_ratio_${date}.nc
+    fi
+
+    plotit -v csurf_ratio,cbase_csurf_ratio csurf_ratio_${date}.nc --bounds 0.1 10 --log_norm --numcol 7 --coords ../${run}.nc
+done 
