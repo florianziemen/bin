@@ -56,6 +56,7 @@ parser.add_argument("--levels", type=str,
                   help="levels to use for plotting", default=None)
 parser.add_argument("--scale", dest="scale_factor", type=float, default=None,
                   help="multiply data with scaling factor when plotting")
+parser.add_argument("--outline_thk", help="draw an outline at thk=10m", action="store_true")
 
 options = parser.parse_args()
 variables = (options.varname).split(",")
@@ -108,6 +109,11 @@ if options.overlay:
 
 if options.overlay_file:
     miscopts = miscopts + " --overlay_file %s "%(options.overlay_file)
+
+if options.outline_thk:
+    miscopts = miscopts + " --outline_thk "
+
+
 if options.scale_factor:
     miscopts = miscopts + " --scale %s "%(options.scale_factor)
 
