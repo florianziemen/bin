@@ -40,12 +40,31 @@ def scatter_vars(xvecs, yvecs, plot_opts = {}):
         mpl.xlim(plot_opts["xlim"])
     if "ylim" in plot_opts.keys():
         mpl.ylim(plot_opts["ylim"])
+    if 'logx' in plot_opts.keys() and plot_opts['logx']:
+        mpl.xscale('log')
+    if 'logy' in plot_opts.keys() and plot_opts['logy']:
+        mpl.yscale('log')
     if "smb_usurf_taku" in plot_opts.keys() and plot_opts["smb_usurf_taku"]:
-        mpl.plot([-12000,0,1200,2800],[0, 920, 1200, 1900], color = 'k' , linewidth = 5)
+        mpl.plot([-12000,0,1200,2800],[0, 920, 1200, 1900], color = 'k' , linewidth = 5, zorder=-99)
     if "legend" in plot_opts.keys():
         mpl.legend(plot_opts["legend"].split(":"), markerscale=5)
 
-
+    if "one_on_one" in plot_opts.keys() and plot_opts["one_on_one"]:
+            xymax=max([mpl.xlim()[1],mpl.ylim()[1]])
+            xymin=min([mpl.xlim()[0],mpl.ylim()[0]])
+            mpl.plot([xymin,xymax], [xymin,xymax], color='0.8', zorder=999)
+            mpl.xlim([xymin,xymax])
+            mpl.ylim([xymin,xymax])
+            fu.cerr("one on one")
+    if "pm" in plot_opts.keys() and plot_opts["pm"]:
+        pm=plot_opts["pm"]
+        xymax=max([mpl.xlim()[1],mpl.ylim()[1]])
+        xymin=min([mpl.xlim()[0],mpl.ylim()[0]])
+        mpl.plot([xymin+pm,xymax+pm], [xymin,xymax],'--', color='0.8', zorder=999)
+        mpl.plot([xymin,xymax], [xymin+pm,xymax+pm],'--', color='0.8', zorder=999)
+        mpl.xlim([xymin,xymax])
+        mpl.ylim([xymin,xymax])
+        fu.cerr("pm")
     if "output" in plot_opts.keys(): # HAS TO GO LAST!
         mpl.savefig(plot_opts["output"])
     return fig
@@ -101,6 +120,10 @@ def parse_args():
                     help='''plot y-Axis label''', default = None)
   parser.add_argument("--mask_thk", 
                     help='''mask with thickness''', action = "store_true")
+  parser.add_argument("--logx", 
+                    help='''logarithmic x axis''', action = "store_true")
+  parser.add_argument("--logy", 
+                    help='''logarithmic y axis''', action = "store_true")
   parser.add_argument("--xlim", 
                     help='''x limits''', type = float , nargs = 2)
   parser.add_argument("--ylim", 
@@ -112,6 +135,12 @@ def parse_args():
                     help='''white grid''', action = "store_true")
   parser.add_argument("--legend", 
                     help='''legend entries, separate with :''', default=None)
+  parser.add_argument("--one_on_one", 
+                    help='''add one-on-one line''', action="store_true")
+  parser.add_argument("--pm", 
+                    help='''draw lines for 1:1 +- ARG''', type = float)
+
+
 
 
 
@@ -126,7 +155,7 @@ def main(argv):
   xvecs = [ ]
   yvecs = [ ]
   if options.x_file and not options.y_file:
-      cerr("Need y-file to match x-file")
+      fu.cerr("Need y-file to match x-file")
       sys.exit(1)
   if options.x_file and options.y_file:
     (xvec, xattr) = get_array(options.x_file, options.xvar, skip = options.skip, selindexbox = options.selindexbox)
