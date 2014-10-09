@@ -1,0 +1,8 @@
+#!/bin/bash
+
+set -e
+
+infile=$1
+outfile=$2  # optional
+
+ncrename -d x,yy -d y,xx -d xx,x -d yy,y ${infile} ${outfile}
