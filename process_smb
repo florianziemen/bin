@@ -1,0 +1,16 @@
+#!/bin/bash
+
+set -evx
+
+for run in $@ ; do 
+    set +e
+    for x in {1972..2100}; do compute_smb ${run} $x ; done 
+    set -e
+    map_elas -m Juneau_Icefield.nc ${run}/${run}_smb_????.nc -s climatic_mass_balance 
+    cat ${run}/ela_${run}_smb_199*.dat ${run}/ela_${run}_smb_20[01]*.dat > ela_${run}_1990-2010.dat 
+    average_computed_smb_masking 1972 2000 ${run}/${run}_smb
+    cdo -setname,mask -gtc,20  -add -selvar,thk  ${run}_c.nc -selvar,thk ${run}/${run}_extra-2011-01-01.nc ${run}/mask_start_2011.nc
+    swap_xy ${run}/mask_start_2011.nc
+done 
+
+wait
