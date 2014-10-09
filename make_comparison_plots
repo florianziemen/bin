@@ -1,0 +1,22 @@
+#!/bin/bash
+
+
+
+haxby="${HOME}/Apps/pypismtools/colormaps/GMT_haxby.cpt"
+
+for run in $@ ; do
+	cd ~/CENTER/Full_grid/
+	plotit -v thk ${run}.nc --numcol=10 --colormap ${haxby} --overlay usurf  --bounds 100 1100 --mask_var thk --mask_threshold 10 --mask_file ${run}.nc 
+	plotit -v thk ${run}_c.nc --numcol=10 --colormap ${haxby} --overlay usurf  --bounds 100 1100 --mask_var thk --mask_threshold 10 --mask_file ${run}_c.nc 
+	plotit -v thk ${run}.nc -s ${run}_c.nc --numcol=9 --colormap RdBu --overlay usurf  --levels=-256,-64,-16,-4,4,16,64,256  --centergray --mask_threshold 10. --mask_abs 
+	scatter_elas all_tsl.dat ela_${run}_1990-2010.dat -o elas_${run}.pdf -t ${run} --white_grid
+	scatter_vars --smb_usurf_taku ${run}/${run}_smb_smb_1972_2000.nc --mask_file taku.nc -o ${run}/smb_gradient.pdf -t ${run} --white_grid 
+	plotit -v climatic_mass_balance ${run}/${run}_smb_smb_1972_2000.nc --coords ${run}.nc --levels=-10000,-5000,-2000,-1000,-500,500,1000,2000,5000,10000 --overlay usurf
+	cd $run
+	file=${run}_extra-2005-10-01.nc; plotit -v csurf ${file} --colormap ${haxby} --numcol 9 --overlay usurf --mask_var thk --mask_file ${file}  --mask_threshold 10   --coords ../${run}_backup.nc
+
+	plotit -v thk --coords ../${run}_backup.nc  --colormap RdBu --overlay usurf  --levels=-128,-64,-32,-16,-8,8,16,32,64,128 --centergray -s ../${run}_c.nc ${run}_extra-2011-01-01.nc --mask_var mask --mask_file mask_start_2011.nc --numcol 9 --centergray 
+	plotit -v climatic_mass_balance ${run}_smb_smb_1972_2000.nc --overlay usurf --numcol 9 --colormap RdBu --levels=-10000,-5000,-2000,-1000,-500,500,1000,2000,5000,10000 --coords ../${run}_backup.nc  --centergray
+	cd ~/CENTER/Full_grid/
+done 
+
