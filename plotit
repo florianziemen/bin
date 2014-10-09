@@ -141,7 +141,7 @@ for variable in variables:
 #  print "scp high1.gi.alaska.edu:t1/{" +  ",".join(outfiles) + "} ."
 #else : 
 #  fu.qo(["/usr/bin/eog"] + outfiles )
-
+[ x.join() for x in threads]
 if options.evince:
     fu.qo(["/usr/bin/evince"] + outfiles)
 
