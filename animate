@@ -1,0 +1,14 @@
+#!/bin/bash
+set -evx
+
+y=1
+for x in $@ ;do 
+    outname=$(printf '%06d' $y)
+    let y++
+    cp $x for_movie_$outname.png
+done 
+
+
+
+ffmpeg -sameq -r 10  -i for_movie_%06d.png movie.flv 
+
