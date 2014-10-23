@@ -1,0 +1,64 @@
+#!/usr/bin/env python
+
+import  netCDF4 as nc
+import matplotlib.pyplot as mpl
+import sys
+from argparse import ArgumentParser
+from scipy import stats
+import flo_utils as fu
+import seaborn as sns
+import numpy as np
+from smoother import smooth
+from datetime import datetime, timedelta
+import re 
+import glob
+
+files=glob.glob("F0065.nc") +  glob.glob("F007?.nc") + glob.glob("F008?.nc")
+def light(color):
+    return [.75*x + .25 for x in color]
+def dark(color):
+    return [.75 * x  for x in color]
+
+cmap=sns.color_palette("Set2", 8)
+namedict ={"F0065" : 'default',
+                 "F0069" : 'res-', "F0070" : 'res+',
+                 "F0071" : 'smelt+', "F0074" : 'smelt-',
+                 "F0072" : 'imelt+', "F0075" : 'imelt-',
+                 "F0073" : 'simelt+', "F0076" : 'simelt-',
+                 "F0077" : 'thick,slow', "F0078" : 'thin,fast',
+                 "F0079" : 'sliding+', "F0080" : 'sliding-',
+                 "F0081" : 'thick', "F0082" : 'thin',
+                 "F0083" : 'slow', "F0084" : 'fast',
+                 "F0085" : 'low grad', "F0086" : 'high grad', "F0087": 'no grad'
+               } # cmap[0] is free
+               
+colordict={"F0065" : (0., 0., 0.), 
+               "F0069" : cmap[1], "F0070" : cmap[1],
+               "F0071" : light(cmap[4]), "F0074" : light(cmap[4]),
+               "F0072" : dark(cmap[4]), "F0075" : dark(cmap[4]),
+               "F0073" : cmap[4], "F0076" : cmap[4],
+               "F0077" : cmap[5], "F0078" : cmap[5],
+               "F0079" : cmap[6], "F0080" : cmap[6],
+               "F0081" : cmap[2], "F0082" : cmap[2],
+               "F0083" : cmap[3], "F0084" : cmap[3],
+               "F0085" : cmap[7], "F0086" : cmap[7], "F0087": cmap[7]
+               } # cmap[0] is free
+
+patterndict={"F0065" : '-',
+                 "F0069" : ':', "F0070" : '--',
+                 "F0071" : ':', "F0074" : '--',
+                 "F0072" : ':', "F0075" : '--',
+                 "F0073" : ':', "F0076" : '--',
+                 "F0077" : '--', "F0078" : ':',
+                 "F0079" : ':', "F0080" : '--',
+                 "F0081" : '--', "F0082" : ':',
+                 "F0083" : '--', "F0084" : ':',
+                 "F0085" : '--', "F0086" : ':', "F0087": '-'
+               } # cmap[0] is free
+
+thk=[]
+mpl.figure()
+for ifile in files:
+    thk=nc.Dataset(ifile, "r").variables["thk"][0]
+    mpl.contour(thk,(10,), colors=(colordict[ifile[:-3]],), linestyle=patterndict[ifile[:-3]])
+mpl.show()
