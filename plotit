@@ -42,6 +42,8 @@ parser.add_argument("--overlay", dest="overlay",
                   help="overlay variable", default=None)
 parser.add_argument("--overlay_file", dest="overlay_file", 
                   help="overlay file", default=None)
+parser.add_argument("--overlay_levels",dest="overlay_levels",
+                  help="overlay levels", default=None)
 parser.add_argument("--colormap", dest="colormap", 
                   help="colormap", default=None)
 parser.add_argument("--title", dest="title", 
@@ -67,7 +69,7 @@ filenames = options.FILE
 print filenames
 fu.debug=True
 
-miscopts = " -a "   # alaska albers
+miscopts = " -a -p presentation"   # alaska albers
 levelstring = ""
 if options.level:
   miscopts = miscopts + " --level %i"%(options.level)
@@ -109,6 +111,9 @@ if options.overlay:
 
 if options.overlay_file:
     miscopts = miscopts + " --overlay_file %s "%(options.overlay_file)
+
+if options.overlay_levels:
+    miscopts = miscopts + " --overlay_levels %s "%(options.overlay_levels)
 
 if options.outline_thk:
     miscopts = miscopts + " --outline_thk "
