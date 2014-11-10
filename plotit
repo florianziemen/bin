@@ -59,6 +59,7 @@ parser.add_argument("--levels", type=str,
 parser.add_argument("--scale", dest="scale_factor", type=float, default=None,
                   help="multiply data with scaling factor when plotting")
 parser.add_argument("--outline_thk", help="draw an outline at thk=10m", action="store_true")
+parser.add_argument("--overlay_precip_scaling", help="draw JIF precip scaling as overlay", default=None)
 
 options = parser.parse_args()
 variables = (options.varname).split(",")
@@ -105,6 +106,9 @@ if options.mask_abs:
     
 if options.colorbar_ticks:
     miscopts = miscopts + " --ticks %s"%(options.colorbar_ticks)
+
+if options.overlay_precip_scaling:
+    miscopts = miscopts + " --overlay_precip_scaling %s "%(options.overlay_precip_scaling)
 
 if options.overlay:
     miscopts = miscopts + " --overlay %s "%(options.overlay)
