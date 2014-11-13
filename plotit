@@ -18,7 +18,8 @@ parser.add_argument("-l", "--level",  default= None,
                   help='''level to plot''', type = int)
 parser.add_argument("--coords",  default= None,
                   help='''coordinate file''')
-
+parser.add_argument("--geotiff_file", dest="geotiff_filename",
+                  help="GeoTIFF filename", default=None)
 parser.add_argument("-e", "--evince",  
                   help='''Show in evince''', action="store_true")
 parser.add_argument("-s", "--sub",  
@@ -131,6 +132,9 @@ if options.title:
 
 if options.coords:
     miscopts = miscopts + " --coords %s "%(options.coords)
+
+if options.geotiff_filename:
+    miscopts = miscopts + " --geotiff_file %s "%(options.geotiff_filename)
 
 substring = ""
 if options.sub:
