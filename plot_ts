@@ -25,6 +25,11 @@ def get_array(filename, varname, skip = 1):
     return var[::skip],attrs
 
 
+def light(color):
+    return [.75*x + .25 for x in color]
+def dark(color):
+    return [.75 * x  for x in color]
+
 def plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts = {}):
     fig = mpl.figure()
     mpl.hold("on")
@@ -32,12 +37,60 @@ def plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts = {}):
         return re.sub("_"," ", re.sub(".nc$", "", filename))
     labels = [y.get("label", cleanup_name(y["file_name"])) for y in yattrs]
     ax=mpl.subplot(1,1,1)
-    plots = [ mpl.plot_date(xvec,yvec,'-',  label=lb) for (xvec,yvec,lb) in zip(xvecs,yvecs,labels) ]
+    cmap=sns.color_palette("Set2", 8)
+    print (len(cmap))
+    namedict ={"F0065" : 'REF',
+                 "F0096" : 'res$\downarrow$', "F0070" : 'res$\uparrow$',
+                 "F0071" : 'smelt$\uparrow$', "F0074" : 'smelt$\downarrow$',
+                 "F0072" : 'imelt$\uparrow$', "F0075" : 'imelt$\downarrow$',
+                 "F0073" : 'simelt$\uparrow$', "F0076" : 'simelt$\downarrow$',
+                 "F0077" : 'thick,slow', "F0078" : 'thin,fast',
+                 "F0079" : 'sliding$\uparrow$', "F0080" : 'sliding$\downarrow$',"F0095" : 'no_sliding',
+                 "F0081" : 'thick', "F0082" : 'thin',
+                 "F0083" : 'slow', "F0084" : 'fast',
+                 "F0085" : 'low grad', "F0086" : 'high grad', "F0087": 'no grad',
+                 "F0090" : '1971$-$2010', "F0091" : '2011$-$2040',"F0092" : '2041$-$2070', "F0093" : '2071$-$2099', "F0094":"2041$-$2070", "F0088":"1971$-$2010"
+               } # cmap[0] is free
+               
+    colordict={"F0065" : (0., 0., 0.), 
+               "F0096" : cmap[1], "F0070" : cmap[1],
+               "F0071" : light(cmap[4]), "F0074" : light(cmap[4]),
+               "F0072" : dark(cmap[4]), "F0075" : dark(cmap[4]),
+               "F0073" : cmap[4], "F0076" : cmap[4],
+               "F0077" : cmap[5], "F0078" : cmap[5],
+               "F0079" : cmap[6], "F0080" : cmap[6], "F0095" : cmap[6],
+               "F0081" : cmap[2], "F0082" : cmap[2],
+               "F0083" : cmap[3], "F0084" : cmap[3],
+               "F0085" : cmap[7], "F0086" : cmap[7], "F0087": cmap[7]
+               } # cmap[0] is free
+
+    patterndict={"F0065" : '-',
+                 "F0096" : '--', "F0070" : ':',
+                 "F0071" : ':', "F0074" : '--',
+                 "F0072" : ':', "F0075" : '--',
+                 "F0073" : ':', "F0076" : '--',
+                 "F0077" : '--', "F0078" : ':',
+                 "F0079" : ':', "F0080" : '--', "F0095" : '-',
+                 "F0081" : '--', "F0082" : ':',
+                 "F0083" : '--', "F0084" : ':',
+                 "F0085" : '--', "F0086" : ':', "F0087": '-'
+               } # cmap[0] is free
+               
+    yscale=plot_opts.get('yscale', 1.)
+    plots = [ mpl.plot_date(xvec,yvec*yscale, patterndict.get(lb[:5],'-'),  label=namedict.get(lb[:5],lb), color=colordict.get(lb[:5],cmap[i%len(cmap)])) for (xvec,yvec,lb,i) in zip(xvecs,yvecs,labels,np.arange(len(xvecs))) ]
     if "no_legend" in plot_opts:
         if plot_opts["no_legend"] == False :
-            mpl.legend()
+            legend = mpl.legend(frameon=1)
+            frame = legend.get_frame()
+            frame.set_facecolor('white')
+            frame.set_edgecolor('white')
+
     else:
-        mpl.legend()
+        legend = mpl.legend(frameon=1)
+        frame = legend.get_frame()
+        frame.set_facecolor('white')
+        frame.set_edgecolor('white')
+
     #    mpl.axvline(0,zorder=-999, color="gray")
     if "xlabel" in plot_opts.keys():
         mpl.xlabel(plot_opts["xlabel"])
@@ -49,20 +102,20 @@ def plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts = {}):
         mpl.xlim([convert_year(x,(xattrs[0])["calendar"]) for x in plot_opts["xlim"]] )
     if "ylim" in plot_opts.keys():
         mpl.ylim(plot_opts["ylim"])
+    specials(fig, xattrs, plot_opts, ax)
     if "output" in plot_opts.keys():
         mpl.savefig(plot_opts["output"])
-    specials(fig, xattrs, plot_opts, ax)
     return fig
 
 def filter(vecs, plot_opts={}):
-    if "smooth_window_length" in plot_opts:
+    if "smooth_window_length" in plot_opts.keys():
         npoints = plot_opts["smooth_window_length"]
     else:
         npoints = 0
-    if "smooth_filter" in plot_opts:
+    if "smooth_filter" in plot_opts.keys():
         window = plot_opts["smooth_filter"]
     else:
-        window = "hanning"
+        window = "flat"
     if npoints:
         vecs = [ smooth(x,npoints, window) for x in vecs]
     return vecs
@@ -126,6 +179,14 @@ def parse_args():
   parser.add_argument("--JJAANNDJF-Legend", action = "store_true")
   parser.add_argument("--white_grid", 
                     help='''white grid''', action = "store_true")
+  parser.add_argument("--overlay_ivol", 
+                    help='''overlay *observed* ice volume evolution''', action = "store_true")
+  parser.add_argument("--tick_interval", 
+                    help='''draw vertical lines at years specified by start range step ''', nargs=3, type=float )
+  parser.add_argument("--yscale", 
+                    help='''scale y axis by factor ''', type=float , default=1.)
+  parser.add_argument("--font_scale", 
+                    help='''scale fontsize axis by factor ''', type=float , default=1.)
   options = parser.parse_args()
   return options
 def convert_year(year, cal):
@@ -134,16 +195,32 @@ def convert_year(year, cal):
     
 def specials(figure, xattrs, plot_opts, ax):
     attr = xattrs[0]
-    years = range(1980,2100,20)
+    years = range(1980,2101,20)
+    if "tick_interval" in plot_opts.keys():
+        ti=plot_opts["tick_interval"]
+        years=np.arange(ti[0], ti[1],ti[2])
     print years
-    dates = [convert_year (x, cal=attr["calendar"]) for x in years]
+    c = attr["calendar"]
+    dates = [convert_year (x, cal=c) for x in years]
     print dates
     mpl.xticks(dates )
-    if "JJAANNDJF_Legend" in plot_opts.keys():
+    if "JJAANNDJF_Legend" in plot_opts.keys() and plot_opts["JJAANNDJF_Legend"]:
         print "ADJUSTING LEGEND"
         handles, labels = ax.get_legend_handles_labels()
         # reverse the order
         ax.legend(handles[::-1], ("JJA","ANN","DJF"), bbox_to_anchor=(0.7, .6, 1., .102), loc=3)
+    if "overlay_ivol" in plot_opts.keys() and plot_opts["overlay_ivol"]:
+        years = [1971, 2000, 2010]
+        volumes = [1.1192e12+.5e9/.91*29.*4., 1.1192e12, 1.1192e12 -.5e9/.91*10.]
+        volumes = [ x * plot_opts.get('yscale', 1.) for x in volumes]
+        dates = [convert_year (x, cal=c) for x in years]
+        linecolor='1.'
+        if plot_opts.get('white_grid', False):
+            linecolor='.9'
+        mpl.plot(dates, volumes, zorder=-99, color=linecolor )
+        mpl.plot(dates, [x + .1*volumes[2] for x in volumes], zorder=-99, color=linecolor)
+        mpl.plot(dates, [x - .1*volumes[2] for x in volumes], zorder=-99, color=linecolor)
+
 
 
 def main(argv):
@@ -200,12 +277,12 @@ def main(argv):
   if options.xvar == "time":
       xvecs = [ nc.date2num(nc.num2date(vec , units=attr["units"] , calendar=attr["calendar"]), units="days since 0001-01-01 00:00:00", calendar=attr["calendar"] )       for (vec, attr) in zip (xvecs, xattrs) ]
 
-  with sns.palette_context("Set2"):
-    sns.set(context="talk")
-    if options.white_grid:
+#  with sns.palette_context("Set2"):
+#    sns.set(context="talk")
+  if options.white_grid:
 #        sns.set_context("poster", {"font_scale":30.})
-        sns.set(style="whitegrid", context="poster")
-    fig = plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts)
+        sns.set(style="whitegrid", context="poster", font_scale=plot_opts.get("font_scale", 1.))
+  fig = plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts)
   if not options.output:
       mpl.show()
 
