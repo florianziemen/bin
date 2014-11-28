@@ -7,14 +7,21 @@ namedict ={"F0065" : 'REF',
            "F0072" : 'imelt$\uparrow$', "F0075" : 'imelt$\downarrow$',
            "F0073" : 'simelt$\uparrow$', "F0076" : 'simelt$\downarrow$',
            "F0077" : 'thick,slow', "F0078" : 'thin,fast',
-           "F0079" : 'sliding$\uparrow$', "F0080" : 'sliding$\downarrow$',"F0095" : 'no_sliding',
+           "F0079" : 'sliding$\uparrow$', "F0080" : 'sliding$\downarrow$',"F0095" : 'no sliding',
            "F0081" : 'thick', "F0082" : 'thin',
            "F0083" : 'slow', "F0084" : 'fast',
-           "F0085" : 'low grad', "F0086" : 'high grad', "F0087": 'no grad',
-           "F0090" : '1971$-$2010', "F0091" : '2011$-$2040',"F0092" : '2041$-$2070', "F0093" : '2071$-$2099', "F0094":"2041$-$2070", "F0088":"1971$-$2010"
-           } # cmap[0] is free
+           "F0085" : 'grad$\downarrow$', "F0086" : 'grad$\uparrow$', "F0087": 'no grad',
+           "F0090" : 'S2010', 
+           "F0091" : 'S2040',
+           "F0092" : 'S2070', 
+           "F0093" : 'S2099',  
+           "F0088":"R2010",  
+           "F0099":"R2070",  
+           "F0100":"R2040"
+           } 
 
 inverse={namedict[x]:x for x in namedict.keys()}
+
 
 def main(argv):
     for x in argv[1:]:
