@@ -26,18 +26,21 @@ def get_array(filename, varname, skip = 1, selindexbox = False):
     return var[::skip], {x : infile.variables[varname].getncattr(x) for x in infile.variables[varname].ncattrs()}
     
 def scatter_vars(xvecs, yvecs, plot_opts = {}):
-    fig = mpl.figure()
+    fig = mpl.figure(figsize=(85/25.4*11./8.,55/25.4*11./8.))
     mpl.hold("on")
-    [ mpl.plot(xvec,yvec,'.', ms=2) for (xvec,yvec) in zip(xvecs,yvecs) ]
-    mpl.axvline(0,zorder=-999, color="gray")
+    if "xscale" in plot_opts.keys():
+        xvecs = [ x*plot_opts["xscale"] for x in xvecs]
+    if "yscale" in plot_opts.keys():
+        yvecs = [ y*plot_opts["yscale"] for y in yvecs]
+    current_palette = sns.color_palette()
+    [ mpl.plot(xvec,yvec,'.', ms=4, c=current_palette[1]) for (xvec,yvec) in zip(xvecs,yvecs) ]
+    mpl.axvline(0,zorder=-999, color=(0.8,0.8,0.8))
     if "xlabel" in plot_opts.keys():
         mpl.xlabel(plot_opts["xlabel"])
     if "ylabel" in plot_opts.keys():
         mpl.ylabel(plot_opts["ylabel"])
     if "title" in plot_opts.keys():
         mpl.title(plot_opts["title"])
-    if "xlim" in plot_opts.keys():
-        mpl.xlim(plot_opts["xlim"])
     if "ylim" in plot_opts.keys():
         mpl.ylim(plot_opts["ylim"])
     if 'logx' in plot_opts.keys() and plot_opts['logx']:
@@ -45,7 +48,7 @@ def scatter_vars(xvecs, yvecs, plot_opts = {}):
     if 'logy' in plot_opts.keys() and plot_opts['logy']:
         mpl.yscale('log')
     if "smb_usurf_taku" in plot_opts.keys() and plot_opts["smb_usurf_taku"]:
-        mpl.plot([-12000,0,1200,2800],[0, 920, 1200, 1900], color = 'k' , linewidth = 5, zorder=-99)
+        mpl.plot([-12,0,1.2,2.8],[0, 920, 1200, 1900], color = (0.,0.,0.) , linewidth = 1, zorder=99)
     if "legend" in plot_opts.keys():
         mpl.legend(plot_opts["legend"].split(":"), markerscale=5)
 
@@ -65,8 +68,10 @@ def scatter_vars(xvecs, yvecs, plot_opts = {}):
         mpl.xlim([xymin,xymax])
         mpl.ylim([xymin,xymax])
         fu.cerr("pm")
+    mpl.tight_layout(pad=0.4)
     if "output" in plot_opts.keys(): # HAS TO GO LAST!
         mpl.savefig(plot_opts["output"])
+
     return fig
     
 
@@ -124,8 +129,10 @@ def parse_args():
                     help='''logarithmic x axis''', action = "store_true")
   parser.add_argument("--logy", 
                     help='''logarithmic y axis''', action = "store_true")
-  parser.add_argument("--xlim", 
-                    help='''x limits''', type = float , nargs = 2)
+  parser.add_argument("--xscale", 
+                    help='''x scaling factor''', type = float)
+  parser.add_argument("--yscale", 
+                    help='''y scaling factor''', type = float)
   parser.add_argument("--ylim", 
                     help='''y limits''', type = float , nargs = 2)
   parser.add_argument("--smb_usurf_taku", 
@@ -168,6 +175,14 @@ def main(argv):
     yvec = [y for (num,y) in enumerate(yvec) if yvec[num]]
     yvec = [y for (num,y) in enumerate(yvec) if xvec[num]]
     xvec = [x for (num,x) in enumerate(xvec) if xvec[num]]
+    if options.xlim:
+        ok = [ options.xlim[0]< x < options.xlim[1] for x in xvec]
+        xvec = [ xvec[n] for n,v in enumerate(ok) if v]
+        yvec = [ yvec[n] for n,v in enumerate(ok) if v]
+    if options.ylim:
+        ok = [ options.ylim[0]< x < options.ylim[1] for x in yvec]
+        xvec = [ xvec[n] for n,v in enumerate(ok) if v]
+        yvec = [ yvec[n] for n,v in enumerate(ok) if v]
     slope, intercept, r_value, p_value, std_err = stats.linregress(xvec, yvec)
     print "(slope, intercept, r_value, p_value, std_err)"
     print (slope, intercept, r_value, p_value, std_err)
@@ -207,7 +222,7 @@ def main(argv):
       
 #  with sns.palette_context("PuBuGn_d"):
   if options.white_grid:
-    sns.set(style="whitegrid")
+    sns.set(style="ticks")
   fig = scatter_vars(xvecs, yvecs, plot_opts)
   if not options.output:
       mpl.show()
