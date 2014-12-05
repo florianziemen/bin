@@ -1,0 +1,29 @@
+#!/usr/bin/env python
+
+from netCDF4 import Dataset
+#import matplotlib.pyplot as mpl
+import numpy as np
+import sys
+from argparse import ArgumentParser
+from numpy.lib.polynomial import polyfit
+import os
+import flo_utils as fu
+import shutil
+
+
+import scatter_elas
+
+elas, means, errpos, errneg = scatter_elas.read_file("all_tsl.dat")
+
+shutil.copyfile("Juneau_Icefield.nc", "tsl.nc")
+
+tsl=Dataset("tsl.nc", "r+")
+
+var=tsl.variables["output_mask"]
+
+lfield=var[:].reshape(var.size)
+print means.keys()
+
+newfield=np.array([means.get("RGI32-01.%05d"%x, -1) for x in lfield  ],dtype=var.dtype).reshape(var.shape)
+var[:]=newfield
+tsl.close()
