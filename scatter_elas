@@ -1,10 +1,14 @@
 #!/usr/bin/env python
 
-import shapefile
+
+from matplotlib.font_manager import FontProperties
 import matplotlib.pylab as mpl
 import numpy as np
 from argparse import ArgumentParser
 from scipy.stats import linregress
+import seaborn as sns
+
+mpl.rcParams["figure.figsize"]=(3.,2.)
 
 def merge_into_dict(master, addon):
 #    print master
@@ -25,7 +29,7 @@ def read_file (filename):
     mins = dict([[ x,np.min(np.array(elas[x]))] for x in elas.keys()])
     maxs = dict([[ x,np.max(np.array(elas[x]))] for x in elas.keys()])
 
-    means = dict([[ x,np.mean(np.array(elas[x]))] for x in elas.keys()])
+    means = dict([[ x,np.median(np.array(elas[x]))] for x in elas.keys()])
     errpos = dict([[x, maxs[x]-means[x]] for x in means.keys()])
     errneg = dict([[x, -mins[x]+means[x]] for x in means.keys()])
     return elas, means, errpos, errneg
@@ -77,7 +81,7 @@ def scatter_elas(x_file, y_file, options):
     y_err[1] = np.array([y_err_pos[x] for x in finalkeys])
 
     data= np.array([ [ x_means[x], y_means[x] ] for x in finalkeys ]).transpose()
-    fig = mpl.figure()
+    fig = mpl.figure(figsize=(85/25.4*11./8.,55/25.4*11./8.))
     # help(polyfit)
     # polyfit(data[0],data[1],1, ful=True)
     # polyfit(data[0],data[1],1, full=True)
@@ -94,35 +98,64 @@ def scatter_elas(x_file, y_file, options):
         matchx += len(yvals[x]) * [x_means[x]]
         matchy += len(xvals[x]) * [y_means[x]]
     
-    print matchx
-    print ally
-    mpl.errorbar(data[0],data[1], xerr=x_err, yerr=y_err, linestyle = 'ok') # yerr=.2*np.mean(data[0])*np.random.rand(len(data[1])
+#    print matchx
+#    print ally
+    blues=sns.color_palette("Blues")
+    dark=blues[4]
+    medium=blues[3]
+    mediumlight=blues[2]
+    light=blues[1]
+    deep=sns.color_palette("deep")
+    pastel=sns.color_palette("pastel")
+    dark=[.5*(x+y)for x,y in zip(deep[1],deep[0])]
+    light=pastel[0]
+    mediumlight=pastel[1]
+#    dark = 'k'
+    
+    #    mpl.errorbar(data[0],data[1], xerr=x_err, yerr=y_err, linestyle = 'o' ,c=light) # yerr=.2*np.mean(data[0])*np.random.rand(len(data[1])
+    [ mpl.plot([x,x], [y-yerrm, y+yerrp], '-', c=light, lw=1) for x,y,yerrm, yerrp in zip(data[0], data[1], y_err[0],y_err[1]) ]
+    [ mpl.plot([x-xerrm,x+xerrp], [y, y], '-', c=mediumlight, lw=1.) for x,y,xerrm,xerrp in zip(data[0], data[1], x_err[0], x_err[1]) ]
     areas = read_areas(x_file)
     if areas:
         areas = np.array([areas[x] for x in finalkeys])
-        mpl.scatter(matchx, ally, marker='.')
-        mpl.scatter(allx, matchy, marker='.')
-        mpl.scatter(data[0],data[1], marker='o', s=(areas/3), c=areas, zorder=999, cmap=mpl.cm.Greys)
-        mpl.colorbar()
+        mpl.plot(matchx, ally, '.', c=light, lw=0.,zorder=1)
+        mpl.plot(allx, matchy, '.', c=mediumlight, lw=0.,zorder=1)
+        pd=zip(data[0],data[1],areas)
+        pdl = [x for x in pd if x[2] > 100 ]
+        lx=[x[0] for x in pdl ] 
+        ly=[x[1] for x in pdl ] 
+        pds = [x  for x in pd if x[2] <= 100]
+        sx=[x[0] for x in pds ] 
+        sy=[x[1] for x in pds ] 
+        mpl.scatter(sx,sy, marker='o', s=10,  zorder=999, c=dark)
+        mpl.scatter(lx,ly, marker='o', s=50,  zorder=999, c=dark)
+#        mpl.colorbar()
     else:
-        mpl.scatter(data[0],data[1], marker='o', c='b', zorder=9999)
-    mpl.xlabel("observed snowline")
-    mpl.ylabel("modeled ELA")
+        mpl.scatter(data[0],data[1], marker='o', c=dark, zorder=999)
+    mpl.xlabel("Observed ELA (m a.s.l.)")
+    mpl.ylabel("Modeled ELA (m a.s.l.)")
 
-    yl=mpl.ylim()
+    mpl.xlim([400, 2100])
+    mpl.ylim([400, 2100])
     xymax=max([mpl.xlim()[1],mpl.ylim()[1]])
     xymin=min([mpl.xlim()[0],mpl.ylim()[0]])
-    mpl.plot([0,xymax], [0,xymax])
+    mpl.plot([0,xymax], [0,xymax], color='0.8',zorder=-1)
     mpl.xlim([xymin,xymax])
     mpl.ylim([xymin,xymax])
     slope, intercept, r_value, p_value, std_err = linregress(data[0],data[1])
-    mpl.plot([xymin,xymax],[xymin * slope + intercept , xymax * slope + intercept], label="%2f x + %2f, r=%2f"%(slope, intercept, r_value))
-    mpl.legend()
+    mpl.plot([xymin,xymax],[xymin * slope + intercept , xymax * slope + intercept], label="y = %.2f x + %.0f m, r=%.2f"%(slope, intercept, r_value),c=dark)
+    legend = mpl.legend(loc=2, frameon=1)
+    frame = legend.get_frame()
+    frame.set_facecolor('white')
+    frame.set_edgecolor('white')
+
     if options.title:
-        mpl.title(options.title)
+        mpl.title(options.title,fontdict={"family": "monospace", "size":10})
+    mpl.tight_layout(pad=0.4)
     if options.outfile:
         fig.savefig(options.outfile)
-    mpl.show()
+    else:
+        mpl.show()
     return fig
 
 
@@ -135,6 +168,8 @@ def parse_args():
                     help='''Be verbose''', action="store_true")
   parser.add_argument("-o", "--outfile", help='''Output file''', default=None)
   parser.add_argument("-t", "--title", help='''Plot title''', default=None)
+  parser.add_argument("--white_grid", 
+                    help='''white grid''', action = "store_true")
   options = parser.parse_args()
   return options
 
@@ -145,6 +180,8 @@ def main():
         print (dir(options))
     for x in options.FILES:
         read_areas(x)
+    if options.white_grid:
+        sns.set(style="ticks")
     fig=scatter_elas(options.FILES[0], options.FILES[1], options)
     
 if __name__ == "__main__":
