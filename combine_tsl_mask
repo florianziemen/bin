@@ -13,11 +13,11 @@ import shutil
 
 import scatter_elas
 
-elas, means, errpos, errneg = scatter_elas.read_file("all_tsl.dat")
+elas, means, errpos, errneg = scatter_elas.read_file("tsl_F0065.dat")
 
-shutil.copyfile("Juneau_Icefield.nc", "tsl.nc")
+shutil.copyfile("Juneau_Icefield.nc", "tsl_F0065.nc")
 
-tsl=Dataset("tsl.nc", "r+")
+tsl=Dataset("tsl_F0065.nc", "r+")
 
 var=tsl.variables["output_mask"]
 
