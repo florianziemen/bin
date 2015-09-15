@@ -131,23 +131,25 @@ else:
   fu.cerr("GOT NEITHER years nor time_file. Should not have got this far in the code. WHATEVER I'll call it a day...'")
   sys.exit(666)
 
-pism_args.append("-o " + args.output)
+pism_args.append("-o " + output_start+".nc")
     
 
 if "max_dt" in config.keys():
     pism_args.append(" -max_dt " + config["max_dt"])
 
-    
-atmosphere = " -atmosphere given,lapse_rate "  + \
+if ("atmosphere_lapse_rate_file" in config.keys()
+    and "atmosphere_given_file" in config.keys()
+    and "temp_lapse_rate" in config.keys()):
+    atmosphere = " -atmosphere given,lapse_rate "  + \
              " -atmosphere_given_file "        + config["atmosphere_given_file"] + \
              " -atmosphere_lapse_rate_file " + config["atmosphere_lapse_rate_file"] + \
              " -temp_lapse_rate " + config["temp_lapse_rate"] 
-pism_args.append(atmosphere)
+    pism_args.append(atmosphere)
 
 if "atmosphere_given_period" in config.keys() :
     pism_args.append("-atmosphere_given_period " + config["atmosphere_given_period"])
 
-surface = "pdd"
+surface=config["surface"]
 if "force_to_thk" in config.keys():
     surface = surface + ",forcing"
     pism_args.append(" -force_to_thk " + config["force_to_thk"])
@@ -184,29 +186,32 @@ if "config_override" in config.keys():
 # test if there is a newer cdl. Die and issue warning, if so.
 
     
+if ("bed_smoother_range" in config.keys()):
+    pism_args.append("-bed_smoother_range " + config["bed_smoother_range"])
 
-pism_args.append("-bed_smoother_range " + config["bed_smoother_range"])
+if ("extra_times" in config.keys()):
+    pism_args.append("-extra_times " + config["extra_times"])
+    pism_args.append("-extra_vars " + config["extra_vars"])
+    pism_args.append("-extra_file " + output_start + "_extra")
+    pism_args.append("-extra_split")
 
-pism_args.append("-extra_times " + config["extra_times"])
-pism_args.append("-extra_vars " + config["extra_vars"])
-pism_args.append("-extra_file " + output_start + "_extra")
-pism_args.append("-extra_split")
+if ("ts_times" in config.keys()):
+    pism_args.append(" -ts_times " + config["ts_times"])
+    pism_args.append(" -ts_vars " + config["ts_vars"])
+    pism_args.append("-ts_file " + output_start + "_ts.nc")
 
-pism_args.append(" -ts_times " + config["ts_times"])
-pism_args.append(" -ts_vars " + config["ts_vars"])
-pism_args.append("-ts_file " + output_start + "_ts.nc")
-
-print config["direct"]
+if "direct" in config.keys():
+    print config["direct"]
 
 if "pass_arguments" in config.keys(): # anything - coming from the command line
     if "direct" in config.keys():
         config["direct"].append(config["pass_arguments"])
     else:
         config["direct"] = [config["pass_arguments"]]
-
-print config["direct"]
+if ("direct" in config.keys()):
+    print config["direct"]
+    pism_args.append(" ".join(config["direct"]))
 # pism_args.append(config["skip"])
-pism_args.append(" ".join(config["direct"]))
 
 # if args.pass_arguments:
 #     pism_args.append(args.pass_arguments)
