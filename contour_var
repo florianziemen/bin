@@ -4,7 +4,6 @@
 from netCDF4 import Dataset as nc
 import numpy as np
 import matplotlib.pylab as mpl
-import seaborn as sns
 import flo_utils as fu
 
 from argparse import ArgumentParser
@@ -15,18 +14,44 @@ from argparse import ArgumentParser
 # import subprocess
 # import sys
 
+try:
+        import seaborn as sns
+        seaborn = True
+except ImportError:
+        seaborn = False
 
-def hovmoeller(var, filename, options):
+
+
+def contour_var(var, filename, options):
         f = nc(filename)
         vars = f.variables
         var = vars[var]
-        m = np.ma.masked_array(np.squeeze(var),np.squeeze(var[:].mask))
+        if type(var[:]) is np.ma.masked_array:
+                m = np.ma.masked_array(np.squeeze(var),np.squeeze(var[:].mask))
+        else :
+                m = np.squeeze(var)
         dims = var.dimensions
         rd = [vars[x] for x in dims if len (vars[x]) > 1 ]
-        print rd
+        if options.transpose: # python has a very strange understanding of order -- we'll fix that
+                rd=rd[::-1]
+        else:
+                m=m.transpose()
         fig = mpl.figure()
-        cmap = sns.cubehelix_palette(as_cmap=True, start=.5)
-        mpl.contourf(rd[0][:], rd[1][:], m.transpose(), cmap=cmap)
+        try:
+                cmap = sns.cubehelix_palette(as_cmap=True, start=.5)
+        except:
+                cmap = None
+        if not options.levels is None:
+                levels = [float(x) for x in options.levels[0].split(',')]
+#                levels = [m.min()] + levels + [m.max()]
+                if (len(levels) == 1 ):
+                        levels = int(levels[0])
+        else:
+                levels = None
+        if (levels):
+                mpl.contourf(rd[0][:], rd[1][:], m, levels, cmap=cmap)
+        else:
+                mpl.contourf(rd[0][:], rd[1][:], m, cmap=cmap)
         if "xlim" in options:
             mpl.xlim(options.xlim)
         if "ylim" in options:
@@ -40,7 +65,7 @@ def parse_args():
     '''Parses the command line arguments'''
 
     parser = ArgumentParser()
-    parser.description = "Draw a Hovmoeller plot"
+    parser.description = "Draw a contour plot"
     parser.add_argument("var")
     parser.add_argument("filename")
     parser.add_argument("-v", "--verbose",
@@ -55,6 +80,10 @@ def parse_args():
                         help='''set x limits (decreasing flips axis)''', nargs=2, type=float)
     parser.add_argument("--ylim",
                         help='''set y limits (decreasing flips axis)''', nargs=2, type=float)
+    parser.add_argument("--levels",
+                        help='''set levels for plotting. n = n levels, 1,2,3 = draw levels at 1, 2, and 3''', nargs=1)
+    parser.add_argument("-t", "--transpose",
+                        help='''transpose field (flip axis)''', action="store_true")
     # parser.add_argument("-t", "--title",
     #                     help='''plot title''', default=None)
 
@@ -67,7 +96,7 @@ def parse_args():
 def main():
     '''Analyze the run. Call all that's needed.'''
     options = parse_args()
-    hovmoeller(options.var, options.filename, options)
+    contour_var(options.var, options.filename, options)
 
 if __name__ == "__main__":
     main()
