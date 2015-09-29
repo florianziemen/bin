@@ -1,0 +1,73 @@
+#!/usr/bin/env python
+
+
+from netCDF4 import Dataset as nc
+import numpy as np
+import matplotlib.pylab as mpl
+import seaborn as sns
+import flo_utils as fu
+
+from argparse import ArgumentParser
+# import json
+# import os
+# import shlex
+# import shutil
+# import subprocess
+# import sys
+
+
+def hovmoeller(var, filename, options):
+        f = nc(filename)
+        vars = f.variables
+        var = vars[var]
+        m = np.ma.masked_array(np.squeeze(var),np.squeeze(var[:].mask))
+        dims = var.dimensions
+        rd = [vars[x] for x in dims if len (vars[x]) > 1 ]
+        print rd
+        fig = mpl.figure()
+        cmap = sns.cubehelix_palette(as_cmap=True, start=.5)
+        mpl.contourf(rd[0][:], rd[1][:], m.transpose(), cmap=cmap)
+        if "xlim" in options:
+            mpl.xlim(options.xlim)
+        if "ylim" in options:
+            mpl.ylim(options.ylim)
+        mpl.colorbar()
+        mpl.show()
+
+
+
+def parse_args():
+    '''Parses the command line arguments'''
+
+    parser = ArgumentParser()
+    parser.description = "Draw a Hovmoeller plot"
+    parser.add_argument("var")
+    parser.add_argument("filename")
+    parser.add_argument("-v", "--verbose",
+                        help='''Be verbose''', action="store_true")
+    # parser.add_argument("-o", "--output_dir",
+    #                     help='''output directory to save images to''', default=None)
+    # parser.add_argument("-r", "--reference",
+    #                     help='''reference run''', default=None)
+    # parser.add_argument("-a", "--TSA",
+    #                     help='''Add time series for runs''', default=None)
+    parser.add_argument("--xlim",
+                        help='''set x limits (decreasing flips axis)''', nargs=2, type=float)
+    parser.add_argument("--ylim",
+                        help='''set y limits (decreasing flips axis)''', nargs=2, type=float)
+    # parser.add_argument("-t", "--title",
+    #                     help='''plot title''', default=None)
+
+    options = parser.parse_args()
+    if options.verbose:
+        fu.debug=True
+    return options
+
+
+def main():
+    '''Analyze the run. Call all that's needed.'''
+    options = parse_args()
+    hovmoeller(options.var, options.filename, options)
+
+if __name__ == "__main__":
+    main()
