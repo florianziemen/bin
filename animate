@@ -10,5 +10,5 @@ done
 
 
 
-ffmpeg -sameq -r 10  -i for_movie_%06d.png movie.flv 
+ffmpeg -r 10  -i for_movie_%06d.png -qscale 0 movie.flv 
 

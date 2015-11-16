@@ -1,0 +1,10 @@
+#!/bin/bash
+
+set -e
+
+pdfjoin 047_WFL_GIN.pdf	059_WFL_ARC.pdf 071_WFL_LAB.pdf 083_WFL_NAT.pdf 095_WFL_ATL.pdf 107_WFL_SO.pdf 119_WFL_PAC.pdf 143_WFL_GLO.pdf 	 --outfile WFL.pdf
+pdfnup --nup 1x8 WFL.pdf
+pdfcrop WFL-nup.pdf
+rm WFL-nup.pdf
+mv WFL-nup-crop.pdf WFL.pdf
+open WFL.pdf &
