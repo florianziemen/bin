@@ -59,6 +59,7 @@ def average_esm(options):
     infiles = [ re.sub("YYYY", str(year), template) for year in years ]
     catfile = re.sub("YYYY0101_YYYY123[01]", "%d-%d"%(options.startyear,options.endyear), template)
     catfile = re.sub("YYYY", "%d-%d"%(options.startyear,options.endyear), catfile)
+    catfile = re.sub("outdata/.*/", "means/", catfile)
     catfile = options.prepend + catfile
     lmean = re.sub("_mm_", "_lm_", catfile)
     lmean = re.sub(".grb", ".nc", lmean)
@@ -68,6 +69,15 @@ def average_esm(options):
     seasons_rough = [["-timmean", "-selmon,%s"%months, lmean ] for months in ("12,1,2", "3,4,5", "6,7,8", "9,10,11") ]
     seasons = seasons_rough[0]+seasons_rough[1]+seasons_rough[2]+seasons_rough[3]
 
+    code_files={"echam6_accw_YYYY.grb" : "echam6_accw.codes",
+                "ham6_ATM_mm_YYYY.grb" : "echam6_echam.codes",
+                "ham6_BOT_mm_YYYY.grb" : "echam6_echam.codes",
+                "ham6_co2_mm_YYYY.grb" : "echam6_co2.codes",
+                "h_jsbach_mm_YYYY.grb" : "jsbach_jsbach.codes",
+                "ach_land_mm_YYYY.grb" : "jsbach_land.codes",
+                "ach_surf_mm_YYYY.grb" : "jsbach_surf.codes",
+                "bach_veg_mm_YYYY.grb" : "jsbach_veg.codes",
+                "ch_yasso_mm_YYYY.grb" : "jsbach_yasso.codes"}
     rm_if_exist([catfile,smean,lmean,tmean, smean])
     mkdir(os.path.dirname(catfile))
     sp.check_call([ "cdo", "--silent", "-cat" ] +  infiles + [catfile])
@@ -76,7 +86,8 @@ def average_esm(options):
     print ("Going to create ", tmean, file=sys.stderr)
     if (pat in patterns_mm) :
       if pat in echam_mm + jsbach_mm:
-        sp.check_call([ "cdo", "--silent", "-f", "nc", "-t", "echam5", "-lmean", catfile, lmean])
+        codefile = "%s/log/%s_%s"%(run, run,code_files[pat[-20:]])
+        sp.check_call([ "cdo", "--silent", "-f", "nc", "-setpartab,"+codefile, "-lmean", catfile, lmean])
       else:
         sp.check_call([ "cdo", "--silent",  "-lmean", catfile, lmean])
       if ("_lm_" in lmean):
