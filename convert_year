@@ -1,0 +1,52 @@
+#!/usr/bin/env python
+
+import json
+# import sys
+# import flo_utils as fu
+from argparse import ArgumentParser
+# import re
+# import threading
+
+from os.path import expanduser
+home = expanduser("~")
+offsets = json.load(open(home+"/MPI/offsets.json"))
+
+
+def ctr (run, year):
+    offset = offsets["offsets"].get(run,0) / offsets["per_sync_scaling"].get(run,1)
+    scaling = offsets["timeser_scaling"].get(run,1) * offsets["per_sync_scaling"].get(run,1)
+    return (year - offset) * scaling
+
+def rtc (run, year):
+    offset = offsets["offsets"].get(run,0) / offsets["per_sync_scaling"].get(run,1)
+    scaling = offsets["timeser_scaling"].get(run,1) * offsets["per_sync_scaling"].get(run,1)
+    return year / scaling + offset
+
+def parse_args():
+    parser = ArgumentParser()
+    parser.description = "A script to plot a variable in a netCDF file over a GeoTiff. Uses GDAL python bindings, Proj4, and Basemap. Script is fine-tuned for whole Greenland plots, but can be adapted for other needs."
+    parser.add_argument("RUN",)
+    parser.add_argument("YEAR", type=float)
+    parser.add_argument("-r", "--reverse", help='''Convert from calendar year to model year''', action="store_true")
+
+    options = parser.parse_args()
+    return options
+
+
+def main():
+    '''Analyze the run. Call all that's needed.'''
+    options = parse_args()
+    if not options.reverse:
+        print "converting model year %d from run %s to real year %d"%(options.YEAR, options.RUN, ctr (options.RUN, options.YEAR))
+        
+    else:
+        print "converting real  year %d to run %s's model year %d"%(options.YEAR, options.RUN, rtc (options.RUN, options.YEAR))
+        
+
+if __name__ == "__main__":
+    main()
+
+
+                                                            
+
+
