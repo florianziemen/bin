@@ -1,0 +1,74 @@
+#!/usr/bin/env python
+
+from  __future__ import print_function
+from argparse import ArgumentParser
+import subprocess as sp
+import numpy as np
+import re
+import sys
+import os
+import json
+import flo_utils as fu
+
+ncea = "ncea"
+
+js_config = json.load(open(os.path.expanduser('~')+"/MPI/offsets.json"))
+
+def average_files(infiles, outfile):
+  print ([ncea] + infiles + [outfile])
+  fu.qo ([ncea] + infiles + [outfile])
+
+def generate_atm_name(run_id, file_years):
+  return "%s/ECHAM/OUTPUT/%sATM_%slm.nc"%(run_id, run_id, file_years)
+
+def generate_bot_name(run_id, file_years):
+  return "%s/ECHAM/OUTPUT/%sBOT_%slm.nc"%(run_id, run_id, file_years)
+
+def generate_mpiom_name(run_id, file_years):
+  return "%s/MPIOM/OUTPUT/%s_mpiom_monthly_%slm.nc"%(run_id,run_id, file_years)
+
+def generate_mpiom_surf_name(run_id, file_years):
+  return "%s/MPIOM/OUTPUT/%s_mpiom_monthly_%ssurflm.nc"%(run_id,run_id, file_years)
+
+
+
+def average_he(options):
+  events = options.events
+  experiment_ids = [ x[0:3] for x in events ]
+  print (experiment_ids)
+  event_configs = {x : js_config["events"][x] for x in events }
+  allfiles = { eid : event_configs[eid]["before"] + event_configs[eid]["during"] + event_configs[eid]["after"] for eid in events}
+  print(allfiles)
+  fu.mkdir(options.output)
+  types=["atm", "bot", "mpiom", "mpiom_surf"]
+  types=["atm", "bot"]
+#   types=["mpiom", "mpiom_surf"]
+  name_generators={"atm": generate_atm_name, "bot": generate_bot_name, "mpiom": generate_mpiom_name, "mpiom_surf": generate_mpiom_surf_name}
+
+  stages = len (allfiles[allfiles.keys()[0]])
+  for stage in xrange (stages):
+    for ctype in types:
+      ng = name_generators[ctype]
+      infiles = [ ng(run, allfiles[event][stage]) for (run, event) in zip (experiment_ids, events) ]
+      average_files(infiles, "%s/%s_%02d.nc"%(options.output, ctype,  stage))
+
+
+def parse_args():
+  parser = ArgumentParser()
+  parser.description = "Average HE data"
+  parser.add_argument ("events", help='First year to use in average', nargs='*')
+  parser.add_argument ("-o", "--output", help='where to dump the output')
+  parser.add_argument("-v", "--verbose",
+                      help='''Be verbose''', action="store_true")
+
+  options = parser.parse_args()
+  return options
+
+
+def main():
+  options = parse_args()
+  if options.verbose:
+    print (dir(options))
+  average_he(options)
+if __name__ == "__main__":
+  main()
