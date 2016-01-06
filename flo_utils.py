@@ -10,7 +10,7 @@ import re
 import numpy as np
 import netCDF4 as nc
 import collections
-from  local_conf import * 
+from  local_conf import *
 from os.path import expanduser
 home = expanduser("~")
 
@@ -31,6 +31,12 @@ def gen_names(start, end):
     return names
 
 
+def save_cpt(p, name):
+    of = open(home+"/.NCL/colormaps/%s.rgb"%name, 'w')
+    of.write( "n_colors=%d\n"%len(p))
+    of.write( "# r g b \n")
+    of.write("\n".join([ " ".join([str (y) for y in x ])  for x in p ]))
+    of.close()
 
 def get_tornado_dir(floname):
     return my_tornado_run_dir + "/%s"%(floname)
@@ -54,7 +60,7 @@ def query (question, stdin_string=False):
 
         debug_cerr("FU: trying " + " ".join(question))
     a = sp.Popen(question, stdin = sp.PIPE, stdout = sp.PIPE, stderr = sp.PIPE)
-    
+
     if stdin_string:
         (so, se) = a.communicate(stdin_string)
     else:
@@ -109,7 +115,7 @@ def guess_name_from_dir():
         flo_name = "flo00" + currdir[-2:]
         debug_cerr( "FU: using flo_name %s"%flo_name)
     return flo_name
-   
+
 
 
 def goto_dir(directory):
@@ -132,7 +138,7 @@ def check_files(filenames, fatal = True):
                 sys.exit("FU: file '" + filename + "' does not exist! Exiting!")
             else:
                 cerr("FU: file '" + filename + "' does not exist! Continuing anyway since not considered fatal.")
-        
+
     return ok
 
 
@@ -153,7 +159,7 @@ def get_tmp_name(floname, param):
     return scratch + "/tmp/" + floname + "/" + param
 
 def get_meanplot_dir(floname):
-    return work + "/means/" + floname 
+    return work + "/means/" + floname
 
 
 
@@ -186,7 +192,7 @@ cache_dirs=[]
 def pushd(directory = False):
     global cache_dirs
     if (not directory):
-        directory = os.getcwd() 
+        directory = os.getcwd()
     debug_cerr( "FU: pushing directory %s"%directory)
     cache_dirs.append (directory)
 
@@ -201,8 +207,8 @@ def popd():
 def parse_years (arg):
     years=[]
     single_year = re.compile('-?[0-9]*')
-    year_range  = re.compile('(-?[0-9]*):(-?[0-9]*)') 
-    year_stride  = re.compile('(-?[0-9]*):(-?[0-9]*):(-?[0-9]*)') 
+    year_range  = re.compile('(-?[0-9]*):(-?[0-9]*)')
+    year_stride  = re.compile('(-?[0-9]*):(-?[0-9]*):(-?[0-9]*)')
     sy =  single_year.match(arg)
     my = year_range.match (arg)
     mys = year_stride.match (arg)
@@ -276,7 +282,7 @@ def corr(fields_file, fields_var, ts_file, ts_var, opts={}):
         cdo_opts = ""
     qo("cdo -f ext -b 64 copy %s -selvar,%s %s fort.50"%(cdo_opts, fields_var, fields_file))
     qo("cdo -f ext -b 64 copy %s -selvar,%s %s fort.51"%(cdo_opts, ts_var, ts_file))
-    if ("max_lag" in opts.keys()) and ( "increment" in opts.keys() ): 
+    if ("max_lag" in opts.keys()) and ( "increment" in opts.keys() ):
         qo("%s/lagreg_uwe"%(my_bin), "%s %s"%(opts["max_lag"], opts["increment"]))
     else:
         qo("%s/lagreg_-200_1_200"%(my_bin))
@@ -285,7 +291,3 @@ def corr(fields_file, fields_var, ts_file, ts_var, opts={}):
     qo(command)
     label= "%s from %s as function of %s from_%s, options = %s"%(fields_var, fields_file,ts_var,ts_file, str(opts))
     qo(["ncatted",  "-a" , "generated_by,global,o,c,"+label , "results.nc"])
-
-
-
-
