@@ -10,7 +10,7 @@ import re
 import numpy as np
 import netCDF4 as nc
 import collections
-from  local_conf import *
+from local_conf import *
 from os.path import expanduser
 home = expanduser("~")
 
@@ -23,6 +23,22 @@ def cerr(*objs):
 def debug_cerr(*objs):
   if debug:
     print( *objs, file=sys.stderr)
+
+def check_dict(keys, dictionary):
+  found_all = True
+  missing = []
+  dc = dictionary.keys()
+  for key in keys:
+    if(not key in dc):
+      found_all = False
+      missing.append(key)
+      return (found_all, missing)
+
+def year_to_num(year, cal):
+  if cal:
+    return nc.date2num(datetime (int(year),6,30), units="days since 0001-01-01 00:00:00", calendar=cal)
+  else:
+    return year
 
 def gen_names(start, end):
   nums=[int(start)] + range(int(start)+ 50 - (int(start)%50),int(end)+2,50)
