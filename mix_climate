@@ -1,0 +1,69 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+from argparse import ArgumentParser
+
+import flo_utils as fu
+import json
+import netCDF4 as nc
+import numpy as np
+import os
+import re
+import subprocess as sp
+import sys
+
+
+
+def combine_files (factors, output):
+  arguments = ["cdo"]
+  for (n, filename) in enumerate(factors.keys()):
+    if (n < len(factors.keys())-1):
+      arguments = arguments + ["-add", "-mulc,%s"%(factors[filename]), filename+".nc" ]
+    else:
+      arguments = arguments + ["-mulc,%s"%(factors[filename]), filename+".nc" ]
+  arguments.append (output)
+  print (fu.qo (arguments))
+
+
+
+def parse_args():
+  parser = ArgumentParser()
+  parser.description = "Combine climate files to create intermediate climate states"
+#  parser.add_argument ("startyear", help='First year to use in average',  type=int)
+#  parser.add_argument ("endyear", help='Last year to use in average',  type=int)
+  #  parser.add_argument ("run", help='run to average')
+  parser.add_argument("-c", "--config",
+                      help='''Config file (required)''', required = True)
+  parser.add_argument("-y", "--year",
+                      help='''year to use for obtaining coefficients''', type=float, required = True)
+  parser.add_argument("-o", "--output",
+                      help='''output file name''', required=True)
+
+  parser.add_argument("-v", "--verbose",
+                    help='''Be verbose''', action="store_true")
+
+  options = parser.parse_args()
+  if options.verbose:
+      fu.cerr(dir(options))
+  return options
+
+def get_files_and_factors(options):
+  ts_file = nc.Dataset(options.config)
+  ts_vars = [ x for x in ts_file.variables.keys() if x not in ["time"]]
+  ts_data = {ts: ts_file.variables[ts] for ts in ts_vars}
+  time = ts_file.variables["time"]
+  print (time[:])
+  print (ts_vars)
+  print ([ts_data[x][:].shape for x in ts_vars])
+  factors = {ts: np.interp(options.year, time[:], ts_data[ts][:]) for ts in ts_vars}
+  return (factors) # dictionary filename : factor
+
+
+
+def main():
+  options = parse_args()
+  factors = get_files_and_factors(options)
+  combine_files(factors, options.output)
+
+if __name__ == "__main__":
+    main()
