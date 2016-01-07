@@ -1,0 +1,41 @@
+#!/usr/bin/env python
+import numpy as np
+import sys
+import netCDF4 as nc
+import time
+import re
+
+
+def convert (filename):
+  data = np.array([ np.genfromtxt(filename, names=True)])
+
+  outfilename = filename + ".nc"
+  f = nc.Dataset(outfilename, 'w', format="NETCDF3")
+  f.history = 'Created ' + time.ctime(time.time())
+  #    f = Nio.open_file(outfilename,"w",opt,"created "+datetime.datetime.now().isoformat() + " by  findmax ")
+  my_time = f.createDimension('time', None)
+  vars=data.dtype.names
+  for (num,var) in enumerate(vars):
+    v = f.createVariable(var,'f4',('time',))
+    #    f.variables['moc_glo'].units= "m^3/s"
+#  f.variables['time'].units = 'years since 1-1-1 0:0:0'
+#   f.variables['time'].calendar="proleptic_gregorian "
+
+
+  ld=len(data['time'][0])
+
+  for var in vars:
+    print var
+    dt=data[var].astype('float32')
+    print dt.shape
+    f.variables[var][0:ld] = dt[0]
+
+
+
+def main(args):
+  print "in main"
+  convert (args[0])
+
+
+if __name__ == "__main__":
+  main(sys.argv[1:])
