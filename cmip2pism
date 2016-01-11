@@ -29,6 +29,10 @@ cdo -remapbil,${target} -setname,air_temp -selvar,tas ${tas} ${tempdir}/tas.nc
 cdo -remapbil,${target} -setname,precipitation -setunit,'m s-1' -divc,910 -selvar,pr ${pr} ${tempdir}/pr.nc
 cdo -remapbil,${target} ${orog} ${tempdir}/orog.nc
 
+if [ -f ${outfile} ] ; then 
+    mv ${outfile} ${outfile}.bak
+fi
+
 cdo -merge ${tempdir}/tas.nc  ${tempdir}/pr.nc  ${tempdir}/orog.nc ${outfile}
 ncks -Av x,y ${target} ${outfile}
 

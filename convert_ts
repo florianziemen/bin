@@ -10,7 +10,7 @@ def convert (filename):
   data = np.array([ np.genfromtxt(filename, names=True)])
 
   outfilename = filename + ".nc"
-  f = nc.Dataset(outfilename, 'w', format="NETCDF3")
+  f = nc.Dataset(outfilename, 'w', format="NETCDF3_CLASSIC")
   f.history = 'Created ' + time.ctime(time.time())
   #    f = Nio.open_file(outfilename,"w",opt,"created "+datetime.datetime.now().isoformat() + " by  findmax ")
   my_time = f.createDimension('time', None)

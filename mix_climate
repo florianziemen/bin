@@ -14,16 +14,33 @@ import sys
 
 
 
-def combine_files (factors, output):
-  arguments = ["cdo"]
-  for (n, filename) in enumerate(factors.keys()):
-    if (n < len(factors.keys())-1):
-      arguments = arguments + ["-add", "-mulc,%s"%(factors[filename]), filename+".nc" ]
-    else:
-      arguments = arguments + ["-mulc,%s"%(factors[filename]), filename+".nc" ]
-  arguments.append (output)
-  print (fu.qo (arguments))
+def combine_files (factors, output, options):
+  config = json.load(open(options.config))
+  filesets = config["filesets"]
+  varnames = filesets.values()[0].keys()
+  for varname in varnames:
+    arguments = ["cdo"]
+    for (n, fileset) in enumerate(factors.keys()):
+      if (n < len(factors.keys())-1):
+        arguments = arguments + ["-add", "-mulc,%s"%(factors[fileset]), filesets[fileset][varname] ]
+      else:
+        arguments = arguments + ["-mulc,%s"%(factors[fileset]), filesets[fileset][varname] ]
+    arguments.append ("%s_%s.nc"%(options.output, varname))
+    fu.cerr (fu.qo (arguments))
 
+
+
+
+def get_files_and_factors(options):
+  config = json.load(open(options.config))
+  ts_file = nc.Dataset(config["ts_file"])
+  ts_vars = [ x for x in ts_file.variables.keys() if x not in ["time"]]
+  ts_data = {ts: ts_file.variables[ts] for ts in ts_vars}
+  time = ts_file.variables["time"]
+  factors = {ts: np.interp(options.year, time[:], ts_data[ts][:]) for ts in ts_vars}
+  fu.cerr ("mixing ratios:")
+  fu.cerr ("\n".join([ "%s : %s"%(k, factors[k]) for k in factors.keys()]))
+  return (factors) # dictionary filename : factor
 
 
 def parse_args():
@@ -47,23 +64,10 @@ def parse_args():
       fu.cerr(dir(options))
   return options
 
-def get_files_and_factors(options):
-  ts_file = nc.Dataset(options.config)
-  ts_vars = [ x for x in ts_file.variables.keys() if x not in ["time"]]
-  ts_data = {ts: ts_file.variables[ts] for ts in ts_vars}
-  time = ts_file.variables["time"]
-  print (time[:])
-  print (ts_vars)
-  print ([ts_data[x][:].shape for x in ts_vars])
-  factors = {ts: np.interp(options.year, time[:], ts_data[ts][:]) for ts in ts_vars}
-  return (factors) # dictionary filename : factor
-
-
-
 def main():
   options = parse_args()
   factors = get_files_and_factors(options)
-  combine_files(factors, options.output)
+  combine_files(factors, options.output, options)
 
 if __name__ == "__main__":
     main()
