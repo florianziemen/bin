@@ -11,7 +11,7 @@ parser = ArgumentParser()
 parser.description = "A script to plot a variable in a netCDF file over a GeoTiff. Uses GDAL python bindings, Proj4, and Basemap. Script is fine-tuned for whole Greenland plots, but can be adapted for other needs."
 parser.add_argument("FILE", nargs='*')
 parser.add_argument("-v", "--variables", dest="varname",
-                  help='''Variables to plot, default = 'csurf,usurf,thk,cbase,diffusivity,topg.'.''', default="csurf,usurf,thk,cbase,diffusivity,topg")
+                  help='''Variables to plot, default = 'velsurf_mag,usurf,thk,velbase_mag,diffusivity,topg.'.''', default="velsurf_mag,usurf,thk,velbase_mag,diffusivity,topg")
 parser.add_argument("-n", "--noshow", dest="noshow", action="store_true",
                   help='''do not open eog on results''', default=False)
 parser.add_argument("-l", "--level",  default= None,
@@ -20,9 +20,9 @@ parser.add_argument("--coords",  default= None,
                   help='''coordinate file''')
 parser.add_argument("--geotiff_file", dest="geotiff_filename",
                   help="GeoTIFF filename", default=None)
-parser.add_argument("-e", "--evince",  
+parser.add_argument("-e", "--evince",
                   help='''Show in evince''', action="store_true")
-parser.add_argument("-s", "--sub",  
+parser.add_argument("-s", "--sub",
                   help='''File to substract''', default=None)
 parser.add_argument("--mask_file", dest="mask_file",
                   help="Mask filename", default=None)
@@ -39,15 +39,15 @@ parser.add_argument("--numcol", dest="numcol", type=int,
                   help="number of color steps", default=None)
 parser.add_argument("--centergray", dest="centergray",
                   help='''Set center of color map to gray''', action="store_true")
-parser.add_argument("--overlay", dest="overlay", 
+parser.add_argument("--overlay", dest="overlay",
                   help="overlay variable", default=None)
-parser.add_argument("--overlay_file", dest="overlay_file", 
+parser.add_argument("--overlay_file", dest="overlay_file",
                   help="overlay file", default=None)
 parser.add_argument("--overlay_levels",dest="overlay_levels",
                   help="overlay levels", default=None)
-parser.add_argument("--colormap", dest="colormap", 
+parser.add_argument("--colormap", dest="colormap",
                   help="colormap", default=None)
-parser.add_argument("--title", dest="title", 
+parser.add_argument("--title", dest="title",
                   help="inner plot title", default=None)
 parser.add_argument("--colorbar_label", help="use colorbar label", action = "store_true")
 
@@ -61,6 +61,8 @@ parser.add_argument("--scale", dest="scale_factor", type=float, default=None,
                   help="multiply data with scaling factor when plotting")
 parser.add_argument("--outline_thk", help="draw an outline at thk=10m", action="store_true")
 parser.add_argument("--overlay_precip_scaling", help="draw JIF precip scaling as overlay", default=None)
+parser.add_argument("-p", "--pass", dest="pass_args",
+                  help="pass argument", default=None)
 
 options = parser.parse_args()
 variables = (options.varname).split(",")
@@ -71,7 +73,10 @@ filenames = options.FILE
 print filenames
 fu.debug=True
 
-miscopts = " -a -p presentation"   # alaska albers
+# miscopts = " -a "   # alaska albers
+miscopts = " "
+if options.pass_args:
+  miscopts = miscopts + " %s "%options.pass_args
 levelstring = ""
 if options.level:
   miscopts = miscopts + " --level %i"%(options.level)
@@ -104,7 +109,7 @@ if options.mask_threshold:
 
 if options.mask_abs:
     miscopts = miscopts + " --mask_abs "
-    
+
 if options.colorbar_ticks:
     miscopts = miscopts + " --ticks %s"%(options.colorbar_ticks)
 
@@ -136,6 +141,9 @@ if options.coords:
 if options.geotiff_filename:
     miscopts = miscopts + " --geotiff_file %s "%(options.geotiff_filename)
 
+if options.pass_args:
+  miscopts = miscopts + " %s "%options.pass_args
+
 substring = ""
 if options.sub:
   miscopts = miscopts + " --obs_file %s "%(options.sub)
@@ -148,7 +156,7 @@ for variable in variables:
     print "plotting %s from %s"%(variable, filename)
     outfilename = "%s%s_%s%s.pdf"%(variable, levelstring, re.sub("/","_",filename[:-3]), substring)
 
-    cmd = (fu.home+"/Apps/pypismtools/scripts/basemap-plot.py --singlerow -v " + variable + "  %s -o %s %s"%(miscopts, outfilename, filename)) 
+    cmd = (fu.home+"/Apps/pypismtools/scripts/basemap-plot.py --singlerow -v " + variable + "  %s -o %s %s"%(miscopts, outfilename, filename))
     t = threading.Thread(target=fu.qo, args=(cmd,))
     threads.append(t)
     t.start()
@@ -158,11 +166,8 @@ for variable in variables:
 
 #if  options.noshow :
 #  print "scp high1.gi.alaska.edu:t1/{" +  ",".join(outfiles) + "} ."
-#else : 
+#else :
 #  fu.qo(["/usr/bin/eog"] + outfiles )
 [ x.join() for x in threads]
 if options.evince:
     fu.qo(["/usr/bin/evince"] + outfiles)
-
-
-
