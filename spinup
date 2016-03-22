@@ -1,0 +1,101 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+from argparse import ArgumentParser
+
+import flo_utils as fu
+import json
+import netCDF4 as nc
+import numpy as np
+import os
+import re
+# import subprocess as sp
+import sys
+
+def advance_in_time(options):
+  state = json.load(open(options["state"]))
+  last_year = state["last_year"]
+  dt = options["dt"]
+  state["target_year"] = last_year + dt
+  last_run=False
+  if (state["target_year"] >= options["stop_year"]) :
+    last_run = True
+    state["target_year"] = options["stop_year"]
+    dt = state["target_year"] - last_year
+  climate_mix_year = .5 * (last_year + state["target_year"]) # hit the center of the next interval.
+    
+
+
+  
+  # Prepare climate forcing
+  climate_mix_config = options["climate_mix_config"]
+  climate_mix_year_string = "%+07d"%climate_mix_year
+  climate_file_name = re.sub("YYYY",climate_mix_year_string, options["climate_file_template"])
+  cfn = climate_file_name
+  if not fu.check_files([cfn+"_atm.nc", cfn+"_oce.nc"], fatal=False):
+    fu.qo(("mix_climate", "-c", climate_mix_config, "-y", str(climate_mix_year), "-o", climate_file_name))
+    cv = options["variables"]
+    fu.qo(("cmip2pism", cfn+cv["tas"], cfn+cv["pr"], cfn+cv["oro"], cfn+cv["tho"], cfn+cv["sao"], options["remap_target"], cfn+".nc" ))
+
+  # prepare run_pism arguments
+  pns = options["pism_name_start"]
+  pin =  "%s_%+07d/%s_%+07d.nc"%(pns, state["last_year"], pns, state["last_year"])
+  pout = pns + "_%+07d.nc"%state["target_year"]
+
+  rpo = options["run_pism_options"]
+  rpo += ["-a", cfn+"_atm.nc"]  # climate forcing
+  rpo += ["--ocean_th_file", cfn+"_oce.nc"]  # climate forcing
+  rpo += ["-y", str(dt)] # duration
+  rpo += ["--ys", str(last_year)]
+  rpo += ["-i", pin] # input file
+  rpo += ["-o", pout] # output file
+
+  # save config
+  json.dump(state, open(options["state"], "w"), sort_keys=True, indent=2)
+
+  # run pism
+  fu.cerr("calling run_pism with options \n")
+  fu.cerr(rpo)
+  fu.qo(["run_pism"] + rpo )
+
+  # update config
+  state["last_year"] = state["target_year"]
+  json.dump(state, open(options["state"], "w"), sort_keys=True, indent=2)
+
+  # ready for next job
+  fu.cerr("DONE RUNNING PISM")
+  if not last_run:
+    fu.qo(("sbatch", options["jobfile"]))
+    
+
+def parse_args():
+  parser = ArgumentParser()
+  parser.description = "Combine climate files to create intermediate climate states"
+#  parser.add_argument ("startyear", help='First year to use in average',  type=int)
+#  parser.add_argument ("endyear", help='Last year to use in average',  type=int)
+  #  parser.add_argument ("run", help='run to average')
+  parser.add_argument("-c", "--config",
+                      help='''Config file (required)''', required = True)
+  parser.add_argument("-v", "--verbose",
+                    help='''Be verbose''', action="store_true")
+
+  options = parser.parse_args()
+  options_dict = vars(options)
+  config = json.load(open(options.config))
+  for x in options_dict.keys():
+      if not options_dict[x] is  None :
+          config[x] = options_dict[x]
+
+  if options.verbose:
+      fu.cerr(dir(options))
+      fu.cerr(dir(config))
+      fu.set_debug(True)
+      
+  return config
+
+def main():
+  options = parse_args()
+  advance_in_time(options)
+  
+if __name__ == "__main__":
+    main()
