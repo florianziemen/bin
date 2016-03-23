@@ -1,0 +1,71 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+from argparse import ArgumentParser
+
+import flo_utils as fu
+import json
+import netCDF4 as nc
+import numpy as np
+import os
+import re
+# import subprocess as sp
+import sys
+
+def process_files(options):
+  variables = options["variables"]
+  files = options["FILES"]
+  filetimes = np.array([ nc.Dataset(x,"r").variables["time"][0] for x in files ])
+  durations = filetimes[1:]-filetimes[:-1]
+  for n, v in variables.iteritems():
+    outname = "%s_%s_%s_%s_%s.nc"%(n, "GIS", "MPIM", "PISM", options["name"])
+    fu.rm_if_exist([outname])
+    for i,f in enumerate(files[1:]):
+      extras=""
+      if v.get("divtime", False):
+        extras+= " -divc,%s "%durations[i]
+      if v.get("expression", False):
+        extras+= " -expr,%s=%s "%(n, v.get("expression", "NO EXPRESSION! PANIC!"))
+      elif v.get("pism_name", False):
+        extras+= " -setname,%s -selvar,%s "%(n, v.get("pism_name", "NO NAME! PANIC!"))
+      if v.get("rundiff", False):
+        extras = "-sub %s %s %s %s"%(extras, f, extras, files[i])
+      else:
+        extras += " %s "%f
+      command = "/usr/local/bin/cdo -cat %s %s"%(extras, outname)
+      print (command)
+#      fu.qo(command)
+
+
+
+def parse_args():
+  parser = ArgumentParser()
+  parser.description = "Convert PISM output for INITMIP"
+  parser.add_argument ("FILES", nargs="*", help='Files to process')
+  parser.add_argument("-c", "--config",
+                      help='''Config file (required)''', required = True)
+  parser.add_argument("-v", "--verbose",
+                    help='''Be verbose''', action="store_true")
+  parser.add_argument("-n", "--name",
+                    help="experiment name", required = True)
+
+  options = parser.parse_args()
+  options_dict = vars(options)
+  config = json.load(open(options.config))
+  for x in options_dict.keys():
+      if not options_dict[x] is  None :
+          config[x] = options_dict[x]
+
+  if options.verbose:
+      fu.cerr(dir(options))
+      fu.cerr(dir(config))
+      fu.set_debug(True)
+
+  return config
+
+def main():
+  options = parse_args()
+  process_files(options)
+
+if __name__ == "__main__":
+    main()
