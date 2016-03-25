@@ -23,7 +23,7 @@ ncap2 -Ovs 'climatic_mass_balance=0.0016*(usurf-2248)+.1011*(lat-71)' $usurf dsm
 ncap2 -Ovs 'climatic_mass_balance=910*0.072*(climatic_mass_balance>0.072)+910*climatic_mass_balance*(climatic_mass_balance<=0.072)' dsmb_tmp_$usurf dsmb_final_$usurf
 
 
-if [ ! -f dsmb_05B13_ISMIP6_ec.nc] ; then
+if [ ! -f dsmb_05B13_ISMIP6_ec.nc ] ; then
 		ncecat dsmb_05B13_ISMIP6.nc dsmb_05B13_ISMIP6_ec.nc
 		ncrename -d record,time dsmb_05B13_ISMIP6_ec.nc
 fi # similarly, we want a record dimension.
@@ -33,7 +33,7 @@ rm -f  ramp_initmip_dSMB_yx.nc  ramp_dSMB_${usurf} chained_air_temp.nc
 
 for x in $(seq 0 39) ; do
 		cdo -s -cat -add -selvar,climatic_mass_balance $climate -mulc,910 -divc,40 -mulc,$x -selvar,DSMB dsmb_05B13_ISMIP6_ec.nc ramp_inimip_dSMB_yx.nc
-		cdo -s -cat -selvar,air_temp $climate chained_air_temp.nc
+		cdo -s -cat -setname,ice_surface_temp -selvar,air_temp $climate chained_air_temp.nc
 		cdo -s -cat -add -selvar,climatic_mass_balance $climate -divc,40 -mulc,$x -selvar,climatic_mass_balance dsmb_final_$usurf ramp_dSMB_${usurf}
 done
 
