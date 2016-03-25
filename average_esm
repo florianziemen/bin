@@ -31,6 +31,7 @@ def mkdir(target):
 def average_esm(options):
   run=options.run
   years=np.arange(options.startyear,options.endyear+1)
+  oceyears = np.arange(options.startyear,options.endyear+1, options.ocestep)
   echam_mm =    [ "RUNXXXX/outdata/echam6/RUNXXXX_echam6_accw_YYYY.grb",\
                   "RUNXXXX/outdata/echam6/RUNXXXX_echam6_ATM_mm_YYYY.grb",\
                   "RUNXXXX/outdata/echam6/RUNXXXX_echam6_BOT_mm_YYYY.grb",\
@@ -44,23 +45,33 @@ def average_esm(options):
                   "RUNXXXX/outdata/mpiom/RUNXXXX_mpiom_data_3d_mm_YYYY0101_YYYY1231.nc",\
                   "RUNXXXX/outdata/mpiom/RUNXXXX_mpiom_data_moc_mm_YYYY0101_YYYY1231.nc",\
                   "RUNXXXX/outdata/mpiom/RUNXXXX_mpiom_timeser_mm_YYYY0101_YYYY1231.nc" ]
-  hamocc_mm =   [ "RUNXXXX/outdata/hamocc/RUNXXXX_hamocc_data_2d_mm_YYYY0101_YYYY1231.nc",
-                  "RUNXXXX/outdata/hamocc/RUNXXXX_hamocc_data_eu_mm_YYYY0101_YYYY1231.nc" ]
-  patterns_mm = echam_mm + jsbach_mm + mpiom_mm + hamocc_mm 
-  
-  patterns_ym = [ "RUNXXXX/outdata/hamocc/RUNXXXX_hamocc_data_3d_ym_YYYY0101_YYYY1231.nc",\
-                  "RUNXXXX/outdata/hamocc/RUNXXXX_hamocc_data_sedi_ym_YYYY0101_YYYY1231.nc",\
-                  "RUNXXXX/outdata/hamocc/RUNXXXX_hamocc_monitoring_ym_YYYY0101_YYYY1231.nc", \
-                  "RUNXXXX/outdata/mpiom/RUNXXXX_mpiom_monitoring_ym_YYYY0101_YYYY1231.nc" ]
+  mpiom_ym =  [ "RUNXXXX/outdata/mpiom/RUNXXXX_mpiom_monitoring_ym_YYYY0101_YYYY1231.nc" ]
 
+  if options.hamocc:
+      hamocc_mm =   [ "RUNXXXX/outdata/hamocc/RUNXXXX_hamocc_data_2d_mm_YYYY0101_YYYY1231.nc",
+                      "RUNXXXX/outdata/hamocc/RUNXXXX_hamocc_data_eu_mm_YYYY0101_YYYY1231.nc" ]
+      hamocc_ym = [ "RUNXXXX/outdata/hamocc/RUNXXXX_hamocc_data_3d_ym_YYYY0101_YYYY1231.nc" ,\
+                    "RUNXXXX/outdata/hamocc/RUNXXXX_hamocc_data_sedi_ym_YYYY0101_YYYY1231.nc",\
+                    "RUNXXXX/outdata/hamocc/RUNXXXX_hamocc_monitoring_ym_YYYY0101_YYYY1231.nc"]
+  else:
+      hamocc_mm = []
+      hamocc_ym = []
+
+  oce_patterns_mm = mpiom_mm + hamocc_mm 
+  oce_patterns_ym = mpiom_ym + hamocc_ym 
+
+  patterns_mm = echam_mm + jsbach_mm + oce_patterns_mm
+  
   # "hamocc/RUNXXXX_hamocc_co2_YYYY0101_YYYY1231.nc"
-  for pat in patterns_mm + patterns_ym:
+  for pat in patterns_mm + oce_patterns_ym:
     template = re.sub("RUNXXXX", run, pat)
     infiles = [ re.sub("YYYY", str(year), template) for year in years ]
+    if pat in  oce_patterns_mm + oce_patterns_ym:
+            infiles = [ re.sub("YYYY0101_YYYY", "%s0101_%s"%(str(year), str( year+options.ocestep-1 )), template) for year in oceyears ]
     catfile = re.sub("YYYY0101_YYYY123[01]", "%d-%d"%(options.startyear,options.endyear), template)
     catfile = re.sub("YYYY", "%d-%d"%(options.startyear,options.endyear), catfile)
     catfile = re.sub("outdata/.*/", "means/", catfile)
-    catfile = options.prepend + catfile
+    catfile = options.prepend +"/"  + catfile
     lmean = re.sub("_mm_", "_lm_", catfile)
     lmean = re.sub(".grb", ".nc", lmean)
     tmean = re.sub("_[ym]m_", "_tm_", catfile)
@@ -84,7 +95,7 @@ def average_esm(options):
     
     
     print ("Going to create ", tmean, file=sys.stderr)
-    if (pat in patterns_mm) :
+    if (pat in patterns_mm ) :
       if pat in echam_mm + jsbach_mm:
         codefile = "%s/log/%s_%s"%(run, run,code_files[pat[-20:]])
         sp.check_call([ "cdo", "--silent", "-f", "nc", "-setpartab,"+codefile, "-lmean", catfile, lmean])
@@ -108,7 +119,13 @@ def parse_args():
   parser.add_argument("-v", "--verbose", 
                     help='''Be verbose''', action="store_true")
   parser.add_argument("-p", "--prepend", 
-                      help='''Prepend path for output files''', default = "")
+                      help='''Prepend path for output files''', default = ".")
+  parser.add_argument("--ocestep", 
+                      help='''Step taken by ocean model in years''', type= int, default = 1)
+  parser.add_argument("--no_hamocc", 
+                      help='''Do not expect hamocc files''', dest = "hamocc", action="store_false")
+  parser.set_defaults(hamocc=True)
+                        
 
   options = parser.parse_args()
   return options
