@@ -22,19 +22,23 @@ def process_files(options):
     fu.rm_if_exist([outname])
     for i,f in enumerate(files[1:]):
       extras=""
+      if v.get("unit", False):
+        extras+= " -setunit,'%s' "%v.get("unit", "NO UNIT! PANIC!")
       if v.get("divtime", False):
         extras+= " -divc,%s "%durations[i]
       if v.get("expression", False):
-        extras+= " -expr,%s=%s "%(n, v.get("expression", "NO EXPRESSION! PANIC!"))
-      elif v.get("pism_name", False):
-        extras+= " -setname,%s -selvar,%s "%(n, v.get("pism_name", "NO NAME! PANIC!"))
+        extras+= " -expr,'%s=%s' "%(n, v.get("expression", "NO EXPRESSION! PANIC!"))
       if v.get("rundiff", False):
         extras = "-sub %s %s %s %s"%(extras, f, extras, files[i])
       else:
         extras += " %s "%f
-      command = "/usr/local/bin/cdo -cat %s %s"%(extras, outname)
+      command = "cdo -s -cat %s %s"%(extras, outname)
       print (command)
 #      fu.qo(command)
+    if v.get("standard_name", False):
+      command = "ncatted -a 'standard_name,%s,o,c,%s' %s"%(n, v.get("standard_name"), outname)
+      print (command)
+    # fu.qo(command)
 
 
 
