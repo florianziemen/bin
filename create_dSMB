@@ -1,0 +1,68 @@
+#!/bin/bash
+
+set -evx
+
+
+usurf_in=$1
+climate_in=$2
+
+usurf=${usurf_in/.nc/_yx.nc}
+climate=${climate_in/.nc/_yx.nc}
+
+
+#just so the cdos don't freak out
+if [ ! -f $usurf ] ; then
+		ncpdq -3 -a time,y,x $usurf_in $usurf
+fi
+if [ ! -f ${climate} 	  ] ; then
+		ncpdq -3 -a time,y,x $climate_in $climate
+fi
+
+# ncap2 -Ovs ';climatic_mass_balance=0.0016*(usurf-2248)+.1011*(lat-71)' $usurf dsmb_$usurf
+ncap2 -Ovs 'climatic_mass_balance=0.0016*(usurf-2248)+.1011*(lat-71)' $usurf dsmb_tmp_$usurf
+ncap2 -Ovs 'climatic_mass_balance=910*0.072*(climatic_mass_balance>0.072)+910*climatic_mass_balance*(climatic_mass_balance<=0.072)' dsmb_tmp_$usurf dsmb_final_$usurf
+
+
+if [ ! -f dsmb_05B13_ISMIP6_ec.nc] ; then
+		ncecat dsmb_05B13_ISMIP6.nc dsmb_05B13_ISMIP6_ec.nc
+		ncrename -d record,time dsmb_05B13_ISMIP6_ec.nc
+fi # similarly, we want a record dimension.
+
+
+rm -f  ramp_initmip_dSMB_yx.nc  ramp_dSMB_${usurf} chained_air_temp.nc
+
+for x in $(seq 0 39) ; do
+		cdo -s -cat -add -selvar,climatic_mass_balance $climate -mulc,910 -divc,40 -mulc,$x -selvar,DSMB dsmb_05B13_ISMIP6_ec.nc ramp_inimip_dSMB_yx.nc
+		cdo -s -cat -selvar,air_temp $climate chained_air_temp.nc
+		cdo -s -cat -add -selvar,climatic_mass_balance $climate -divc,40 -mulc,$x -selvar,climatic_mass_balance dsmb_final_$usurf ramp_dSMB_${usurf}
+done
+
+ncks -Av air_temp chained_air_temp.nc ramp_inimip_dSMB_yx.nc
+ncks -Av air_temp chained_air_temp.nc ramp_dSMB_${usurf}
+
+rm chained_air_temp.nc
+
+cdo -settaxis,2006-01-16,12:00,1month ramp_inimip_dSMB_yx.nc ramp_inimip_dSMB_yx_time.nc
+cdo -settaxis,2006-01-16,12:00,1month ramp_dSMB_${usurf} ramp_dSMB_time_${usurf}
+
+rm  ramp_inimip_dSMB_yx.nc  ramp_dSMB_${usurf}
+
+ncpdq -3 -O -a time,x,y  ramp_inimip_dSMB_yx_time.nc ramp_inimip_dSMB.nc
+ncpdq -3 -O -a time,x,y  ramp_dSMB_time_${usurf} ramp_dSMB_${usurf_in}
+
+rm ramp_dSMB_time_${usurf} ramp_inimip_dSMB_yx_time.nc
+
+cdo -s -add -selvar,climatic_mass_balance $climate -mulc,910 -selvar,DSMB dsmb_05B13_ISMIP6_ec.nc full_inimip_dSMB_yx.nc
+
+
+cdo -s -add -selvar,climatic_mass_balance $climate -selvar,climatic_mass_balance dsmb_final_$usurf full_dSMB_${usurf}
+
+ncks -Av air_temp ${climate} full_inimip_dSMB_yx.nc
+ncks -Av air_temp ${climate} full_dSMB_${usurf}
+
+
+ncpdq -3 -O -a time,x,y  full_inimip_dSMB_yx.nc full_inimip_dSMB.nc
+ncpdq -3 -O -a time,x,y  full_dSMB_${usurf} full_dSMB_${usurf_in}
+
+
+# rm ramp_inimip_dSMB_yx.nc ramp_dSMB_${usurf} full_inimip_dSMB_yx.nc full_dSMB_${usurf}
