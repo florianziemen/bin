@@ -15,11 +15,15 @@ import sys
 def process_files(options):
   variables = options["variables"]
   files = options["FILES"]
+  for ff in files:
+    if not fu.check_files(["%s3"%ff], False):
+      print ("ncpdq -3 -a time,y,x %s %s3"%(ff, ff))
   filetimes = np.array([ nc.Dataset(x,"r").variables["time"][0] for x in files ])
+  files = ["%s3"%ff for ff in files]
   durations = filetimes[1:]-filetimes[:-1]
   for n, v in variables.iteritems():
-    outname = "%s_%s_%s_%s_%s.nc"%(n, "GIS", "MPIM", "PISM", options["name"])
-    fu.rm_if_exist([outname])
+    outname = "%s_%s_%s_%s_%s.nc"%(n, "GIS", "MPIM", options["model"], options["name"])
+#    fu.rm_if_exist([outname])
     for i,f in enumerate(files[1:]):
       extras=""
       if v.get("unit", False):
@@ -52,6 +56,8 @@ def parse_args():
                     help='''Be verbose''', action="store_true")
   parser.add_argument("-n", "--name",
                     help="experiment name", required = True)
+  parser.add_argument("-m", "--model",
+                    help="model name", required = True)
 
   options = parser.parse_args()
   options_dict = vars(options)
