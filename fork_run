@@ -1,0 +1,9 @@
+#!/bin/bash
+set -evx
+
+in=$1 out=$2
+
+sed "s/$in/$out/g" $in.sh >  $out.sh
+cp $in/$in.conf Configs/$out.conf
+echo >> Makefile
+grep $in Makefile |sed "s/$in/$out/g" >> Makefile

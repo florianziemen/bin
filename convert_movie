@@ -1,0 +1,18 @@
+#!/bin/bash
+
+infile="$1"
+outfile="${infile/.???/.mp4}"
+
+if [ "$infile" != "$outfile" ] ; then
+
+ffmpeg -i "${infile}" -c:v libx264 -pix_fmt yuv420p  "${outfile}"
+
+#pix_fmt b/c keynote (MacOS as such) is a bit behind on video formats.
+
+else
+
+		echo "INFILE IS OUTFILE PLEASE RENAME INFILE -- not .mp4, or call "
+		echo 'ffmpeg -i "${infile}" -c:v libx264 -pix_fmt yuv420p  "${outfile}"'
+		echo yourself with appropriate file names
+
+fi

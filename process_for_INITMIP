@@ -1,0 +1,81 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+from argparse import ArgumentParser
+
+import flo_utils as fu
+import json
+import netCDF4 as nc
+import numpy as np
+import os
+import re
+# import subprocess as sp
+import sys
+
+def process_files(options):
+  variables = options["variables"]
+  files = options["FILES"]
+  for ff in files:
+    if not fu.check_files(["%s3"%ff], False):
+      print ("ncpdq -3 -a time,y,x %s %s3"%(ff, ff))
+  filetimes = np.array([ nc.Dataset(x,"r").variables["time"][0] for x in files ])
+  files = ["%s3"%ff for ff in files]
+  durations = filetimes[1:]-filetimes[:-1]
+  for n, v in variables.iteritems():
+    outname = "%s_%s_%s_%s_%s.nc"%(n, "GIS", "MPIM", options["model"], options["name"])
+#    fu.rm_if_exist([outname])
+    for i,f in enumerate(files[1:]):
+      extras=""
+      if v.get("unit", False):
+        extras+= " -setunit,'%s' "%v.get("unit", "NO UNIT! PANIC!")
+      if v.get("divtime", False):
+        extras+= " -divc,%s "%durations[i]
+      if v.get("expression", False):
+        extras+= " -expr,'%s=%s' "%(n, v.get("expression", "NO EXPRESSION! PANIC!"))
+      if v.get("rundiff", False):
+        extras = "-sub %s %s %s %s"%(extras, f, extras, files[i])
+      else:
+        extras += " %s "%f
+      command = "cdo -s -cat %s %s"%(extras, outname)
+      print (command)
+#      fu.qo(command)
+    if v.get("standard_name", False):
+      command = "ncatted -a 'standard_name,%s,o,c,%s' %s"%(n, v.get("standard_name"), outname)
+      print (command)
+    # fu.qo(command)
+
+
+
+def parse_args():
+  parser = ArgumentParser()
+  parser.description = "Convert PISM output for INITMIP"
+  parser.add_argument ("FILES", nargs="*", help='Files to process')
+  parser.add_argument("-c", "--config",
+                      help='''Config file (required)''', required = True)
+  parser.add_argument("-v", "--verbose",
+                    help='''Be verbose''', action="store_true")
+  parser.add_argument("-n", "--name",
+                    help="experiment name", required = True)
+  parser.add_argument("-m", "--model",
+                    help="model name", required = True)
+
+  options = parser.parse_args()
+  options_dict = vars(options)
+  config = json.load(open(options.config))
+  for x in options_dict.keys():
+      if not options_dict[x] is  None :
+          config[x] = options_dict[x]
+
+  if options.verbose:
+      fu.cerr(dir(options))
+      fu.cerr(dir(config))
+      fu.set_debug(True)
+
+  return config
+
+def main():
+  options = parse_args()
+  process_files(options)
+
+if __name__ == "__main__":
+    main()

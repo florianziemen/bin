@@ -10,7 +10,7 @@ import seaborn as sns
 import numpy as np
 from smoother import smooth
 from datetime import datetime, timedelta
-import re 
+import re
 
 #plt.xkcd()
 #mpl.rcParams['figure.figsize']=[3,2]
@@ -51,8 +51,8 @@ def plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts = {}):
                  "F0085" : 'low grad', "F0086" : 'high grad', "F0087": 'no grad',
                  "F0090" : '1971$-$2010', "F0091" : '2011$-$2040',"F0092" : '2041$-$2070', "F0093" : '2071$-$2099', "F0094":"2041$-$2070", "F0088":"1971$-$2010"
                } # cmap[0] is free
-               
-    colordict={"F0065" : (0., 0., 0.), 
+
+    colordict={"F0065" : (0., 0., 0.),
                "F0096" : cmap[1], "F0070" : cmap[1],
                "F0071" : light(cmap[4]), "F0074" : light(cmap[4]),
                "F0072" : dark(cmap[4]), "F0075" : dark(cmap[4]),
@@ -75,7 +75,7 @@ def plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts = {}):
                  "F0083" : '--', "F0084" : '-',
                  "F0085" : '--', "F0086" : '-', "F0087": '-.'
                } # cmap[0] is free
-               
+
     yscale=plot_opts.get('yscale', 1.)
     plots = [ mpl.plot_date(xvec,yvec*yscale, patterndict.get(lb[:5],'-'),  label=namedict.get(lb[:5],lb), color=colordict.get(lb[:5],cmap[i%len(cmap)])) for (xvec,yvec,lb,i) in zip(xvecs,yvecs,labels,np.arange(len(xvecs))) ]
     if "no_legend" in plot_opts:
@@ -137,62 +137,65 @@ def sort_labels(xattr, yattr):
             ylabel = ylabel + " in %s"%yattr["units"]
     return {"xlabel"  : xlabel , "ylabel" : ylabel , "title" : title}
 
-    
-    
+
+
 def parse_args():
   parser = ArgumentParser()
   parser.description = "Scatterplot two variables from a set of files"
   parser.add_argument("FILES", nargs='*')
-  parser.add_argument("-v", "--verbose", 
+  parser.add_argument("-v", "--verbose",
                     help='''Be verbose''', action="store_true")
-  parser.add_argument("-x", "--xvar", 
+  parser.add_argument("-x", "--xvar",
                     help='''xvar''', default="time")
-  parser.add_argument("-y", "--yvar", 
+  parser.add_argument("-y", "--yvar",
                     help='''yvar''', default="ivol")
-  parser.add_argument("-o", "--output", 
+  parser.add_argument("-o", "--output",
                     help='''output file to save image to''', default=None)
-  parser.add_argument("-X", "--x_file", 
+  parser.add_argument("-X", "--x_file",
                     help='''file for x-var''', default=None)
-  parser.add_argument("-Y", "--y_file", 
+  parser.add_argument("-Y", "--y_file",
                     help='''file for y-var''', default=None)
-  parser.add_argument("--skip", 
+  parser.add_argument("--skip",
                     help='''skipping when reading''', default=1, type = int)
 
-  parser.add_argument("-t", "--title", 
+  parser.add_argument("-t", "--title",
                     help='''plot title''', default = None)
-  parser.add_argument("--xlabel", 
+  parser.add_argument("--xlabel",
                     help='''plot x-Axis label''', default = None)
-  parser.add_argument("--ylabel", 
+  parser.add_argument("--ylabel",
                     help='''plot y-Axis label''', default = None)
-  parser.add_argument("--mask_thk", 
+  parser.add_argument("--mask_thk",
                     help='''mask with thickness''', action = "store_true")
-  parser.add_argument("--xlim", 
+  parser.add_argument("--xlim",
                     help='''x limits''', type = float , nargs = 2)
-  parser.add_argument("--ylim", 
+  parser.add_argument("--ylim",
                     help='''y limits''', type = float , nargs = 2)
   parser.add_argument("-s", "--smooth_window_length",
                     help='''smooth function with window length N''', type = int)
-  parser.add_argument("--smooth_filter", 
+  parser.add_argument("--smooth_filter",
                     help='''smooth filter function''', default = None)
-  parser.add_argument("--no_legend", 
+  parser.add_argument("--no_legend",
                     help='''suppress legend''', action = "store_true")
   parser.add_argument("--JJAANNDJF-Legend", action = "store_true")
-  parser.add_argument("--white_grid", 
+  parser.add_argument("--white_grid",
                     help='''white grid''', action = "store_true")
-  parser.add_argument("--overlay_ivol", 
+  parser.add_argument("--overlay_ivol",
                     help='''overlay *observed* ice volume evolution''', action = "store_true")
-  parser.add_argument("--tick_interval", 
+  parser.add_argument("--tick_interval",
                     help='''draw vertical lines at years specified by start range step ''', nargs=3, type=float )
-  parser.add_argument("--yscale", 
+  parser.add_argument("--yscale",
                     help='''scale y axis by factor ''', type=float , default=1.)
-  parser.add_argument("--font_scale", 
+  parser.add_argument("--font_scale",
                     help='''scale fontsize axis by factor ''', type=float , default=1.)
   options = parser.parse_args()
   return options
 def convert_year(year, cal):
-    return     nc.date2num(datetime (int(year),6,30),units="days since 0001-01-01 00:00:00", calendar=cal)
+    if cal:
+        return     nc.date2num(datetime (int(year),6,30),units="days since 0001-01-01 00:00:00", calendar=cal)
+    else:
+        return year
 
-    
+
 def specials(figure, xattrs, plot_opts, ax):
     attr = xattrs[0]
     years = range(1980,2101,20)
@@ -200,8 +203,9 @@ def specials(figure, xattrs, plot_opts, ax):
         ti=plot_opts["tick_interval"]
         years=np.arange(ti[0], ti[1],ti[2])
     print years
-    c = attr["calendar"]
-    dates = [convert_year (x, cal=c) for x in years]
+    c = attr.get("calendar", False)
+    if c:
+        dates = [convert_year (x, cal=c) for x in years]
     print dates
     mpl.xticks(dates )
     if "JJAANNDJF_Legend" in plot_opts.keys() and plot_opts["JJAANNDJF_Legend"]:
@@ -238,7 +242,7 @@ def main(argv):
   if options.x_file and options.y_file:
     (xvec, xattr) = get_array(options.x_file, options.xvar, skip = options.skip)
     (yvec, yattr) = get_array(options.y_file, options.yvar, skip = options.skip)
-    
+
     options.FILES = []
     xvecs.append(xvec)
     yvecs.append(yvec)
@@ -256,7 +260,7 @@ def main(argv):
     xvecs.append(xvec)
     yvecs.append(yvec)
   for filename in options.FILES:
-    (xvec, xattr) = get_array(filename, options.xvar, skip = options.skip) 
+    (xvec, xattr) = get_array(filename, options.xvar, skip = options.skip)
     (yvec, yattr) = get_array(filename, options.yvar, skip = options.skip)
     fu.debug_cerr (xvec.size)
     xvecs.append(xvec)
@@ -274,7 +278,8 @@ def main(argv):
       xvecs=filter(xvecs, plot_opts)
       yvecs=filter(yvecs, plot_opts)
 
-  if options.xvar == "time":
+      if options.xvar == "time":
+      if "calendar" in attr.keys() and attr["calendar"]:
       xvecs = [ nc.date2num(nc.num2date(vec , units=attr["units"] , calendar=attr["calendar"]), units="days since 0001-01-01 00:00:00", calendar=attr["calendar"] )       for (vec, attr) in zip (xvecs, xattrs) ]
 
 #  with sns.palette_context("Set2"):
@@ -286,10 +291,6 @@ def main(argv):
   if not options.output:
       mpl.show()
 
-  
+
 if __name__ == "__main__":
     main(sys.argv)
-
-
-    
-    

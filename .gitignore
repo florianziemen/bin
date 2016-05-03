@@ -1,3 +1,4 @@
+\#*\#
 *~
 *.pyc
 local_conf.py
@@ -117,5 +118,3 @@ coverage.xml
 
 # Sphinx documentation
 docs/_build/
-
-

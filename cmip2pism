@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+
+set -evx
+
+tas=$1
+pr=$2
+orog=$3
+target=$4
+outfile=$5
+faulty=$6
+
+if [ -z "${outfile}" -o -n "${faulty}" ] ; then
+    echo "WRONG NUMBER OF ARGUMENTS! NEED FIVE ARGUMENTS"
+    echo TAS file ${tas}
+    echo PR file ${pr}
+    echo OROG file ${orog}
+    echo REMAPPING TARGET ${target}
+    echo OUTPUT file ${outfile}
+    if [ -n "${faulty}" ] ; then
+	echo "Got additional argument ${faulty} (and maybe even more)"
+    fi
+    exit 2
+fi
+
+
+tempdir=$(mktemp -d -t cmip2pism.XXXX)
+
+cdo -remapbil,${target} -setname,air_temp -selvar,tas ${tas} ${tempdir}/tas.nc
+cdo -remapbil,${target} -setname,precipitation -setunit,'m s-1' -divc,910 -selvar,pr ${pr} ${tempdir}/pr.nc
+cdo -remapbil,${target} ${orog} ${tempdir}/orog.nc
+
+if [ -f ${outfile} ] ; then 
+    mv ${outfile} ${outfile}.bak
+fi
+
+cdo -merge ${tempdir}/tas.nc  ${tempdir}/pr.nc  ${tempdir}/orog.nc ${outfile}
+ncks -Av x,y ${target} ${outfile}
+
+
+rm -r ${tempdir}
