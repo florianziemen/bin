@@ -21,20 +21,25 @@ try:
 except ImportError:
   seaborn = False
 
+def fix_attrs(vars,labels):
+  for n,x in enumerate(labels):
+    if x in vars.keys():
+      if "long_name" in vars[x].ncattrs():
+        labels[n] = vars[x].long_name
+  return labels
 
-
-def contour_var(var, filename, options):
+def read_var(var, filename, options):
   f = nc(filename)
   vars = f.variables
   var = vars[var]
   if type(var[:]) is np.ma.masked_array:
-    m = np.ma.masked_array(np.squeeze(var),np.squeeze(var[:].mask))
+    data = np.ma.masked_array(np.squeeze(var),np.squeeze(var[:].mask))
   else :
-    m = np.squeeze(var)
+    data = np.squeeze(var)
   dims = var.dimensions
   sizes = var.shape
-
-  rd = [vars.get(x,np.arange(sizes[n])) for n,x in enumerate(dims) if sizes[n] > 1 ]
+  attrs = { k:  var.getncattr(k) for k in var.ncattrs()}
+  dimensions = [vars.get(x,np.arange(sizes[n])) for n,x in enumerate(dims) if sizes[n] > 1 ]
   offset=-1
   labels = ["", ""]
   for n,x in enumerate (dims):
@@ -53,20 +58,48 @@ def contour_var(var, filename, options):
             lad = la[-1]-la[0]
             lod = lo[-1]-lo[0]
             if (abs(lad) > abs (lod)):
-              rd[offset]=la
+              dimensions[offset]=la
               labels[offset] = "lat"
             else:
-              rd[offset]=lo
+              dimensions[offset]=lo
               labels[offset] = "lon"
 
+  labels = fix_attrs(vars, labels)
+  
   if options.transpose: # python has a very strange understanding of order -- we'll fix that
-    rd=rd[::-1]
+    dimensions=dimensions[::-1]
+    labels=labels[::-1]
   else:
-    m=m.transpose()
-  fig = mpl.figure()
+    data = data.transpose()
+  return (data, attrs, dimensions, labels)
+
+
+def sort_levels (levels = None, minmax=None):
+#   levels = levels[0] if levels else None
+  if not levels is None:
+    levels = [float(x) for x in levels.split(',')]
+#    levels = [data.min()] + levels + [data.max()]
+    if (len(levels) == 1 ):
+      levels = int(levels[0])
+      if not minmax is None:
+        vrange = minmax[1]-minmax[0]
+        step = vrange/(levels-1.)
+        levels=np.arange(minmax[0], minmax[1]+step, step)
+  else:
+    levels = None
+  return levels
+  
+def contour_var(var, filename, options):
+  # Get the data 
+  (data, attrs, dimensions, labels) = read_var(var, filename, options)
+  # Get the data
+  if not options.sub is None : 
+    (sub_data, sub_attrs, sub_dimensions, sub_labels) = read_var(var, options.sub, options)
+    data = data - sub_data
+  
+  # COLORMAP 
   cmap = None
 #  cmap = sns.color_palette(options.cmap, options.levels if options.levels and len(options.levels.split(",")) == 1 else 7, as_cmap=True)
-  levels = options.levels[0] if options.levels else None
   try:
     if (options.cmap):
       cmap=options.cmap
@@ -74,17 +107,35 @@ def contour_var(var, filename, options):
       cmap = sns.cubehelix_palette(as_cmap=True, start=.5)
   except:
     print ("Trouble using colorbar %s with %s levels"%(options.cmap, levels if levels else "None"), file=sys.stderr)
-  if not levels is None:
-    levels = [float(x) for x in options.levels.split(',')]
-#    levels = [m.min()] + levels + [m.max()]
-    if (len(levels) == 1 ):
-      levels = int(levels[0])
+
+  # LEVELS
+  levels = sort_levels(options.levels, options.minmax)
+  # DRAW IT 
+  fig = mpl.figure()
+  if (not levels is None ):
+    mpl.contourf(dimensions[0][:], dimensions[1][:], data, levels, coner_mask=True, cmap=cmap, extend="both")
+    mpl.colorbar()
+    mpl.contour (dimensions[0][:], dimensions[1][:], data, levels, coner_mask=True, colors="0.5", linewidths=.25, linestyles="solid")
   else:
-    levels = None
-  if (levels):
-    mpl.contourf(rd[0][:], rd[1][:], m, levels, cmap=cmap)
-  else:
-    mpl.contourf(rd[0][:], rd[1][:], m, cmap=cmap)
+    mpl.contourf(dimensions[0][:], dimensions[1][:], data, coner_mask=True, cmap=cmap)
+    mpl.colorbar()
+    mpl.contour (dimensions[0][:], dimensions[1][:], data, coner_mask=True, colors="0.5", linewidths=.25, linestyles="solid")
+
+  # OVERLAY
+  if not options.overlay_var is None:
+    if options.overlay_file is None:
+      (overlay_data, overlay_attrs, overlay_dimensions, overlay_labels) = read_var (options.overlay_var, filename, options)
+    else:
+      (overlay_data, overlay_attrs, overlay_dimensions, overlay_labels) = read_var (options.overlay_var, options.overlay_file, options)
+    overlay_levels = sort_levels (options.overlay_levels)
+    if (overlay_levels):
+      CS = mpl.contour(overlay_dimensions[0][:], overlay_dimensions[1][:], overlay_data, overlay_levels, colors="k", linewidths=.5)
+      mpl.clabel(CS, fmt="%s") 
+    else:
+      CS = mpl.contour(overlay_dimensions[0][:], overlay_dimensions[1][:], overlay_data, colors="k", linewidths=.5)
+      mpl.clabel(CS, fmt="%s") 
+    
+  # MAKE IT NICE
   if "xlim" in options:
       mpl.xlim(options.xlim)
   if "ylim" in options:
@@ -92,8 +143,16 @@ def contour_var(var, filename, options):
   mpl.xlabel(labels[0])
   mpl.ylabel(labels[1])
 
-  mpl.colorbar()
-  mpl.show()
+  if options.title is None:
+    mpl.title("%s (%s)"%(attrs.get("long_name", var), attrs.get("units", "unknown units")))
+  else:
+    mpl.title(options.title)
+
+  # SAVE TO FILE OR SHOW
+  if not options.outfile is  None:
+    mpl.savefig(options.outfile)
+  else:
+    mpl.show()
 
 
 
@@ -104,26 +163,37 @@ def parse_args():
   parser.description = "Draw a contour plot"
   parser.add_argument("var")
   parser.add_argument("filename")
+
   parser.add_argument("-v", "--verbose",
     help='''Be verbose''', action="store_true")
-  # parser.add_argument("-o", "--output_dir",
-  #     help='''output directory to save images to''', default=None)
-  # parser.add_argument("-r", "--reference",
-  #     help='''reference run''', default=None)
-  # parser.add_argument("-a", "--TSA",
-  #     help='''Add time series for runs''', default=None)
+
+  parser.add_argument("-o", "--outfile",
+                      help='''output file to save image to''', default=None)
+
+  parser.add_argument("-t", "--transpose",
+    help='''transpose field (flip axis)''', action="store_true")
   parser.add_argument("--xlim",
     help='''set x limits (decreasing flips axis)''', nargs=2, type=float)
   parser.add_argument("--ylim",
     help='''set y limits (decreasing flips axis)''', nargs=2, type=float)
+
+  parser.add_argument("-m", "--minmax",
+                      help='''set minimum and maximum for contours''', nargs=2, type=float, default = None)
   parser.add_argument("--levels",
-    help='''set levels for plotting. n = n levels, 1,2,3 = draw levels at 1, 2, and 3''')
-  parser.add_argument("-t", "--transpose",
-    help='''transpose field (flip axis)''', action="store_true")
-  # parser.add_argument("-t", "--title",
-  #     help='''plot title''', default=None)
+                      help='''set levels for plotting. n = n levels, 1,2,3 = draw levels at 1, 2, and 3''')
+  
+  parser.add_argument("-T", "--title",
+                      help='''plot title''', default=None)
   parser.add_argument("-c", "--cmap",
     help='''Name of a colormap''')
+
+  parser.add_argument("-s", "--sub", default=None)
+
+  parser.add_argument("--overlay_var", default=None)
+  parser.add_argument("--overlay_file", default=None)
+  parser.add_argument("--overlay_levels", default=None,
+    help='''set levels for plotting. n = n levels, 1,2,3 = draw levels at 1, 2, and 3''')
+
 
   options = parser.parse_args()
   return options

@@ -27,6 +27,8 @@ parser.add_argument("-e", "--echo", help="only print command",
 parser.add_argument("-i", "--input",  help="input file", default = None)
 parser.add_argument("-c", "--config",  help="run_pism config file", default="run_pism.conf")
 parser.add_argument("-a", "--atmosphere_given_file",  help="atmosphere input")
+parser.add_argument("--ocean_th_file",  help="ocean forcing input")
+parser.add_argument("--ocean_delta_SL_file",  help="varying sea level input")
 parser.add_argument("-o", "--output", help="output file", default = None)
 parser.add_argument("--ys", help="startyear", default = None)
 parser.add_argument("-b", "--bootstrap", help="bootstrap (instead of restart)" , action="store_true" )
@@ -138,11 +140,11 @@ pism_args.append("-o " + output_start+".nc")
 if "max_dt" in config.keys():
     pism_args.append(" -max_dt " + config["max_dt"])
 
-if ("atmosphere_given_file" in config.keys()
-    and "temp_lapse_rate" in config.keys()):
+if ("atmosphere_given_file" in config.keys()):
     atmosphere = " -atmosphere given,lapse_rate "  + \
-             " -atmosphere_given_file "        + config["atmosphere_given_file"] + \
-             " -temp_lapse_rate " + config["temp_lapse_rate"]
+             " -atmosphere_given_file "        + config["atmosphere_given_file"]
+    if "temp_lapse_rate" in config.keys():
+        atmosphere +=             " -temp_lapse_rate " + config["temp_lapse_rate"]
     if "atmosphere_lapse_rate_file" in config.keys():
         atmosphere +=" -atmosphere_lapse_rate_file " + config["atmosphere_lapse_rate_file"]
     else:
@@ -180,6 +182,31 @@ if "surface" in config.keys():
 if "ocean_kill_file" in config.keys():
     pism_args.append(" -calving ocean_kill -ocean_kill_file " + config["ocean_kill_file"])
 
+ocean=""
+if "ocean_th_file" in config.keys():
+    pism_args.append(" -ocean_th_file " + config["ocean_th_file"])
+    ocean = "th"
+if "ocean_th_period" in config.keys():
+    pism_args.append("-ocean_th_period " + config["ocean_th_period"])
+    if not ocean:
+        ocean ="th"
+    else:
+        if not "th" in ocean:
+            ocean+=",th"
+if "ocean_delta_SL_file" in config.keys():
+    pism_args.append("-ocean_delta_SL_file " + config["ocean_delta_SL_file"])
+    if not ocean:
+        ocean ="delta_SL"
+    else:
+        ocean+=",delta_SL"
+
+if ocean:
+    pism_args.append(" -ocean %s "%ocean)
+    
+    
+
+    
+
 if "config_override" in config.keys():
     pism_args.append("-config_override " + config["config_override"])
     config_override=(config["config_override"])
@@ -207,8 +234,10 @@ if ("extra_times" in config.keys()):
 
 if ("ts_times" in config.keys()):
     pism_args.append(" -ts_times " + config["ts_times"])
-    pism_args.append(" -ts_vars " + config["ts_vars"])
     pism_args.append("-ts_file " + output_start + "_ts.nc")
+
+if ("ts_vars" in config.keys()):
+    pism_args.append(" -ts_vars " + config["ts_vars"])
 
 if "direct" in config.keys():
     print config["direct"]
