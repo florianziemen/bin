@@ -202,10 +202,10 @@ if "ocean_delta_SL_file" in config.keys():
 
 if ocean:
     pism_args.append(" -ocean %s "%ocean)
-    
-    
 
-    
+
+
+
 
 if "config_override" in config.keys():
     pism_args.append("-config_override " + config["config_override"])
@@ -282,5 +282,10 @@ print "tail -f ", log_file , error_file
 spc = subprocess.check_call(shlex.split(full_pism_call), stdout = open(log_file, "w"), stderr= open(error_file, "w"))
 
 if not os.access(output_start+".nc", os.R_OK):
+    fu.cerr("Can't find output file " + output_start+".nc\n")
+    sys.exit(1)
+
+if os.path.getctime(output_start+".nc") < os.path.getctime(config_file_name):
+    fu.cerr("RUN_PISM: Output file %s is older than config file %s. Something went wrong!\n"%(output_start+".nc", config_file_name))
     sys.exit(1)
 # spc.communicate()
