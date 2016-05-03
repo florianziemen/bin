@@ -234,8 +234,10 @@ if ("extra_times" in config.keys()):
 
 if ("ts_times" in config.keys()):
     pism_args.append(" -ts_times " + config["ts_times"])
-    pism_args.append(" -ts_vars " + config["ts_vars"])
     pism_args.append("-ts_file " + output_start + "_ts.nc")
+
+if ("ts_vars" in config.keys()):
+    pism_args.append(" -ts_vars " + config["ts_vars"])
 
 if "direct" in config.keys():
     print config["direct"]
