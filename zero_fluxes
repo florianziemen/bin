@@ -1,0 +1,7 @@
+#!/bin/bash
+
+infile=$1
+outfile=${infile/.nc/_zf.nc}
+
+ncap2 -s "climatic_mass_balance_cumulative=climatic_mass_balance_cumulative*0;grounded_basal_flux_cumulative=grounded_basal_flux_cumulative*0;floating_basal_flux_cumulative=floating_basal_flux_cumulative*0;discharge_flux_cumulative=discharge_flux_cumulative*0" $infile $outfile
+

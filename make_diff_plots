@@ -1,0 +1,240 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+from argparse import ArgumentParser
+import subprocess as sp
+import numpy as np
+import re
+import sys
+import os
+import json
+import shutil
+from  tempfile import mkdtemp 
+# import flo_utils as fu
+
+## FLO_UTILS
+from os.path import expanduser
+home = expanduser("~m300019")
+tempdir = mkdtemp(dir=".")
+latexfile = tempdir+"/plots.tex"
+plot_var_script = home+"/Apps/bin/plot_var"
+contour_var_script = home+"/Apps/ghb/contour_var"
+
+debug = False
+def rm_if_exist(files):
+    if type (files) is str:
+        files = [files]
+    for filename in files:
+        if (debug):
+            print ("removing %s if exists"%(filename), file=sys.stderr)
+        if ( os.access(filename,os.R_OK) ) :
+            if (debug):
+                print ("%s exists. Removing it"%(filename), file=sys.stderr)
+            os.remove(filename)
+            
+def mkdir(target):
+  if not os.path.isdir(target):
+    if (debug):
+      print ("creating directory " + target, file=sys.stderr)
+    os.makedirs(target)
+      
+  return target
+
+
+def cerr(*objs):
+  print( *objs, file=sys.stderr)
+
+def query (question, stdin_string=False, cwd=None):
+  if type(question) is str:
+    question=shlex.split(question)
+
+    debug_cerr("FU: trying " + " ".join(question))
+  a = sp.Popen(question, stdin = sp.PIPE, stdout = sp.PIPE, stderr = sp.PIPE, cwd=cwd)
+
+  if stdin_string:
+    (so, se) = a.communicate(stdin_string)
+  else:
+    (so, se) = a.communicate()
+  if debug:
+    cerr( "returned " + str( a.returncode) )
+  if a.returncode:
+    cerr( "FU: attempting " + str(question) + " in  " + os.getcwd())
+    cerr( "FU: returned " + str( a.returncode) )
+    cerr( "FU: program stdout:")
+    cerr( so)
+    cerr( "FU: program stderr:")
+    cerr( se)
+    exit (a.returncode)
+  return (so,se)
+
+## / FLO_UTILS
+
+
+def create_filename (run, years, template):
+    years = years.split("-")
+    template = re.sub("RUNXXXX", run, template)
+    template = re.sub("SSSS",years[0], template)
+    template = re.sub("EEEE",years[1], template)
+    return template
+
+def write_latex_header(title=""):
+    lf = open(latexfile, "w")
+    lf.write("""\\documentclass[a4paper]{article}
+    \\usepackage[margin=2cm]{geometry}
+    \\usepackage[utf8]{inputenc}
+    \\usepackage{graphicx}
+    \\usepackage{fancyhdr}
+    \\pagestyle{fancy}
+    \\chead{\sf %s}
+    \\cfoot{\sf \\thepage}
+    \\begin{document}
+    \\parindent0pt
+    """%(title))
+    lf.close()
+    
+def write_latex_footer():
+    lf = open(latexfile, "a")
+    lf.write("\\end{document}\n")
+    lf.close()
+    
+def add_latex(name, average_type):
+    lf = open(latexfile, "a")
+    if average_type == "TM":
+        lf.write("  \\includegraphics[page=1,width=.475\\textwidth]{%s.pdf}\\hspace{.05\\textwidth}\n"%(name))
+    elif average_type == "SM":
+        lf.write("  \\includegraphics[page=1,width=.475\\textwidth]{%s.pdf}\\hspace{.05\\textwidth}\n"%(name))
+        lf.write("  \\includegraphics[page=2,height=.475\\textwidth,angle=90]{%s.pdf}\\hspace{.05\\textwidth}\n"%(name))
+        lf.write("  \\includegraphics[page=3,height=.475\\textwidth,angle=90]{%s.pdf}\\hspace{.05\\textwidth}\n"%(name))
+        lf.write("  \\includegraphics[page=4,height=.475\\textwidth,angle=90]{%s.pdf}\\hspace{.05\\textwidth}\n"%(name))
+    lf.close()
+
+def plot_ce(runs, plot, name):
+    Ef = create_filename (runs["E"], runs["Ey"], plot["filename"])
+    Rf = create_filename (runs["R"], runs["Ry"], plot["filename"])
+    
+    footer = "--myfooter=%s(%s) -- %s (%s)"%(runs["E"],runs["Ey"],runs["R"], runs["Ry"])
+
+    query_string = [plot_var_script, plot["variable"], Ef,  "--sub=%s"%Rf, "--ce",  "--outfile=%s/%s"%(tempdir, name), "--noshow" ]
+
+    if plot.get("miscopts", False):
+        query_string = query_string +plot["miscopts"]
+
+    if plot.get("average_type", False) == "SM":
+        brandings="--brandings=  DJF:  MAM:  JJA:  SON"
+        query_string.append(brandings)
+
+    if plot.get("overlay_levels", False):
+        overlay = ["--overlay_var="+plot["variable"], "--overlay_file="+Rf, "--overlay_levels="+plot["overlay_levels"]]
+        query_string = query_string + overlay
+        footer = footer + " (overlays at %s)"%( re.sub("," ,"   ", plot["overlay_levels"]))
+
+    if plot.get("colormap", False) :
+        cmap="--cmap="+plot.get("colormap")
+        query_string.append(cmap)
+
+
+    query_string.append(footer)
+    print  (query_string)
+    response = query(query_string)
+    cerr (response[0])
+    cerr (response[1])
+    add_latex(name, plot.get("average_type", "TM"))
+
+
+    return 0
+
+def plot_zm(runs, plot, name):
+    if not (plot.get("average_type", "TM")) == "TM":
+        cerr("Can only handle time mean for zonal mean plots")
+        sys.exit(666)
+    Ef = create_filename (runs["E"], runs["Ey"], plot["filename"])
+    Rf = create_filename (runs["R"], runs["Ry"], plot["filename"])
+    var = plot["variable"]
+    
+    footer = "--myfooter=%s(%s) -- %s (%s)"%(runs["E"],runs["Ey"],runs["R"], runs["Ry"])
+
+
+    zmE="%s/zm_%s_%s_E.nc"%(tempdir, var, name)
+    zmR="%s/zm_%s_%s_R.nc"%(tempdir, var, name)
+    query(["cdo", "-zonmean", "-selvar,%s"%var, Ef, zmE])
+    query(["cdo", "-zonmean", "-selvar,%s"%var, Rf, zmR])
+
+    query_string = [contour_var_script, plot["variable"], zmE,  "--sub=%s"%zmR, "--outfile=%s/%s.pdf"%(tempdir, name), ]
+
+    if plot.get("overlay_levels", False):
+        overlay = ["--overlay_var="+plot["variable"], "--overlay_file="+zmR, "--overlay_levels="+plot["overlay_levels"]]
+        query_string = query_string + overlay
+#         footer = footer + " (overlays at %s)"%( re.sub("," ,"   ", plot["overlay_levels"]))
+
+    if plot.get("colormap", False) :
+        cmap="--cmap="+plot.get("colormap")
+        query_string.append(cmap)
+
+
+    if plot.get("miscopts", False):
+        query_string = query_string +plot["miscopts"]
+
+    print  (query_string)
+    response = query(query_string)
+    cerr (response[0])
+    cerr (response[1])
+    add_latex(name, plot.get("average_type", "TM"))
+
+
+def create_plots(options):
+    runs =     {
+        "E" : options.experiment,
+        "R" :  options.reference,
+        "Ey":  options.years_exp,
+        "Ry" : options.years_ref
+    }
+    
+
+    plotlist = []
+
+    plot_functions= {
+        "CE" : plot_ce,
+        "ZM" : plot_zm
+        }
+    
+    if options.config is None:
+        config = json.load (open(home + "/.make_diff_plots.json"))
+    else:
+        config = json.load (open(options.config))
+    for name in sorted(config["plots"].keys()):
+        plot = config["plots"][name]
+        
+        plot_functions[plot["plot_type"]](runs, plot, name)
+        plotlist.append (name)
+
+    
+def parse_args():
+  parser = ArgumentParser()
+  parser.description = "Plot differences between two experiments A-B"
+  parser.add_argument ("experiment", help='First experiment to use')
+  parser.add_argument ("years_exp", help='years from the experiment')
+  parser.add_argument ("reference", help='Second experiment to use')
+  parser.add_argument ("years_ref", help='years from the reference')
+  parser.add_argument("-v", "--verbose", 
+                    help='''Be verbose''', action="store_true")
+  parser.add_argument("-p", "--prepend", 
+                      help='''Prepend path for output files''', default = "")
+  parser.add_argument("-c", "--config", 
+                      help='''config file''')
+
+  options = parser.parse_args()
+  return options
+
+
+def main():
+  options = parse_args()
+  if options.verbose:
+    print (dir(options))
+  write_latex_header( "%s (%s) -- %s (%s)"%(options.experiment, options.years_exp, options.reference, options.years_ref))
+  create_plots(options)
+  write_latex_footer()
+  query (["pdflatex", "plots"], cwd=tempdir)
+  shutil.move(tempdir+"/plots.pdf", "%s_%s-%s_%s.pdf"%(options.experiment, options.years_exp, options.reference, options.years_ref))
+
+if __name__ == "__main__":
+    main()
