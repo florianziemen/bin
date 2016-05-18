@@ -5,6 +5,7 @@ from __future__ import print_function
 from netCDF4 import Dataset as nc
 import numpy as np
 import matplotlib.pylab as mpl
+import matplotlib.colors as colors
 # import flo_utils as fu
 
 from argparse import ArgumentParser
@@ -77,7 +78,7 @@ def read_var(var, filename, options):
 def sort_levels (levels = None, minmax=None):
 #   levels = levels[0] if levels else None
   if not levels is None:
-    levels = [float(x) for x in levels.split(',')]
+    levels = np.array([float(x) for x in levels.split(',')])
 #    levels = [data.min()] + levels + [data.max()]
     if (len(levels) == 1 ):
       levels = int(levels[0])
@@ -107,19 +108,28 @@ def contour_var(var, filename, options):
       cmap = sns.cubehelix_palette(as_cmap=True, start=.5)
   except:
     print ("Trouble using colorbar %s with %s levels"%(options.cmap, levels if levels else "None"), file=sys.stderr)
-
+  
   # LEVELS
   levels = sort_levels(options.levels, options.minmax)
+  norm = None
+  if not levels is None:
+    if len(levels) > 1:
+      norm = colors.BoundaryNorm(boundaries=levels, ncolors=256)
   # DRAW IT 
   fig = mpl.figure()
   if (not levels is None ):
-    mpl.contourf(dimensions[0][:], dimensions[1][:], data, levels, coner_mask=True, cmap=cmap, extend="both")
+    if (not norm is None): 
+      mpl.contourf(dimensions[0][:], dimensions[1][:], data, levels, norm = norm , coner_mask=True, cmap=cmap, extend="both")
+    else:
+      mpl.contourf(dimensions[0][:], dimensions[1][:], data, levels, coner_mask=True, cmap=cmap, extend="both")
     mpl.colorbar()
     mpl.contour (dimensions[0][:], dimensions[1][:], data, levels, coner_mask=True, colors="0.5", linewidths=.25, linestyles="solid")
   else:
     mpl.contourf(dimensions[0][:], dimensions[1][:], data, coner_mask=True, cmap=cmap)
     mpl.colorbar()
     mpl.contour (dimensions[0][:], dimensions[1][:], data, coner_mask=True, colors="0.5", linewidths=.25, linestyles="solid")
+  if options.scaled:
+    mpl.axis("scaled")
 
   # OVERLAY
   if not options.overlay_var is None:
@@ -176,6 +186,8 @@ def parse_args():
     help='''set x limits (decreasing flips axis)''', nargs=2, type=float)
   parser.add_argument("--ylim",
     help='''set y limits (decreasing flips axis)''', nargs=2, type=float)
+  parser.add_argument("--scaled",
+                      help='''same scaling on both axes''', action="store_true")
 
   parser.add_argument("-m", "--minmax",
                       help='''set minimum and maximum for contours''', nargs=2, type=float, default = None)
