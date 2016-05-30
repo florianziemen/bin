@@ -15,6 +15,7 @@ from argparse import ArgumentParser
 # import shutil
 # import subprocess
 import sys
+from mpl_toolkits.basemap import Basemap
 
 try:
   import seaborn as sns
@@ -60,6 +61,8 @@ def read_var(var, filename, options):
       if not x  in vars.keys():
         print ("Trying to substitute %s"%(x))
         if ("lat" in vars.keys() and "lon" in vars.keys() and (vars["lat"].size > 1 or vars ["lon"].size > 1)):
+          if len(lat.shape) > 1:
+            break
           print ("Found coordinate variables")
           la = np.squeeze(vars["lat"])
           lo = np.squeeze(vars["lon"])
@@ -74,14 +77,20 @@ def read_var(var, filename, options):
             else:
               dimensions[offset]=lo
               labels[offset] = "lon"
-
-  labels = fix_attrs(vars, labels)
-  
-  if options.transpose: # python has a very strange understanding of order -- we'll fix that
-    dimensions=dimensions[::-1]
-    labels=labels[::-1]
+  if ("lat" in vars.keys() and "lon" in vars.keys() and (len(vars["lat"].shape) > 1 )):
+    print ("found 2d coordinates")
+    dimensions[-1] = vars["lat"]
+    dimensions[-2] = vars["lon"]
+    labels[-1] = ""
+    labels[-2] = ""
   else:
-    data = data.transpose()
+    if options.transpose: # python has a very strange understanding of order -- we'll fix that
+      dimensions=dimensions[::-1]
+      labels=labels[::-1]
+    else:
+      data = data.transpose()
+    labels = fix_attrs(vars, labels)
+
   return (data, attrs, dimensions, labels)
 
 
@@ -125,21 +134,50 @@ def contour_var(var, filename, options):
   if not levels is None:
     if len(levels) > 1:
       norm = colors.BoundaryNorm(boundaries=levels, ncolors=256)
+
+
+  # map and projection stuff
+  if len(dimensions[0].shape) == 2 : # 2d coordinates
+    print ("using 2d coordinates")
+    # map = Basemap(width=8000000,height=8500000,
+    #                  resolution='l',projection='stere',\
+    #                  lat_ts=70,lat_0=72,lon_0=-45.)
+    if options.greenland:
+      map = Basemap(width=1650000,height=2800000,
+                    resolution='l',projection='stere',\
+                    lat_ts=71,lat_0=72,lon_0=-40.)
+    else:
+          map = Basemap(width=9500000,height=9500000,
+                     resolution='l',projection='stere',\
+                     lat_ts=70,lat_0=87,lon_0=-45.)
+
+    x, y = map(dimensions[0][:], dimensions[1][:])
+    pl = map
+  else:
+    pl = mpl
+    x = dimensions[0][:]
+    y = dimensions[1][:]
+    
   # DRAW IT 
-  fig = mpl.figure()
+  print (dimensions)
   if (not levels is None ):
     if (not norm is None): 
-      mpl.contourf(dimensions[0][:], dimensions[1][:], data, levels, norm = norm , coner_mask=True, cmap=cmap, extend="both")
+      pl.pcolormesh(x, y, data,  norm = norm ,  cmap=cmap )
     else:
-      mpl.contourf(dimensions[0][:], dimensions[1][:], data, levels, coner_mask=True, cmap=cmap, extend="both")
+      pl.pcolormesh(x, y, data,   cmap=cmap)
     mpl.colorbar()
-    mpl.contour (dimensions[0][:], dimensions[1][:], data, levels, coner_mask=True, colors="0.5", linewidths=.25, linestyles="solid")
+    pl.contour (x, y, data, levels,  colors="0.5", linewidths=.25, linestyles="solid")
   else:
-    mpl.contourf(dimensions[0][:], dimensions[1][:], data, coner_mask=True, cmap=cmap)
+    pl.pcolormesh(x, y, data,  cmap=cmap)
     mpl.colorbar()
-    mpl.contour (dimensions[0][:], dimensions[1][:], data, coner_mask=True, colors="0.5", linewidths=.25, linestyles="solid")
+    pl.contour (x, y, data,  colors="0.5", linewidths=.25, linestyles="solid")
   if options.scaled:
     mpl.axis("scaled")
+
+  if len(dimensions[0].shape) == 2 : # 2d coordinates
+    pl.drawcoastlines(linewidth=0.25)
+    pl.drawmeridians(np.arange(0,360,30))
+    pl.drawparallels(np.arange(-90,90,30))
 
   # OVERLAY
   if not options.overlay_var is None:
@@ -148,11 +186,11 @@ def contour_var(var, filename, options):
     else:
       (overlay_data, overlay_attrs, overlay_dimensions, overlay_labels) = read_var (options.overlay_var, options.overlay_file, options)
     overlay_levels = sort_levels (options.overlay_levels)
-    if (overlay_levels):
-      CS = mpl.contour(overlay_dimensions[0][:], overlay_dimensions[1][:], overlay_data, overlay_levels, colors="k", linewidths=.5)
+    if (overlay_levels is not None):
+      CS = pl.contour(x, y, overlay_data, overlay_levels, colors="k", linewidths=.5)
       mpl.clabel(CS, fmt="%s") 
     else:
-      CS = mpl.contour(overlay_dimensions[0][:], overlay_dimensions[1][:], overlay_data, colors="k", linewidths=.5)
+      CS = pl.contour(x, y, overlay_data, colors="k", linewidths=.5)
       mpl.clabel(CS, fmt="%s") 
     
   # MAKE IT NICE
@@ -198,6 +236,8 @@ def parse_args():
     help='''set y limits (decreasing flips axis)''', nargs=2, type=float)
   parser.add_argument("--scaled",
                       help='''same scaling on both axes''', action="store_true")
+  parser.add_argument("-g", "--greenland",
+                      help='''Adjust map for Greenland plot''', action="store_true")
 
   parser.add_argument("-m", "--minmax",
                       help='''set minimum and maximum for contours''', nargs=2, type=float, default = None)
