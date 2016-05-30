@@ -1,0 +1,80 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+from argparse import ArgumentParser
+import sys
+import re
+import os
+import flo_utils as fu
+
+scriptpath="/home/zmaw/m300019/Apps/ghb"
+
+def cerr(*objs):
+  print( *objs, file=sys.stderr)
+
+def generate_blocks(options):
+    start=options.start
+    last=options.last
+    if last < start:
+        cerr("ERROR: BAD ARGUMENTS TO archive_run")
+        cerr("ERROR: Last year before first year! %d < %d"%(last, start))
+        sys.exit(64)
+    starts=range(start, last, options.blocksize)
+    if len(starts) == 0:
+        starts = [start]
+    ends=[x-1 for x in starts[1:]]+[last]
+    return (zip(starts,ends))
+
+
+def generate_scripts(options):
+    blocks=generate_blocks(options)
+    infile = "%s/run_archive_esm.sh"%scriptpath
+    if options.no_hamocc:
+        infile = "%s/run_archive_esm_wo_hamocc.sh"%scriptpath
+    # read template
+    template = open(infile).read()
+    template = re.sub("EXPERIMENT_ID", options.run, template)
+
+    for b in blocks:
+        # transform template
+        script = re.sub("FIRST_YEAR", str(b[0]), template)
+        script = re.sub("LAST_YEAR", str(b[1]), script)
+        # write script
+        outfilename = "%s_%d-%d.job"%(options.run, b[0], b[1])
+        outfile = open(outfilename, "w")
+        outfile.writelines(script)
+        outfile.close()
+        # submit script
+        print ("sbatch", outfilename)
+
+    
+def parse_args():
+  '''Parses the command line arguments'''
+
+  parser = ArgumentParser()
+  parser.description = "Archive an mpi-esm run"
+  parser.add_argument("run")
+  parser.add_argument("start", type=int)
+  parser.add_argument("last", type=int)
+
+  parser.add_argument("-v", "--verbose",
+    help='''Be verbose''', action="store_true")
+
+  parser.add_argument("-b", "--blocksize",
+                      help='''Block size''', type=int, default=100)
+
+  parser.add_argument( "--no_hamocc",
+    help='''Be verbose''', action="store_true")
+
+
+  options = parser.parse_args()
+  return options
+
+
+def main():
+  '''Start the archiving scripts'''
+  options = parse_args()
+  generate_scripts(options)
+
+if __name__ == "__main__":
+  main()

@@ -22,22 +22,24 @@
 #
 #SBATCH --job-name=archive_esm
 #SBATCH --partition=shared
-##SBATCH --partition=compute
-##SBATCH --exclusive
-##SBATCH --nodes=1
-#SBATCH --tasks-per-node=1
-##SBATCH --cpus-per-task=1
-##SBATCH --mem-per-cpu=1280
+#SBATCH --ntasks=1
 #SBATCH --time=10:00:00
 #SBATCH --output=archive_esm.o%j
 #SBATCH --error=archive_esm.o%j
 #SBATCH --mail-type=FAIL
 #SBATCH --account=bm0948
 
+##SBATCH --cpus-per-task=1
+##SBATCH --mem-per-cpu=1280
+##SBATCH --partition=compute
+##SBATCH --exclusive
+##SBATCH --nodes=1
+##SBATCH --tasks-per-node=1
+
 ulimit -s unlimited
 
 module unload cdo
-module load cdo/1.6.9-gcc48
+module load cdo/1.7.1-magicsxx-gcc48
 ###########################################################################
 
 ###########################################################################
@@ -49,17 +51,17 @@ module load cdo/1.6.9-gcc48
 # Please edit
 #
 # Path to archiving script
-script=/home/zmaw/${USER}/Apps/bin/archive_esm.sh
+script=/home/zmaw/${USER}/Apps/ghb/archive_esm.sh
 #
 # Start up and last year to process (archiving, climatologies, ...)
-firstyear=$2
-lastyear=$3
+firstyear=FIRST_YEAR
+lastyear=LAST_YEAR
 #
 # ID of the experiment to process
 # used for default paths to the temporary, experiment's, climatologies,
 # local and remote archive data, and for the file patterns to select the
 # data files for processing
-experiment_id=$1
+experiment_id=EXPERIMENT_ID
 echo $experiment_id $firstyear $lastyear
 #-------------------------------------------------------------------------#
 #
