@@ -166,7 +166,7 @@ declare -r no="none"
 
 # ---- Data indicators of file patterns to select raw and restart data ---#
 #      and data types of raw data for processing climatologies            #
-# Please edit, if differ from default
+# Please edit, if different from default
 #
 # Atmosphere
 # default:
@@ -198,14 +198,14 @@ declare -r no="none"
 #-------------------------------------------------------------------------#
 
 # ---- Data indicators of file patterns to select coupling restart data --#
-# Please edit, if differ from default
+# Please edit, if different from default
 #
 # default:
 #coupler_restart_data_pat="flxatmos_ sstocean_"
 #-------------------------------------------------------------------------#
 
 # ---- Data indicators of file patterns to select logging data -----------#
-# Please edit, if differ from default
+# Please edit, if different from default
 #
 # default:
 #log_data_pat="run_ store_"

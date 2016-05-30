@@ -832,7 +832,7 @@ function usage() {
   printf "\t\tlogging data of all model components and performs and\n"
   printf "\t\tarchives the default climatologies for the time period\n"
   printf "\t\t3800 - 3899. The data are expected in and the processed\n"
-  printf "\t\tdata are putted into the default directories.\n\n"
+  printf "\t\tdata are put into the default directories.\n\n"
 
   printf "\t${b}./$(basename $0) --project_id xx0000 --mpiesm_id mpiesm_rev_0\n"
   printf "\t\t--experiment_id xxx0123 --firstyear 3800 --lastyear 3899\n"
@@ -841,7 +841,7 @@ function usage() {
   printf "\t\tlogging data of all model components except the ocean's\n"
   printf "\t\tbiogeochemical one and performs and archives the default\n"
   printf "\t\tclimatologies for the time period 3800 - 3899. The data are\n"
-  printf "\t\texpected in and the processed data are putted into the\n"
+  printf "\t\texpected in and the processed data are put into the\n"
   printf "\t\tdefault directories.\n\n"
 
   printf "\t${b}./$(basename $0) --project_id xx0000 --mpiesm_id mpiesm_rev_0\n"
@@ -850,7 +850,7 @@ function usage() {
   printf "\t\t--lcoupler false ${n}\n"
   printf "\t\tarchives experiment's xxx0123 default logging data for the\n"
   printf "\t\ttime period 3800 - 3899. The data are expected in and the\n"
-  printf "\t\tprocessed data are putted into the default directories.\n\n"
+  printf "\t\tprocessed data are put into the default directories.\n\n"
 
   printf "\t${b}./$(basename $0) --project_id xx0000 --mpiesm_id mpiesm_rev_0\n"
   printf "\t\t--experiment_id xxx0123 --firstyear 3800 --lastyear 3899\n"
@@ -858,7 +858,7 @@ function usage() {
   printf "\t\tarchives experiment's xxx0123 default raw data of all model\n"
   printf "\t\tcomponents and performs and archives the default climatologies\n"
   printf "\t\tfor the time period 3800 - 3899. The data are expected in and\n"
-  printf "\t\tthe processed data are putted into the default directories.\n\n"
+  printf "\t\tthe processed data are put into the default directories.\n\n"
 
   printf "\t${b}./$(basename $0) --project_id xx0000 --mpiesm_id mpiesm_rev_0\n"
   printf "\t\t--experiment_id xxx0123 --firstyear 3809 --lastyear 3899\n"
@@ -867,7 +867,7 @@ function usage() {
   printf "\t\tarchives experiment's xxx0123 default restart data of all model\n"
   printf "\t\tcomponents for the time period 3809 - 3899 with an increment of\n"
   printf "\t\t10 years. The data are expected in and the processed data are\n"
-  printf "\t\tputted into the default directories.\n\n"
+  printf "\t\tput into the default directories.\n\n"
 
   printf "\n"
 }
