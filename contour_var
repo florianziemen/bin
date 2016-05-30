@@ -22,6 +22,16 @@ try:
 except ImportError:
   seaborn = False
 
+
+try:
+  import colormaps as cmaps
+  mpl.register_cmap(name='viridis', cmap=cmaps.viridis)
+  mpl.set_cmap(cmaps.viridis)
+  mpl.register_cmap(name='viridis_r', cmap=cmaps.viridis_r)
+  print ("Got viridis")
+except ImportError:
+  print ("Viridis not found")
+  
 def fix_attrs(vars,labels):
   for n,x in enumerate(labels):
     if x in vars.keys():
