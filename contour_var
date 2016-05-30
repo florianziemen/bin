@@ -210,7 +210,10 @@ def contour_var(var, filename, options):
 
   # SAVE TO FILE OR SHOW
   if not options.outfile is  None:
-    mpl.savefig(options.outfile)
+    if options.outfile[-3:] == "png":
+      mpl.savefig(options.outfile, dpi=400 )
+    else:
+      mpl.savefig(options.outfile)
   else:
     mpl.show()
 
