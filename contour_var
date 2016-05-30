@@ -48,6 +48,8 @@ def read_var(var, filename, options):
     data = np.ma.masked_array(np.squeeze(var),np.squeeze(var[:].mask))
   else :
     data = np.squeeze(var)
+  if options.missval is not None:
+    data = np.ma.masked_values(data, options.missval)
   dims = var.dimensions
   sizes = var.shape
   attrs = { k:  var.getncattr(k) for k in var.ncattrs()}
@@ -250,7 +252,8 @@ def parse_args():
     help='''Name of a colormap''')
 
   parser.add_argument("-s", "--sub", default=None)
-
+  parser.add_argument("--missval", type = float, default = None)
+  
   parser.add_argument("--overlay_var", default=None)
   parser.add_argument("--overlay_file", default=None)
   parser.add_argument("--overlay_levels", default=None,
