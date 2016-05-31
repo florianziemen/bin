@@ -1,19 +1,18 @@
 #!/bin/bash 
 #
 ###########################################################################
-# File: run_archive_esm_wo_restart.sh
+# File: run_archive_esm.sh
 #
 # This script is used to call the archive script for mpiesm coupled model
-# data archive_esm.sh only with processing restart data for a time period
-# with an increment of 10 years. 
+# data archive_esm.sh with a setup spezified by the user. 
 #
 # Interactive usage:
 # ------------------
-# ./run_archive_esm_wo_restart.sh
+# ./run_archive_esm.sh
 #
 # Batch job usage on mistral:
 # ---------------------------
-# sbatch run_archive_esm_wo_restart.sh
+# sbatch run_archive_esm.sh
 #
 ###########################################################################
 #
@@ -23,23 +22,24 @@
 #
 #SBATCH --job-name=archive_esm
 #SBATCH --partition=shared
-##SBATCH --partition=compute
-##SBATCH --exclusive
-##SBATCH --nodes=1
-#SBATCH --tasks-per-node=1
-##SBATCH --cpus-per-task=1
-##SBATCH --mem-per-cpu=1280
+#SBATCH --ntasks=1
 #SBATCH --time=10:00:00
 #SBATCH --output=archive_esm.o%j
 #SBATCH --error=archive_esm.o%j
 #SBATCH --mail-type=FAIL
-#SBATCH --mail-user=petra.nerge@mpimet.mpg.de
 #SBATCH --account=bm0948
+
+##SBATCH --cpus-per-task=1
+##SBATCH --mem-per-cpu=1280
+##SBATCH --partition=compute
+##SBATCH --exclusive
+##SBATCH --nodes=1
+##SBATCH --tasks-per-node=1
 
 ulimit -s unlimited
 
 module unload cdo
-module load cdo/1.6.9-gcc48
+module load cdo/1.7.1-magicsxx-gcc48
 ###########################################################################
 
 ###########################################################################
@@ -51,7 +51,7 @@ module load cdo/1.6.9-gcc48
 # Please edit
 #
 # Path to archiving script
-script=/home/zmaw/${USER}/bin/archive_esm.sh
+script=/home/zmaw/${USER}/Apps/ghb/archive_esm.sh
 #
 # Start up and last year to process (archiving, climatologies, ...)
 firstyear=FIRST_YEAR
@@ -62,6 +62,7 @@ lastyear=LAST_YEAR
 # local and remote archive data, and for the file patterns to select the
 # data files for processing
 experiment_id=EXPERIMENT_ID
+echo $experiment_id $firstyear $lastyear
 #-------------------------------------------------------------------------#
 #
 # ---- Mandatory setup for default directories ---------------------------#
@@ -69,7 +70,7 @@ experiment_id=EXPERIMENT_ID
 # used for default paths to the experiment's, climatologies, local and
 # remote archive data (see bullet point root directories). 
 # Please edit, if directories differ from default
-project_id="mh0110"
+project_id="bm0948"
 mpiesm_id="mpiesm-flo-dev"
 #-------------------------------------------------------------------------#
 
@@ -82,7 +83,7 @@ mpiesm_id="mpiesm-flo-dev"
 #
 # Path to experiment's root directory
 # default: "/work/${project_id}/${USER}/${mpiesm_id}/experiments/${experiment_id}"}
-experiment_path="/work/${project_id}/m211003/${mpiesm_id}/experiments/${experiment_id}"
+experiment_path="/work/${project_id}/${USER}/${mpiesm_id}/experiments/${experiment_id}"
 #
 # Path to root directory of local tarballs
 # default: "/work/${project_id}/${USER}/${mpiesm_id}/experiments/tars/${experiment_id}"}
@@ -101,54 +102,54 @@ climatologies_path="/scratch/m/${USER}/tmp/${mpiesm_id}/experiments/means/${expe
 # Please edit, if setup differ from default
 #
 # Enable verbose log
-# default: 0 (disabled)
-#verbose=2
+# default: 0 (disabled) 2 is verbose
+verbose=0
 #
 # Enable profiling 
 # default: false
-#lprofiling=true
+lprofiling=false
 #
 # Increment of time period
 # default: 1
-incrementyear=10
+incrementyear=1
 #
 # Enable climatologies
 # default: true
-lclimatologies=false
+lclimatologies=true
 # Enable archiving raw data and climatologies
 # default: true
-larchive_data=false
+larchive_data=true
 # Enable archiving restart data
 # default: true
-#larchive_restart=false
+larchive_restart=false
 # Enable archiving logging data
 # default: true
-larchive_log=false
+larchive_log=true
 #
 # Enable processing of atmosphere/ECHAM data 
 # default: true
-#latmosphere=false
+latmosphere=true
 # Enable processing of land/JSBACH data
 # default: true
-#lland=false
+lland=true
 # Enable processing of ocean/MPIOM data
 # default: true
-#locean=false
+locean=true
 # Enabel processing ocean's biogeochemical/HAMOCC data
 # default: true
-#logbc=false
+logbc=true
 # Enabel processing coupler data
 # default: true
-#lcoupler=false
+lcoupler=true
 # Enabel processing logging data
 # default: true
-llogg=false
+llogg=true
 #
 # Enable tidying up: mv/cp data files from temporary directory 
 # to where they come from
 # needs processing's configuration
 # default: false
-#ltidying=true
+ltidying=false
 #-------------------------------------------------------------------------#
 
 # ---- Experiment's raw data types for processing climatologies ----------#
@@ -167,7 +168,7 @@ declare -r no="none"
 
 # ---- Data indicators of file patterns to select raw and restart data ---#
 #      and data types of raw data for processing climatologies            #
-# Please edit, if differ from default
+# Please edit, if different from default
 #
 # Atmosphere
 # default:
@@ -199,14 +200,14 @@ declare -r no="none"
 #-------------------------------------------------------------------------#
 
 # ---- Data indicators of file patterns to select coupling restart data --#
-# Please edit, if differ from default
+# Please edit, if different from default
 #
 # default:
 #coupler_restart_data_pat="flxatmos_ sstocean_"
 #-------------------------------------------------------------------------#
 
 # ---- Data indicators of file patterns to select logging data -----------#
-# Please edit, if differ from default
+# Please edit, if different from default
 #
 # default:
 #log_data_pat="run_ store_"

@@ -27,20 +27,48 @@ def generate_blocks(options):
 
 
 def generate_scripts(options):
+  iterations = (0,)
+  if (options.restart_interval != 1) :
+    iterations = (0, 1) 
+  for restart_backup_iteration in iterations:
     blocks=generate_blocks(options)
     infile = "%s/run_archive_esm.sh"%scriptpath
     if options.no_hamocc:
         infile = "%s/run_archive_esm_wo_hamocc.sh"%scriptpath
-    # read template
+    if (restart_backup_iteration == 0 and options.restart_interval != 1):
+      infile = infile[:-3] + "_wo_restart.sh"
+    elif (restart_backup_iteration == 1):
+      infile = infile[:-3] + "_only_restart.sh"
+      
+      # read template
     template = open(infile).read()
     template = re.sub("EXPERIMENT_ID", options.run, template)
 
     for b in blocks:
         # transform template
-        script = re.sub("FIRST_YEAR", str(b[0]), template)
+        # First year is different, when archiving strided restarts
+        if (restart_backup_iteration == 0 ):
+          script = re.sub("FIRST_YEAR", str(b[0]), template)
+        else:
+          script = re.sub("FIRST_YEAR", str(b[0]+options.restart_interval - 1), template)
+          if (b[0] + options.restart_interval - 1  > b[1]): # first restart file falls into next block
+            fu.cerr("""Start year of block %d and restart interval %d yield 
+            first restart file of block %d outside block [%d, %d]
+            """ % (b[0], options.restart_interval, b[0]+options.restart_interval-1, b[0], b[1]))
+            sys.exit(64)
+            
         script = re.sub("LAST_YEAR", str(b[1]), script)
+        # adjust job name to distinguish between normal and restart archiving
+        if restart_backup_iteration == 0 :
+          script = re.sub("--job-name=.*","--job-name=a_%s_%d-%d"%(options.run, b[0], b[1]), script)
+        else:
+          script = re.sub("--job-name=.*","--job-name=ar_%s_%d-%d"%(options.run, b[0], b[1]), script)
         # write script
         outfilename = "%s_%d-%d.job"%(options.run, b[0], b[1])
+        if (restart_backup_iteration == 1 ):
+          outfilename = "%s_%d-%d_restarts.job"%(options.run, b[0], b[1])
+          script = re.sub("#incrementyear=.*", "incrementyear=%d"%options.restart_interval , script)
+          script = re.sub("incrementyear=.*", "incrementyear=%d"%options.restart_interval , script)
         outfile = open(outfilename, "w")
         outfile.writelines(script)
         outfile.close()
@@ -62,6 +90,8 @@ def parse_args():
 
   parser.add_argument("-b", "--blocksize",
                       help='''Block size''', type=int, default=100)
+  parser.add_argument( "--restart_interval",
+                      help='''Interval of restart files''', type=int, default=1)
 
   parser.add_argument( "--no_hamocc",
     help='''Be verbose''', action="store_true")
