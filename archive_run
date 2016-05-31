@@ -7,7 +7,7 @@ import re
 import os
 import flo_utils as fu
 
-scriptpath="/home/zmaw/m300019/Apps/ghb"
+scriptpath = os.path.dirname(sys.argv[0])
 
 def cerr(*objs):
   print( *objs, file=sys.stderr)
