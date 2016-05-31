@@ -63,6 +63,9 @@ def generate_scripts(options):
           script = re.sub("--job-name=.*","--job-name=a_%s_%d-%d"%(options.run, b[0], b[1]), script)
         else:
           script = re.sub("--job-name=.*","--job-name=ar_%s_%d-%d"%(options.run, b[0], b[1]), script)
+        # only monthly mean JSBACH data avail?
+        if (options.jsbach_mm_only):
+          script = re.sub(r'(#land_data_pat=".*\n?.*)',r'\1\n#!FLO! CHANGED JSBACH OUTPUT FILE PATTERN!=====================#\nland_data_pat="jsbach_mm_ land_mm_ surf_mm_  veg_mm_ yasso_mm_"\n#!FLO! CHANGED JSBACH OUTPUT FILE PATTERN!=====================#', script)
         # write script
         outfilename = "%s_%d-%d.job"%(options.run, b[0], b[1])
         if (restart_backup_iteration == 1 ):
@@ -95,6 +98,9 @@ def parse_args():
 
   parser.add_argument( "--no_hamocc",
     help='''Be verbose''', action="store_true")
+
+  parser.add_argument("--jsbach_mm_only",
+    help='''only look for monthly mean jsbach files''', action="store_true")
 
 
   options = parser.parse_args()
