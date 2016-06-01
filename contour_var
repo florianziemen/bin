@@ -81,10 +81,9 @@ def read_var(var, filename, options):
               labels[offset] = "lon"
   if ("lat" in vars.keys() and "lon" in vars.keys() and (len(vars["lat"].shape) > 1 )):
     print ("found 2d coordinates")
-    dimensions[-1] = vars["lat"]
-    dimensions[-2] = vars["lon"]
-    labels[-1] = ""
-    labels[-2] = ""
+    labels[0] = ""
+    labels[1] = ""
+    dimensions = dimensions +[ vars["lat"], vars["lon"] ]
   else:
     if options.transpose: # python has a very strange understanding of order -- we'll fix that
       dimensions=dimensions[::-1]
@@ -139,21 +138,37 @@ def contour_var(var, filename, options):
 
 
   # map and projection stuff
-  if len(dimensions[0].shape) == 2 : # 2d coordinates
+  if len(dimensions) == 4 : # 2d coordinates
     print ("using 2d coordinates")
     # map = Basemap(width=8000000,height=8500000,
     #                  resolution='l',projection='stere',\
     #                  lat_ts=70,lat_0=72,lon_0=-45.)
-    if options.greenland:
-      map = Basemap(width=1650000,height=2800000,
-                    resolution='l',projection='stere',\
-                    lat_ts=71,lat_0=72,lon_0=-40.)
+    if not (options.ll is None or options.ur is None):
+      llcrnrlon = options.ll[1]
+      urcrnrlon = options.ur[1]
+      llcrnrlat = options.ll[0]
+      urcrnrlat = options.ur[0]
     else:
+      llcrnrlon = dimensions[-1][0,0]
+      urcrnrlon = dimensions[-1][-1,-1]
+      llcrnrlat = dimensions[-2][0,0]
+      urcrnrlat = dimensions[-2][-1,-1]
+    if options.greenland:
+      map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
+                    resolution='l',projection='stere',\
+                    lat_ts=71,lat_0=71,lon_0=-39.)
+    elif options.NATL:
           map = Basemap(width=9500000,height=9500000,
                      resolution='l',projection='stere',\
-                     lat_ts=70,lat_0=87,lon_0=-45.)
+                     lat_ts=71,lat_0=87,lon_0=-44.)
+    elif options.diss_proj:
+      print (llcrnrlon, llcrnrlat, urcrnrlon, urcrnrlat)
+      print (dimensions[-1][0,0], dimensions[-1][-1,-1], dimensions[-2][0,0], dimensions[-2][-1,-1])
+      map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
+                    resolution='l',projection='stere',\
+                    lat_0=90, lat_ts=71,lon_0=-44.)
 
-    x, y = map(dimensions[0][:], dimensions[1][:])
+    x, y = map(dimensions[-1][:], dimensions[-2][:])
     pl = map
   else:
     pl = mpl
@@ -176,7 +191,7 @@ def contour_var(var, filename, options):
   if options.scaled:
     mpl.axis("scaled")
 
-  if len(dimensions[0].shape) == 2 : # 2d coordinates
+  if len(dimensions) == 4 : # 2d coordinates
     pl.drawcoastlines(linewidth=0.25)
     pl.drawmeridians(np.arange(0,360,30))
     pl.drawparallels(np.arange(-90,90,30))
@@ -241,8 +256,17 @@ def parse_args():
     help='''set y limits (decreasing flips axis)''', nargs=2, type=float)
   parser.add_argument("--scaled",
                       help='''same scaling on both axes''', action="store_true")
+
+  parser.add_argument("--ll",
+    help='''lat lon of lower left corner NEEDS --ur''', nargs=2, type=float)
+  parser.add_argument("--ur",
+    help='''lat lon of upper right corner NEEDS --ll''', nargs=2, type=float)
   parser.add_argument("-g", "--greenland",
                       help='''Adjust map for Greenland plot''', action="store_true")
+  parser.add_argument("-N", "--NATL",
+                      help='''Adjust map for NATL plot''', action="store_true")
+  parser.add_argument( "--diss_proj",
+                      help='''Adjust map for diss projection plot''', action="store_true")
 
   parser.add_argument("-m", "--minmax",
                       help='''set minimum and maximum for contours''', nargs=2, type=float, default = None)
