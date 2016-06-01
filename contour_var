@@ -32,7 +32,7 @@ try:
   print ("Got viridis")
 except ImportError:
   print ("Viridis not found")
-  
+
 def fix_attrs(vars,labels):
   for n,x in enumerate(labels):
     if x in vars.keys():
@@ -109,16 +109,16 @@ def sort_levels (levels = None, minmax=None):
   else:
     levels = None
   return levels
-  
+
 def contour_var(var, filename, options):
-  # Get the data 
+  # Get the data
   (data, attrs, dimensions, labels) = read_var(var, filename, options)
   # Get the data
-  if not options.sub is None : 
+  if not options.sub is None :
     (sub_data, sub_attrs, sub_dimensions, sub_labels) = read_var(var, options.sub, options)
     data = data - sub_data
-  
-  # COLORMAP 
+
+  # COLORMAP
   cmap = None
 #  cmap = sns.color_palette(options.cmap, options.levels if options.levels and len(options.levels.split(",")) == 1 else 7, as_cmap=True)
   try:
@@ -128,7 +128,7 @@ def contour_var(var, filename, options):
       cmap = sns.cubehelix_palette(as_cmap=True, start=.5)
   except:
     print ("Trouble using colorbar %s with %s levels"%(options.cmap, levels if levels else "None"), file=sys.stderr)
-  
+
   # LEVELS
   levels = sort_levels(options.levels, options.minmax)
   norm = None
@@ -174,11 +174,11 @@ def contour_var(var, filename, options):
     pl = mpl
     x = dimensions[0][:]
     y = dimensions[1][:]
-    
-  # DRAW IT 
+
+  # DRAW IT
   print (dimensions)
   if (not levels is None ):
-    if (not norm is None): 
+    if (not norm is None):
       pl.pcolormesh(x, y, data,  norm = norm ,  cmap=cmap )
     else:
       pl.pcolormesh(x, y, data,   cmap=cmap)
@@ -205,11 +205,11 @@ def contour_var(var, filename, options):
     overlay_levels = sort_levels (options.overlay_levels)
     if (overlay_levels is not None):
       CS = pl.contour(x, y, overlay_data, overlay_levels, colors="k", linewidths=.5)
-      mpl.clabel(CS, fmt="%s") 
+      mpl.clabel(CS, fmt="%s")
     else:
       CS = pl.contour(x, y, overlay_data, colors="k", linewidths=.5)
-      mpl.clabel(CS, fmt="%s") 
-    
+      mpl.clabel(CS, fmt="%s")
+
   # MAKE IT NICE
   if "xlim" in options:
       mpl.xlim(options.xlim)
@@ -272,7 +272,7 @@ def parse_args():
                       help='''set minimum and maximum for contours''', nargs=2, type=float, default = None)
   parser.add_argument("--levels",
                       help='''set levels for plotting. n = n levels, 1,2,3 = draw levels at 1, 2, and 3''')
-  
+
   parser.add_argument("-T", "--title",
                       help='''plot title''', default=None)
   parser.add_argument("-c", "--cmap",
@@ -280,7 +280,7 @@ def parse_args():
 
   parser.add_argument("-s", "--sub", default=None)
   parser.add_argument("--missval", type = float, default = None)
-  
+
   parser.add_argument("--overlay_var", default=None)
   parser.add_argument("--overlay_file", default=None)
   parser.add_argument("--overlay_levels", default=None,
