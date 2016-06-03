@@ -161,24 +161,36 @@ void diffuse( vector<vector<double> >  & vfield, const double missval) {
     }
   }
   copyvec(inmask, currmask);
-  for (int k = 0 ; k < 10000 ; k++){
-  for (size_t i = 1 ; i < ii-1 ; i++ )
-    for (size_t j = 1 ; j < jj-1 ; j++ ){
-      newfield [i][j] =
-	currmask[i-1][j] * vfield[i-1][j] + currmask[i+1][j] * vfield[i+1][j]
-	+ currmask[i][j-1] * vfield[i][j-1] + currmask[i][j+1] * vfield[i][j+1];
-      weight[i][j] = currmask[i-1][j] + currmask[i+1][j]
-	+ currmask[i][j-1] + currmask[i][j+1];
-      if (weight[i][j] != 0 ){
-	newfield[i][j] = newfield[i][j] / weight[i][j];
-	weight[i][j] = 1;
-      }	else
-	newfield[i][j] = missval;
-    }
-  copyvec(weight, currmask);
-  for (size_t i = 1 ; i < ii-1 ; i++ )
-    for (size_t j = 1 ; j < jj-1 ; j++ ){
-      vfield[i][j] = infield[i][j] * inmask[i][j] + newfield[i][j] * (1 - inmask[i][j]);
+  int offset [4];
+  offset[0] = 2;
+  offset[1] = 2;
+  offset[2] = 1;
+  offset[3] = 1;
+  for (int oo = 0 ; oo< 4 ; oo++){
+    int o = offset[oo];
+    for (int k = 0 ; k < 100 ; k++){
+      for (size_t i = o ; i < ii-o ; i+=o )
+	for (size_t j = o ; j < jj-o ; j+=o ){
+	  newfield [i][j] =
+	    currmask[i-o][j] * vfield[i-o][j] + currmask[i+o][j] * vfield[i+o][j]
+	    + currmask[i][j-o] * vfield[i][j-o] + currmask[i][j+o] * vfield[i][j+o]
+	    + 1.0001 * currmask[i][j] * vfield[i][j];
+	  weight[i][j] = currmask[i-o][j] + currmask[i+o][j]
+	    + currmask[i][j-o] + currmask[i][j+o]
+	    + 1.0001 * currmask[i][j];
+	  if (weight[i][j] > 1 ){
+	    newfield[i][j] = newfield[i][j] / weight[i][j];
+	    weight[i][j] = 1;
+	  }else{
+	    newfield[i][j] = missval;
+	    weight[i][j] = 0 ;
+	  }
+	}
+      copyvec(weight, currmask);
+      for (size_t i = 1 ; i < ii-1 ; i++ )
+	for (size_t j = 1 ; j < jj-1 ; j++ ){
+	  vfield[i][j] = infield[i][j] * inmask[i][j] + newfield[i][j] * (1 - inmask[i][j]);
+	}
     }
   }
 }
