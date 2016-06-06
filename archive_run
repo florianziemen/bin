@@ -29,13 +29,13 @@ def generate_blocks(options):
 def generate_scripts(options):
   iterations = (0,)
   if (options.restart_interval != 1) :
-    iterations = (0, 1) 
+    iterations = (0, 1, 2 ) 
   for restart_backup_iteration in iterations:
     blocks=generate_blocks(options)
     infile = "%s/run_archive_esm.sh"%scriptpath
     if options.no_hamocc:
         infile = "%s/run_archive_esm_wo_hamocc.sh"%scriptpath
-    if (restart_backup_iteration == 0 and options.restart_interval != 1):
+    if ((restart_backup_iteration == 0 and options.restart_interval != 1) or restart_backup_iteration == 2 ):
       infile = infile[:-3] + "_wo_restart.sh"
     elif (restart_backup_iteration == 1):
       infile = infile[:-3] + "_only_restart.sh"
@@ -47,7 +47,7 @@ def generate_scripts(options):
     for b in blocks:
         # transform template
         # First year is different, when archiving strided restarts
-        if (restart_backup_iteration == 0 ):
+        if (restart_backup_iteration == 0 or restart_backup_iteration == 2 ):
           script = re.sub("FIRST_YEAR", str(b[0]), template)
         else:
           script = re.sub("FIRST_YEAR", str(b[0]+options.restart_interval - 1), template)
@@ -59,26 +59,36 @@ def generate_scripts(options):
             
         script = re.sub("LAST_YEAR", str(b[1]), script)
         # adjust job name to distinguish between normal and restart archiving
-        if restart_backup_iteration == 0 :
+        if restart_backup_iteration == 0 : # Output without MPIOM and restarts
           script = re.sub("--job-name=.*","--job-name=a_%s_%d-%d"%(options.run, b[0], b[1]), script)
-        else:
+          script = re.sub("(#\s*)?locean=.*","locean=false", script)
+        elif (restart_backup_iteration == 1): # Restarts
           script = re.sub("--job-name=.*","--job-name=ar_%s_%d-%d"%(options.run, b[0], b[1]), script)
+        elif (restart_backup_iteration == 2): # MPIOM
+          script = re.sub("--job-name=.*","--job-name=am_%s_%d-%d"%(options.run, b[0], b[1]), script)
+          switches = ["lcoupler", "llogg", "lland", "latmosphere", "larchive_log", "larchive_restart"]
+          for switch in switches:
+            script = re.sub("(#\s*)?%s=.*"%(switch),"%s=false"%(switch), script)
         # only monthly mean JSBACH data avail?
         if (options.jsbach_mm_only):
           script = re.sub(r'(#land_data_pat=".*\n?.*)',r'\1\n#!FLO! CHANGED JSBACH OUTPUT FILE PATTERN!=====================#\nland_data_pat="jsbach_mm_ land_mm_ surf_mm_  veg_mm_ yasso_mm_"\n#!FLO! CHANGED JSBACH OUTPUT FILE PATTERN!=====================#', script)
+          script = re.sub(r'(#land_data_type=".*\n?.*)',r'\1\n#!FLO! CHANGED JSBACH OUTPUT FILE PATTERN!=====================#\nland_data_type="${mm} ${mm} ${mm} ${mm} ${mm}"\n#!FLO! CHANGED JSBACH OUTPUT FILE PATTERN!=====================#', script)
         # write script
         outfilename = "%s_%d-%d.job"%(options.run, b[0], b[1])
-        if (restart_backup_iteration == 1 ):
-          outfilename = "%s_%d-%d_restarts.job"%(options.run, b[0], b[1])
+        if (restart_backup_iteration > 0):
           script = re.sub("#incrementyear=.*", "incrementyear=%d"%options.restart_interval , script)
           script = re.sub("incrementyear=.*", "incrementyear=%d"%options.restart_interval , script)
+          if (restart_backup_iteration == 1):
+            outfilename = "%s_%d-%d_restarts.job"%(options.run, b[0], b[1])
+          elif (restart_backup_iteration == 2):
+            outfilename = "%s_%d-%d_mpiom.job"%(options.run, b[0], b[1])
+
         outfile = open(outfilename, "w")
         outfile.writelines(script)
         outfile.close()
         # submit script
         print ("sbatch", outfilename)
 
-    
 def parse_args():
   '''Parses the command line arguments'''
 
