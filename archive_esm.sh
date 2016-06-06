@@ -47,7 +47,7 @@ function err_dat_dir() {
 
 	local code=1
 	if [ ! -d $3 ]; then
-		local msg="$2 dir is not there!"
+		local msg="$2 dir is not there! $3"
        	 	err_exit $1 "${msg}" ${code} 
 	fi
 }
@@ -1207,9 +1207,9 @@ declare -r mvcp="cp"
 
 # Concatenate data files for climatologies
 # concatenate
-declare -r cat=cat
+declare -r cat="cdo --silent -cat"
 # cdo cat 12 min slower than cat for 100 years all of Flo's exprm
-#cat="cdo --silent -cat"
+# but also works on netcdf... 
 
 # Zip files
 # gzip, keep original files
@@ -1838,9 +1838,9 @@ for (( i=0;i<${#file_pats[@]};i++ )); do
 		# Concatenate raw data files to one file
 		# overwrites old one
 		# cat
-		${cat} ${tmp_files} > ${cat_file}
+		# ${cat} ${tmp_files} > ${cat_file}
 		# cdo cat
-		#${cat} ${tmp_files} ${cat_file}
+		${cat} ${tmp_files} ${cat_file}
 
 		# Time needed for concatenate data files 
 		if ${lprofiling}; then 

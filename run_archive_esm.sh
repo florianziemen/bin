@@ -95,7 +95,8 @@ local_archive_path="/scratch/m/${USER}/tmp/${mpiesm_id}/experiments/tars/${exper
 #
 # Path to root directory to store climatologies
 # default: "/work/${project_id}/${USER}/${mpiesm_id}/experiments/means/${experiment_id}"}
-climatologies_path="/scratch/m/${USER}/tmp/${mpiesm_id}/experiments/means/${experiment_id}"
+climatologies_path="/work/${project_id}/${USER}/means/${experiment_id}"
+# "/scratch/m/${USER}/tmp/${mpiesm_id}/experiments/means/${experiment_id}"
 #-------------------------------------------------------------------------#
 
 # ---- Processing setup --------------------------------------------------#
