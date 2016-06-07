@@ -2,10 +2,12 @@
 from __future__ import print_function
 
 
+import math
 from netCDF4 import Dataset as nc
 import numpy as np
 import matplotlib.pylab as mpl
 import matplotlib.colors as colors
+import re
 # import flo_utils as fu
 
 from argparse import ArgumentParser
@@ -32,7 +34,7 @@ try:
   print ("Got viridis")
 except ImportError:
   print ("Viridis not found")
-  
+
 def fix_attrs(vars,labels):
   for n,x in enumerate(labels):
     if x in vars.keys():
@@ -55,7 +57,7 @@ def read_var(var, filename, options):
   attrs = { k:  var.getncattr(k) for k in var.ncattrs()}
   dimensions = [vars.get(x,np.arange(sizes[n])) for n,x in enumerate(dims) if sizes[n] > 1 ]
   offset=-1
-  labels = ["", ""]
+  labels = [""] * len (dims)
   for n,x in enumerate (dims):
     if sizes[n] > 1:
       offset += 1
@@ -63,7 +65,7 @@ def read_var(var, filename, options):
       if not x  in vars.keys():
         print ("Trying to substitute %s"%(x))
         if ("lat" in vars.keys() and "lon" in vars.keys() and (vars["lat"].size > 1 or vars ["lon"].size > 1)):
-          if len(lat.shape) > 1:
+          if len(vars["lat"].shape) > 1:
             break
           print ("Found coordinate variables")
           la = np.squeeze(vars["lat"])
@@ -81,10 +83,9 @@ def read_var(var, filename, options):
               labels[offset] = "lon"
   if ("lat" in vars.keys() and "lon" in vars.keys() and (len(vars["lat"].shape) > 1 )):
     print ("found 2d coordinates")
-    dimensions[-1] = vars["lat"]
-    dimensions[-2] = vars["lon"]
-    labels[-1] = ""
-    labels[-2] = ""
+    labels[0] = ""
+    labels[1] = ""
+    dimensions = dimensions +[ vars["lat"], vars["lon"] ]
   else:
     if options.transpose: # python has a very strange understanding of order -- we'll fix that
       dimensions=dimensions[::-1]
@@ -110,16 +111,16 @@ def sort_levels (levels = None, minmax=None):
   else:
     levels = None
   return levels
-  
+
 def contour_var(var, filename, options):
-  # Get the data 
+  # Get the data
   (data, attrs, dimensions, labels) = read_var(var, filename, options)
   # Get the data
-  if not options.sub is None : 
+  if not options.sub is None :
     (sub_data, sub_attrs, sub_dimensions, sub_labels) = read_var(var, options.sub, options)
     data = data - sub_data
-  
-  # COLORMAP 
+
+  # COLORMAP
   cmap = None
 #  cmap = sns.color_palette(options.cmap, options.levels if options.levels and len(options.levels.split(",")) == 1 else 7, as_cmap=True)
   try:
@@ -129,7 +130,7 @@ def contour_var(var, filename, options):
       cmap = sns.cubehelix_palette(as_cmap=True, start=.5)
   except:
     print ("Trouble using colorbar %s with %s levels"%(options.cmap, levels if levels else "None"), file=sys.stderr)
-  
+
   # LEVELS
   levels = sort_levels(options.levels, options.minmax)
   norm = None
@@ -137,85 +138,135 @@ def contour_var(var, filename, options):
     if len(levels) > 1:
       norm = colors.BoundaryNorm(boundaries=levels, ncolors=256)
 
-
   # map and projection stuff
-  if len(dimensions[0].shape) == 2 : # 2d coordinates
+  if len(dimensions) >= 4 : # 2d coordinates
     print ("using 2d coordinates")
     # map = Basemap(width=8000000,height=8500000,
     #                  resolution='l',projection='stere',\
     #                  lat_ts=70,lat_0=72,lon_0=-45.)
-    if options.greenland:
-      map = Basemap(width=1650000,height=2800000,
-                    resolution='l',projection='stere',\
-                    lat_ts=71,lat_0=72,lon_0=-40.)
+    if not (options.ll is None or options.ur is None):
+      llcrnrlon = options.ll[1]
+      urcrnrlon = options.ur[1]
+      llcrnrlat = options.ll[0]
+      urcrnrlat = options.ur[0]
     else:
-          map = Basemap(width=9500000,height=9500000,
-                     resolution='l',projection='stere',\
-                     lat_ts=70,lat_0=87,lon_0=-45.)
-
-    x, y = map(dimensions[0][:], dimensions[1][:])
-    pl = map
+      llcrnrlon = dimensions[-1][0,0]
+      urcrnrlon = dimensions[-1][-1,-1]
+      llcrnrlat = dimensions[-2][0,0]
+      urcrnrlat = dimensions[-2][-1,-1]
+  slices = False
+  print ("DS")
+  print (data.shape)
+  if (len(data.shape) == 3):
+    slices = True
+    slicecount = len(data)
+    alldata = data # data.transpose((2,0,1))
+    print ("ADS")
+    print (alldata.shape)
   else:
-    pl = mpl
-    x = dimensions[0][:]
-    y = dimensions[1][:]
-    
-  # DRAW IT 
-  print (dimensions)
-  if (not levels is None ):
-    if (not norm is None): 
-      pl.pcolormesh(x, y, data,  norm = norm ,  cmap=cmap )
+    alldata = data.reshape([1]+[ i for i in data.shape])
+  for (num, data) in enumerate(alldata):
+    mpl.figure()
+    print ("LDIMS ", len(dimensions))
+    if (len(dimensions) >= 4) : # 2d coordinates
+      if options.greenland:
+        map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
+                      resolution='l',projection='stere',\
+                      lat_ts=71,lat_0=71,lon_0=-39.)
+        print ("GL")
+      elif options.NATL:
+            map = Basemap(width=9500000,height=9500000,
+                       resolution='l',projection='stere',\
+                       lat_ts=71,lat_0=87,lon_0=-44.)
+      elif options.diss_proj:
+        print (llcrnrlon, llcrnrlat, urcrnrlon, urcrnrlat)
+        print (dimensions[-1][0,0], dimensions[-1][-1,-1], dimensions[-2][0,0], dimensions[-2][-1,-1])
+        map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
+                      resolution='l',projection='stere',\
+                      lat_0=90, lat_ts=71,lon_0=-44.)
+      elif options.ANT:
+        print ("ANT")
+        print (llcrnrlon, llcrnrlat, urcrnrlon, urcrnrlat)
+        print (dimensions[-1][0,0], dimensions[-1][-1,-1], dimensions[-2][0,0], dimensions[-2][-1,-1])
+        map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
+                      resolution='l',projection='stere',\
+                      lat_0=-90, lat_ts=-71,lon_0=180)
+      x, y = map(dimensions[-1][:], dimensions[-2][:])
+      pl = map
     else:
-      pl.pcolormesh(x, y, data,   cmap=cmap)
-    mpl.colorbar()
-    pl.contour (x, y, data, levels,  colors="0.5", linewidths=.25, linestyles="solid")
-  else:
-    pl.pcolormesh(x, y, data,  cmap=cmap)
-    mpl.colorbar()
-    pl.contour (x, y, data,  colors="0.5", linewidths=.25, linestyles="solid")
-  if options.scaled:
-    mpl.axis("scaled")
+      pl = mpl
+      x = dimensions[0][:]
+      y = dimensions[1][:]
 
-  if len(dimensions[0].shape) == 2 : # 2d coordinates
-    pl.drawcoastlines(linewidth=0.25)
-    pl.drawmeridians(np.arange(0,360,30))
-    pl.drawparallels(np.arange(-90,90,30))
-
-  # OVERLAY
-  if not options.overlay_var is None:
-    if options.overlay_file is None:
-      (overlay_data, overlay_attrs, overlay_dimensions, overlay_labels) = read_var (options.overlay_var, filename, options)
+    # DRAW IT
+    if (not levels is None ):
+      if (not norm is None):
+        pl.pcolormesh(x, y, data,  norm = norm ,  cmap=cmap )
+      else:
+        pl.pcolormesh(x, y, data,   cmap=cmap)
+      mpl.colorbar()
+      pl.contour (x, y, data, levels,  colors="0.5", linewidths=.25, linestyles="solid")
     else:
-      (overlay_data, overlay_attrs, overlay_dimensions, overlay_labels) = read_var (options.overlay_var, options.overlay_file, options)
-    overlay_levels = sort_levels (options.overlay_levels)
-    if (overlay_levels is not None):
-      CS = pl.contour(x, y, overlay_data, overlay_levels, colors="k", linewidths=.5)
-      mpl.clabel(CS, fmt="%s") 
-    else:
-      CS = pl.contour(x, y, overlay_data, colors="k", linewidths=.5)
-      mpl.clabel(CS, fmt="%s") 
-    
-  # MAKE IT NICE
-  if "xlim" in options:
-      mpl.xlim(options.xlim)
-  if "ylim" in options:
-    mpl.ylim(options.ylim)
-  mpl.xlabel(labels[0])
-  mpl.ylabel(labels[1])
+      pl.pcolormesh(x, y, data,  cmap=cmap)
+      mpl.colorbar()
+      pl.contour (x, y, data,  colors="0.5", linewidths=.25, linestyles="solid")
+    if options.scaled:
+      mpl.axis("scaled")
 
-  if options.title is None:
-    mpl.title("%s (%s)"%(attrs.get("long_name", var), attrs.get("units", "unknown units")))
-  else:
-    mpl.title(options.title)
+    if len(dimensions) >= 4 : # 2d coordinates
+      pl.drawcoastlines(linewidth=0.25)
+      pl.drawmeridians(np.arange(0,360,30),linewidth=.25, dashes=[10,1e-6],color=(.5,.5,.5))
+      pl.drawparallels(np.arange(-90,90,30),linewidth=.25, dashes=[10,1e-6],color=(.5,.5,.5))
 
-  # SAVE TO FILE OR SHOW
-  if not options.outfile is  None:
-    if options.outfile[-3:] == "png":
-      mpl.savefig(options.outfile, dpi=400 )
+    # OVERLAY
+    if not options.overlay_var is None:
+      if options.overlay_file is None:
+        (overlay_data, overlay_attrs, overlay_dimensions, overlay_labels) = read_var (options.overlay_var, filename, options)
+      else:
+        (overlay_data, overlay_attrs, overlay_dimensions, overlay_labels) = read_var (options.overlay_var, options.overlay_file, options)
+      overlay_levels = sort_levels (options.overlay_levels)
+      if (overlay_levels is not None):
+        CS = pl.contour(x, y, overlay_data, overlay_levels, colors="k", linewidths=.5)
+        mpl.clabel(CS, fmt="%s")
+      else:
+        CS = pl.contour(x, y, overlay_data, colors="k", linewidths=.5)
+        mpl.clabel(CS, fmt="%s")
+
+    # MAKE IT NICE
+    if "xlim" in options:
+        mpl.xlim(options.xlim)
+    if "ylim" in options:
+      mpl.ylim(options.ylim)
+    mpl.xlabel(labels[0])
+    mpl.ylabel(labels[1])
+
+    if options.title is None:
+      mpl.title("%s (%s)"%(attrs.get("long_name", var), attrs.get("units", "unknown units")))
     else:
-      mpl.savefig(options.outfile)
-  else:
-    mpl.show()
+      mpl.title(options.title)
+
+    # SAVE TO FILE OR SHOW
+    if not slices:
+      if not options.outfile is  None:
+        if options.outfile[-3:] == "png":
+          mpl.savefig(options.outfile, dpi=400 )
+        else:
+          mpl.savefig(options.outfile)
+      else:
+        mpl.show()
+    else:
+      if not options.outfile is  None:
+        lsc = math.ceil(math.log10(slicecount))
+        if (lsc < 3):
+          myout=re.sub(r'(.*)(\..*)', r'\1_%02d\2'%num, options.outfile)
+        else:
+          myout=re.sub(r'(.*)(\..*)', r'\1_%04d\2'%num, options.outfile)
+        if options.outfile[-3:] == "png":
+          mpl.savefig(myout, dpi=400 )
+        else:
+          mpl.savefig(myout)
+      else:
+        mpl.show()
 
 
 
@@ -241,14 +292,25 @@ def parse_args():
     help='''set y limits (decreasing flips axis)''', nargs=2, type=float)
   parser.add_argument("--scaled",
                       help='''same scaling on both axes''', action="store_true")
+
+  parser.add_argument("--ll",
+    help='''lat lon of lower left corner NEEDS --ur''', nargs=2, type=float)
+  parser.add_argument("--ur",
+    help='''lat lon of upper right corner NEEDS --ll''', nargs=2, type=float)
   parser.add_argument("-g", "--greenland",
                       help='''Adjust map for Greenland plot''', action="store_true")
+  parser.add_argument("-N", "--NATL",
+                      help='''Adjust map for NATL plot''', action="store_true")
+  parser.add_argument("-A", "--ANT",
+                      help='''Adjust map for ANT plot''', action="store_true")
+  parser.add_argument( "--diss_proj",
+                      help='''Adjust map for diss projection plot''', action="store_true")
 
   parser.add_argument("-m", "--minmax",
                       help='''set minimum and maximum for contours''', nargs=2, type=float, default = None)
   parser.add_argument("--levels",
                       help='''set levels for plotting. n = n levels, 1,2,3 = draw levels at 1, 2, and 3''')
-  
+
   parser.add_argument("-T", "--title",
                       help='''plot title''', default=None)
   parser.add_argument("-c", "--cmap",
@@ -256,7 +318,7 @@ def parse_args():
 
   parser.add_argument("-s", "--sub", default=None)
   parser.add_argument("--missval", type = float, default = None)
-  
+
   parser.add_argument("--overlay_var", default=None)
   parser.add_argument("--overlay_file", default=None)
   parser.add_argument("--overlay_levels", default=None,
