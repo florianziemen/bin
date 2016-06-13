@@ -27,6 +27,7 @@ parser.add_argument("-e", "--echo", help="only print command",
 parser.add_argument("-i", "--input",  help="input file", default = None)
 parser.add_argument("-c", "--config",  help="run_pism config file", default="run_pism.conf")
 parser.add_argument("-a", "--atmosphere_given_file",  help="atmosphere input")
+parser.add_argument("--surface_given_file",  help="smb+tsurf input")
 parser.add_argument("--ocean_th_file",  help="ocean forcing input")
 parser.add_argument("--ocean_delta_SL_file",  help="varying sea level input")
 parser.add_argument("-o", "--output", help="output file", default = None)
