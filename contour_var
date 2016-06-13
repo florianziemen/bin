@@ -81,7 +81,7 @@ def read_var(var, filename, options):
             else:
               dimensions[offset]=lo
               labels[offset] = "lon"
-  if ("lat" in vars.keys() and "lon" in vars.keys() and (len(vars["lat"].shape) > 1 )):
+  if ("lat" in vars.keys() and "lon" in vars.keys() and (len(vars["lat"].shape) > 1 or options.GL or options.ANT or options.NATL or options.mapit )):
     print ("found 2d coordinates")
     labels[0] = ""
     labels[1] = ""
@@ -139,7 +139,7 @@ def contour_var(var, filename, options):
       norm = colors.BoundaryNorm(boundaries=levels, ncolors=256)
 
   # map and projection stuff
-  if len(dimensions) >= 4 : # 2d coordinates
+  if (len(dimensions) >= 4 or options.GL or options.ANT or options.NATL or options.mapit)  : # 2d coordinates
     print ("using 2d coordinates")
     # map = Basemap(width=8000000,height=8500000,
     #                  resolution='l',projection='stere',\
@@ -166,13 +166,14 @@ def contour_var(var, filename, options):
   else:
     alldata = data.reshape([1]+[ i for i in data.shape])
   for (num, data) in enumerate(alldata):
-    mpl.figure()
+    if (options.figsize):
+      mpl.figure(figsize=options.figsize)
     print ("LDIMS ", len(dimensions))
-    if (len(dimensions) >= 4) : # 2d coordinates
-      if options.greenland:
+    if (len(dimensions) >= 4  or options.GL or options.ANT or options.NATL or options.mapit) : # 2d coordinates
+      if options.GL:
         map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
                       resolution='l',projection='stere',\
-                      lat_ts=71,lat_0=71,lon_0=-39.)
+                      lat_ts=71,lat_0=90,lon_0=-39.)
         print ("GL")
       elif options.NATL:
             map = Basemap(width=9500000,height=9500000,
@@ -180,18 +181,26 @@ def contour_var(var, filename, options):
                        lat_ts=71,lat_0=87,lon_0=-44.)
       elif options.diss_proj:
         print (llcrnrlon, llcrnrlat, urcrnrlon, urcrnrlat)
-        print (dimensions[-1][0,0], dimensions[-1][-1,-1], dimensions[-2][0,0], dimensions[-2][-1,-1])
         map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
                       resolution='l',projection='stere',\
                       lat_0=90, lat_ts=71,lon_0=-44.)
       elif options.ANT:
         print ("ANT")
         print (llcrnrlon, llcrnrlat, urcrnrlon, urcrnrlat)
-        print (dimensions[-1][0,0], dimensions[-1][-1,-1], dimensions[-2][0,0], dimensions[-2][-1,-1])
         map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
                       resolution='l',projection='stere',\
                       lat_0=-90, lat_ts=-71,lon_0=180)
-      x, y = map(dimensions[-1][:], dimensions[-2][:])
+      else:
+        print ("USING NSIDC POLAR STEREOGRAPHIC PROJECTION 90 -45 70")
+        print (llcrnrlon, llcrnrlat, urcrnrlon, urcrnrlat)
+        map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
+                      resolution='f',projection='stere',\
+                      lat_0=90, lat_ts=70,lon_0=-45.)
+      if (len (dimensions[-1][:].shape) > 1 ):
+        x, y = map(dimensions[-1][:], dimensions[-2][:])
+      else:
+        x, y = map(*np.meshgrid(dimensions[-1][:], dimensions[-2][:]))
+
       pl = map
     else:
       pl = mpl
@@ -213,10 +222,11 @@ def contour_var(var, filename, options):
     if options.scaled:
       mpl.axis("scaled")
 
-    if len(dimensions) >= 4 : # 2d coordinates
+    if (len(dimensions)  >= 4 or options.GL or options.ANT or options.NATL or options.mapit) : # 2d coordinates
       pl.drawcoastlines(linewidth=0.25)
-      pl.drawmeridians(np.arange(0,360,30),linewidth=.25, dashes=[10,1e-6],color=(.5,.5,.5))
-      pl.drawparallels(np.arange(-90,90,30),linewidth=.25, dashes=[10,1e-6],color=(.5,.5,.5))
+      pl.drawrivers(linewidth=0.25)
+      pl.drawmeridians(np.arange(0,360,10),linewidth=.25, dashes=[10,1e-6],color=(.5,.5,.5))
+      pl.drawparallels(np.arange(-90,90,10),linewidth=.25, dashes=[10,1e-6],color=(.5,.5,.5))
 
     # OVERLAY
     if not options.overlay_var is None:
@@ -226,11 +236,11 @@ def contour_var(var, filename, options):
         (overlay_data, overlay_attrs, overlay_dimensions, overlay_labels) = read_var (options.overlay_var, options.overlay_file, options)
       overlay_levels = sort_levels (options.overlay_levels)
       if (overlay_levels is not None):
-        CS = pl.contour(x, y, overlay_data, overlay_levels, colors="k", linewidths=.5)
-        mpl.clabel(CS, fmt="%s")
+        CS = pl.contour(x, y, overlay_data, overlay_levels, colors="k", linewidths=.25)
+#        mpl.clabel(CS, fmt="%s")
       else:
-        CS = pl.contour(x, y, overlay_data, colors="k", linewidths=.5)
-        mpl.clabel(CS, fmt="%s")
+        CS = pl.contour(x, y, overlay_data, colors="k", linewidths=.25)
+#        mpl.clabel(CS, fmt="%s")
 
     # MAKE IT NICE
     if "xlim" in options:
@@ -250,10 +260,13 @@ def contour_var(var, filename, options):
       if not options.outfile is  None:
         if options.outfile[-3:] == "png":
           mpl.savefig(options.outfile, dpi=400 )
+          mpl.close('all')
         else:
           mpl.savefig(options.outfile)
+          mpl.close('all')
       else:
         mpl.show()
+        mpl.close('all')
     else:
       if not options.outfile is  None:
         lsc = math.ceil(math.log10(slicecount))
@@ -263,11 +276,13 @@ def contour_var(var, filename, options):
           myout=re.sub(r'(.*)(\..*)', r'\1_%04d\2'%num, options.outfile)
         if options.outfile[-3:] == "png":
           mpl.savefig(myout, dpi=400 )
+          mpl.close('all')
         else:
           mpl.savefig(myout)
+          mpl.close('all')
       else:
         mpl.show()
-
+        mpl.close('all')
 
 
 def parse_args():
@@ -283,6 +298,8 @@ def parse_args():
 
   parser.add_argument("-o", "--outfile",
                       help='''output file to save image to''', default=None)
+  parser.add_argument("--figsize",
+                      help='''Size of image''', default=(10,8), type=float, nargs=2)
 
   parser.add_argument("-t", "--transpose",
     help='''transpose field (flip axis)''', action="store_true")
@@ -297,7 +314,7 @@ def parse_args():
     help='''lat lon of lower left corner NEEDS --ur''', nargs=2, type=float)
   parser.add_argument("--ur",
     help='''lat lon of upper right corner NEEDS --ll''', nargs=2, type=float)
-  parser.add_argument("-g", "--greenland",
+  parser.add_argument("-G", "--GL",
                       help='''Adjust map for Greenland plot''', action="store_true")
   parser.add_argument("-N", "--NATL",
                       help='''Adjust map for NATL plot''', action="store_true")
@@ -305,6 +322,8 @@ def parse_args():
                       help='''Adjust map for ANT plot''', action="store_true")
   parser.add_argument( "--diss_proj",
                       help='''Adjust map for diss projection plot''', action="store_true")
+  parser.add_argument("--mapit",
+                      help='''Definitely do map plot''', action="store_true")
 
   parser.add_argument("-m", "--minmax",
                       help='''set minimum and maximum for contours''', nargs=2, type=float, default = None)
