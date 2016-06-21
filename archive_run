@@ -25,6 +25,19 @@ def generate_blocks(options):
     ends=[x-1 for x in starts[1:]]+[last]
     return (zip(starts,ends))
 
+def deactivate (switches, script):
+  if type (switches) is str:
+    switches = [switches]
+  for switch in switches:
+    script = re.sub(r"(#\s*)?%s=.*"%(switch),r"%s=false"%(switch), script)
+  return script
+def activate (switches, script):
+  if type (switches) is str:
+    switches = [switches]
+  for switch in switches:
+    script = re.sub(r"(#\s*)?%s=.*"%(switch),r"%s=true"%(switch), script)
+  return script
+
 
 def generate_scripts(options):
   iterations = (0,)
@@ -33,12 +46,8 @@ def generate_scripts(options):
   for restart_backup_iteration in iterations:
     blocks=generate_blocks(options)
     infile = "%s/run_archive_esm.sh"%scriptpath
-    if options.no_hamocc:
-        infile = "%s/run_archive_esm_wo_hamocc.sh"%scriptpath
-    if ((restart_backup_iteration == 0 and options.restart_interval != 1) or restart_backup_iteration == 2 ):
-      infile = infile[:-3] + "_wo_restart.sh"
-    elif (restart_backup_iteration == 1):
-      infile = infile[:-3] + "_only_restart.sh"
+#    if ((restart_backup_iteration == 0 and options.restart_interval != 1) or restart_backup_iteration == 2 ):
+#      infile = infile[:-3] + "_wo_restart.sh"
       
       # read template
     template = open(infile).read()
@@ -49,30 +58,49 @@ def generate_scripts(options):
         # First year is different, when archiving strided restarts
         if (restart_backup_iteration == 0 or restart_backup_iteration == 2 ):
           script = re.sub("FIRST_YEAR", str(b[0]), template)
-        else:
+        elif (restart_backup_iteration == 1):
           script = re.sub("FIRST_YEAR", str(b[0]+options.restart_interval - 1), template)
           if (b[0] + options.restart_interval - 1  > b[1]): # first restart file falls into next block
             fu.cerr("""Start year of block %d and restart interval %d yield 
             first restart file of block %d outside block [%d, %d]
             """ % (b[0], options.restart_interval, b[0]+options.restart_interval-1, b[0], b[1]))
             sys.exit(64)
+        else:
+            fu.cerr("Wrong restart backup iteration number %d"%restart_backup_iteration)
+            sys.exit(1)
             
         script = re.sub("LAST_YEAR", str(b[1]), script)
-        # adjust job name to distinguish between normal and restart archiving
-        if restart_backup_iteration == 0 : # Output without MPIOM and restarts
+
+        if options.no_hamocc :
+          script = deactivate (['logbc'], script)
+
+        if (restart_backup_iteration == 0) : # Output (possibly without MPIOM) and restarts
           script = re.sub("--job-name=.*","--job-name=a_%s_%d-%d"%(options.run, b[0], b[1]), script)
-          script = re.sub("(#\s*)?locean=.*","locean=false", script)
-        elif (restart_backup_iteration == 1): # Restarts
+          script = re.sub(r"--output=archive_esm.o(.*)",r"--output=a_%s_%d-%d_\1"%(options.run, b[0], b[1]), script)
+          script = re.sub(r"--error=archive_esm.o(.*)",r"--error=a_%s_%d-%d_\1"%(options.run, b[0], b[1]), script)
+          
+          if (options.restart_interval != 1):
+            script = deactivate(['locean', "larchive_restart", "larchive_log"], script)
+            
+        if (restart_backup_iteration == 1 or options.restart_only): # Restarts // years ending on 9
           script = re.sub("--job-name=.*","--job-name=ar_%s_%d-%d"%(options.run, b[0], b[1]), script)
-        elif (restart_backup_iteration == 2): # MPIOM
+          script = re.sub(r"--output=archive_esm.o(.*)",r"--output=ar_%s_%d-%d_\1"%(options.run, b[0], b[1]), script)
+          script = re.sub(r"--error=archive_esm.o(.*)",r"--error=ar_%s_%d-%d_\1"%(options.run, b[0], b[1]), script)
+          script = deactivate (['lclimatologies', 'larchive_data', 'larchive_log', 'llogg'], script)
+          
+        if (restart_backup_iteration == 2): # MPIOM (years ending on 0)
           script = re.sub("--job-name=.*","--job-name=am_%s_%d-%d"%(options.run, b[0], b[1]), script)
-          switches = ["lcoupler", "llogg", "lland", "latmosphere", "larchive_log", "larchive_restart"]
-          for switch in switches:
-            script = re.sub("(#\s*)?%s=.*"%(switch),"%s=false"%(switch), script)
+          script = re.sub(r"--output=archive_esm.o(.*)",r"--output=am_%s_%d-%d_\1"%(options.run, b[0], b[1]), script)
+          script = re.sub(r"--error=archive_esm.o(.*)",r"--error=am_%s_%d-%d_\1"%(options.run, b[0], b[1]), script)
+          switches = ["lcoupler", "llogg", "lland", "latmosphere", "larchive_restart", "larchive_log"]
+          script = deactivate(switches, script)
+
+          
         # only monthly mean JSBACH data avail?
         if (options.jsbach_mm_only):
-          script = re.sub(r'(#land_data_pat=".*\n?.*)',r'\1\n#!FLO! CHANGED JSBACH OUTPUT FILE PATTERN!=====================#\nland_data_pat="jsbach_mm_ land_mm_ surf_mm_  veg_mm_ yasso_mm_"\n#!FLO! CHANGED JSBACH OUTPUT FILE PATTERN!=====================#', script)
-          script = re.sub(r'(#land_data_type=".*\n?.*)',r'\1\n#!FLO! CHANGED JSBACH OUTPUT FILE PATTERN!=====================#\nland_data_type="${mm} ${mm} ${mm} ${mm} ${mm}"\n#!FLO! CHANGED JSBACH OUTPUT FILE PATTERN!=====================#', script)
+          script = re.sub(r'(#?land_data_pat=".*\n?.*)',r'\1\n#!FLO! CHANGED JSBACH OUTPUT FILE PATTERN!=====================#\nland_data_pat="jsbach_mm_ land_mm_ surf_mm_  veg_mm_ yasso_mm_"\n#!FLO! CHANGED JSBACH OUTPUT FILE PATTERN!=====================#', script)
+          script = re.sub(r'(#?land_data?_type=".*\n?.*)',r'\1\n#!FLO! CHANGED JSBACH OUTPUT FILE PATTERN!=====================#\nland_dat_type="${mm} ${mm} ${mm} ${mm} ${mm}"\n#!FLO! CHANGED JSBACH OUTPUT FILE PATTERN!=====================#', script)
+
         # write script
         outfilename = "%s_%d-%d.job"%(options.run, b[0], b[1])
         if (restart_backup_iteration > 0):
@@ -105,6 +133,8 @@ def parse_args():
                       help='''Block size''', type=int, default=100)
   parser.add_argument( "--restart_interval",
                       help='''Interval of restart files''', type=int, default=1)
+  parser.add_argument( "--restart_only",
+                       help='''only archive restarts''', action="store_true")
 
   parser.add_argument( "--no_hamocc",
     help='''Be verbose''', action="store_true")
