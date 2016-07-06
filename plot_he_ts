@@ -1,0 +1,203 @@
+#!/usr/bin/env python
+
+#import Nio
+#import subprocess as sp
+#import shlex
+#import shutil
+import sys
+import getopt
+import re
+import plotgen
+import os
+#import flo_utils as fu
+
+import seaborn as sns
+
+from pylab import *
+from cookb_signalsmooth import smooth
+import plot_utils as pu
+
+import json
+
+descriptions =  { "(1)" : "~ Bering strait", "(2)" : "Cape Farewell - Iceland ?" , "(3)" : "Newfoundland" , "(4)" : "Cape Hatteras", "(5)" : "30S"}
+
+labels = {"AABW" : "Sv", "NADW": "Sv", "SST" : "deg C", "SSS" : "PSU" , "WFL" : "Sv", "ICEVO" : "m^3", "ICEAR" : "m^2", "T" : "deg C" , "S" : "PSU" , "HFL" : "W", "TVQUER" : "W", "SVQUER": "PSU m^3 / s" , "TDENMARK" : "m^3 / s","TFAAROE" : "m^3 / s", "SFRAM" : "m^3 ice / s" , "PSIGOLF" : "m^3 / s", "PSIKURO" : "m^3 / s", "PSIBANDA" : "m^3 / s", "PSIDRAKE" : "m^3 / s" , "PSIBERING" : "m^3 / s", "AMAXLAT" : "m^3 / s", "TMERCI" : "m^3 / s"}
+
+#js_config = json.load(open("plot_ts.json"))
+js_config = json.load(open("/Users/flo/MPI/offsets.json"))
+def get_pattern(num):
+  patterns = ['-', '--' , ':' , '-.', '.-','x-','*-']
+  return patterns[(num/6)%len(patterns)]
+
+def get_ylim(varname, ylim_old):
+  ylim_dict = js_config.get("ylims", {})
+  ylim_new = ylim_dict.get(varname, ylim_old)
+  if (type(ylim_new) is float or type(ylim_new) is int ):
+    ymean = mean(ylim_old)
+    ylim_new = [ymean - ylim_new/2., ymean + ylim_new/2.]
+  return ylim_new
+
+def plot_stuff(flonames, opts):
+    headers=open('headline.dat').readline().split() # short names for file names and ts identification
+    names=[x[:-1] for x in open("names").readlines()] # long names for plot titles
+
+    average_period=opts.get("average_period", 2.) # minimum 2 years, or smoothing will fail.
+
+
+    # For plotting only part of the variables (faster)
+    plot_vars=opts.get("vars",".*")
+    plot_pattern=re.compile(plot_vars)
+    do_plot =  [ bool (plot_pattern.match(x)) for x in headers]
+    do_plot =  [ (not "BRUTTO" in headers[x]) and do_plot[x] for x in xrange(len(do_plot))]
+
+    data = []
+    for floname in flonames:
+        filename = "ts_%s.npy"%floname
+        if os.access( filename , os.R_OK) and os.path.getmtime(filename) > os.path.getmtime("ts_%s"%floname):
+            data.append(np.load(filename)[:,-opts['last_years']:])
+        else:
+            tempdata = genfromtxt("ts_" + floname, unpack=True)
+            np.save(filename, tempdata)
+            data.append(tempdata[:,-opts['last_years']:])
+
+    pattern=re.compile("[A-Z]*") # necessary for looking up units for y-axis
+
+    data_labels = flonames # will be modified with time shifts
+
+    #Start all TS at left end of plot
+    if opts.get ('zero_time', False):
+        for x in xrange (len(data)):
+            data_labels[x] = data_labels [x] + " - %i years "%(round( data[x][0,0]))
+            data[x][0] = data[x][0]-data[x][0,0]
+
+    #plotting with offsets to align different time series in a meaningfull way
+    if opts.get ('offsets', False):
+        offsets=opts.get('offsets')
+    else:
+      offsets_dict = js_config.get("offsets", {})
+      print offsets_dict
+      print flonames
+      offsets = [ offsets_dict.get(x, 0) for x in flonames]
+      print offsets
+    time_scaling_dict = js_config.get("time_scaling", {})
+    time_scaling = [ time_scaling_dict.get(x, 1) for x in flonames]
+    for x in xrange (len(data)):
+        if offsets[x]:
+            data_labels[x] = data_labels [x] + " - %i years"%(round( offsets[x]))
+        if time_scaling[x] != 1 :
+            data_labels[x] = "(%s) * %d"%(data_labels[x],time_scaling[x])
+        data[x][0] = (data[x][0]-offsets[x]) * time_scaling[x]
+
+
+    #Plot range
+    tmin=min([x[0][0] for x in data])
+    tmax=max([x[0][-1] for x in data])
+
+    # Vertical lines for time domain orientation and comparison of different TS.
+    spacing=5000
+    lines=range(int(ceil(tmin/spacing)*spacing), int(ceil(tmax/spacing)*spacing),spacing)
+
+    smoother="flat" # "blackman"
+
+    for x in xrange (1,len(headers)):
+        if do_plot[x] : # mind, not all vars need to be plottet every time this code is called.
+            print ("plotting " + headers[x])
+            if 'size' in opts.keys():
+                figure(x, figsize=opts['size'])
+            else:
+                figure(x)
+            title(names[x] + " (%i yrs avg)"%(average_period))
+            hold('on')
+            for (num,ds) in enumerate(data):
+
+                if (pattern.match(headers[x]).group() == "WFL"):
+                    ds[x,:]*=1.e-6
+                if (pattern.match(headers[x]).group() == "NADW"):
+                    ds[x,:]*=-1.e-6
+                if (pattern.match(headers[x]).group() == "AABW"):
+                    ds[x,:]*=1.e-6
+                plot(smooth(ds[0,:], average_period,
+        window=smoother)[average_period/2:-average_period/2],
+        smooth(ds[x,:],average_period, window=smoother)[average_period/2:-average_period/2], get_pattern(num), linewidth=2,  label=data_labels[num])
+            if (len(data) > 1):
+                legend()
+            yaxis_label =  labels.get(pattern.match(headers[x]).group(), "")
+            xlabel("year")
+            if yaxis_label:
+                ylabel(yaxis_label)
+            yl=ylim()
+            if 'lines' in opts.keys():
+                [axvline (ll, color=(.5,.5,.5),zorder=-9899,linewidth=.001) for ll in opts['lines']] # grey lines for orientation
+            else:
+                [axvline (ll, color=(.9,.9,.9),zorder=-9999) for ll in lines] # grey lines for orientation
+
+            pu.tuftify_plot() # some layout clean-up
+
+            if (len(data) > 1):
+              ylim([yl[0],1.3*yl[1]-.3*yl[0]]) # in case range gets messed up by vlines or tuftify
+            ylim(get_ylim(headers[x], yl))
+            if "xlim" in opts.keys():
+                xlim(opts["xlim"])
+            savefig("%03i_%s.png"%(x,headers[x]), dpi=200) # for quick inspection
+            savefig("%03i_%s.pdf"%(x,headers[x])) # for printing
+#            show()
+            close(x)
+#    if (headers[x] == "AABW(2)") :
+#        print (x, data[0][x,:10])
+#        exit(0)
+
+def usage(args_long, args_short):
+    print "something went wrong in the arguments, expecting them to be within"
+    print [ '--' + x for x in args_long], args_short
+
+def main(argv):
+    ref_years=years=""
+    reference = ""
+    args_short = "zy:a:v:slw"
+    args_long =  ['zero_time', "last_years=", "average_period=", "vars=", "small", "large", "offsets=", "lines=", "xlim=", "a4plot", "wide", "white", "whitegrid", "font_scale="]
+    my_opts= {}
+    my_opts['last_years'] = 0
+#    rcParams['figure.figsize']=[16/2.54,5/2.54]
+    rcParams['figure.dpi']=150
+    try:
+        opts, args = getopt.getopt(argv, args_short, args_long)
+
+    except getopt.GetoptError:
+        usage(args_long, args_short)
+        sys.exit(2)
+
+
+    for (opt,arg) in opts:
+        if opt in ('--white',):
+            sns.set(style="ticks")
+        if opt in ('--whitegrid',):
+            sns.set(style="whitegrid")
+        if opt in ( '--zero_time', '-z'):
+            my_opts['zero_time'] = True;
+        if opt in ( '--last_years','-y'):
+            my_opts['last_years'] = int (arg)
+        if opt in ( '--average_period','-a'):
+            my_opts['average_period'] = float (arg)
+        if opt in ( '--vars','-v'):
+            my_opts['vars'] = arg
+        if opt in ( '--small','-s'):
+            #plotgen.figsizeplot()
+            my_opts['size']=(16./2.54,9./2.54)
+        if opt in ( '--wide','-w'):
+            my_opts['size']=(60,20/2.54)
+            sns.set(style=sns.axes_style(), font_scale=4)
+        if opt in ( '--large','-l'):
+            my_opts['size']=(60/2.54,40/2.54)
+        if opt in ( '--offsets',):
+            my_opts['offsets']=[float(x) for x in arg.split(',')]
+        if opt in ( '--lines',):
+            my_opts['lines']=[float(x) for x in arg.split(',')]
+        if opt in ( '--xlim',):
+            my_opts['xlim']=[float(x) for x in arg.split(',')]
+        if opt in ('--font_scale',):
+            sns.set(style=sns.axes_style(), font_scale=float(arg))
+            #plotgen.figsizeplot()
+    plot_stuff(args, my_opts)
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
