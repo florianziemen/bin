@@ -13,7 +13,7 @@ from datetime import datetime # , timedelta
 import re
 import json
 
-js_config = json.load(open("/Users/flo/MPI/offsets.json"))
+js_config = json.load(open(fu.home+"/MPI/offsets.json"))
 #plt.xkcd()
 #mpl.rcParams['figure.figsize']=[3,2]
 def get_array(filename, varname, skip = 1):
