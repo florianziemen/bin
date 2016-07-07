@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import osr
+from osgeo import gdal
 import netCDF4 as nc
 import numpy as np
 import sys
@@ -10,17 +11,30 @@ from argparse import ArgumentParser
 
 def convert_file (filename, opts={}):
     inSpatialRef = osr.SpatialReference() # orig projection
-    if "utm" in opts.keys() and opts["utm"] is not None:
-        inSpatialRef.SetProjCS( "UTM %i (WGS84) in northern hemisphere."%(opts["utm"]) );
-        inSpatialRef.SetWellKnownGeogCS( "WGS84" );
-        inSpatialRef.SetUTM( opts["utm"] , True );
+    if "projection" in opts.keys() and opts["projection"] is not None:
+        inSpatialRef.ImportFromEPSG(int(opts["projection"]))
+        print(inSpatialRef.ExportToProj4())
+    elif "projection_file" in opts.keys() and opts["projection_file"] is not None:
+      ds = gdal.Open(filename, gdal.GA_ReadOnly)
+      wkt = ds.GetProjection()
+      print "projection:"
+      print (wkt)
+      print "/projection"
+      inSpatialRef.ImportFromWkt(wkt)
+    elif "projection_string" in opts.keys() and opts["projection_string"] is not None:
+      inSpatialRef.ImportFromProj4(opts["projection_string"])
     else:
-        inSpatialRef.ImportFromEPSG(3338) # Alaska Albers
+      if "utm" in opts.keys() and opts["utm"] is not None:
+          inSpatialRef.SetProjCS( "UTM %i (WGS84) in northern hemisphere."%(opts["utm"]) );
+          inSpatialRef.SetWellKnownGeogCS( "WGS84" );
+          inSpatialRef.SetUTM( opts["utm"] , True );
+      else:
+          inSpatialRef.ImportFromEPSG(3338) # Alaska Albers
     outSpatialRef = osr.SpatialReference() # target projection
     outSpatialRef.ImportFromEPSG(4326) # WGS 1984
     coordTransform = osr.CoordinateTransformation(inSpatialRef, outSpatialRef) # create converter
-    # inSpatialRef.ExportToPrettyWkt() # display information on orig projection
-    # outSpatialRef.ExportToPrettyWkt() 
+    print (inSpatialRef.ExportToPrettyWkt()) # display information on orig projection
+    # outSpatialRef.ExportToPrettyWkt()
     #coordTransform.TransformPoint(1.4e6,1e6) # transform a sample point from AA to WGS
 
 
@@ -42,10 +56,10 @@ def convert_file (filename, opts={}):
     fdy = outfile.createDimension("y", len(y))
     fdy = outfile.createDimension("grid_corners", 4)
 
-    fvx = outfile.createVariable("x","f4",("x",))
-    fvy = outfile.createVariable("y","f4",("y",))
-    fvx[:] = x
-    fvy[:] = y
+    fvx = outfile.createVariable("x","f8",("x",))
+    fvy = outfile.createVariable("y","f8",("y",))
+    fvx[:] = x.astype("float64")
+    fvy[:] = y.astype("float64")
     fvx.units = "m"
     fvy.units = "m"
 
@@ -86,18 +100,24 @@ def convert_file (filename, opts={}):
     outfile.close()
 
 
-    
+
 def parse_args():
   parser = ArgumentParser()
   parser.description = "compare slopes of two variables from two files"
   parser.add_argument("FILES", nargs=1)
-  parser.add_argument("-v", "--verbose", 
+  parser.add_argument("-v", "--verbose",
                     help='''Be verbose''', action="store_true")
-  parser.add_argument("-u", "--utm", 
-                        help='''File is using utm coordinates''', default = None, type = int) 
-  # parser.add_argument("-s", "--state", 
-  #                      help='''file with reference values''', required = True) 
-  # parser.add_argument("-b", "--var_b", 
+  parser.add_argument("-u", "--utm",
+                        help='''File is using utm coordinates''', default = None, type = int)
+  parser.add_argument("-p", "--projection",
+                        help='''File is using EPSG projection ID''', default = None, type = int)
+  parser.add_argument("-f", "--projection_file",
+                        help='''File that contains projection information''', default = None)
+  parser.add_argument("-s", "--projection_string",
+                        help='''Proj4 sring that contains projection information''', default = None)
+  # parser.add_argument("-s", "--state",
+  #                      help='''file with reference values''', required = True)
+  # parser.add_argument("-b", "--var_b",
   #                    help='''variable b''', default="data")
   options = parser.parse_args()
   return options
@@ -111,9 +131,9 @@ def main():
     fu.debug=True
 
 
-  
+
   convert_file(options.FILES[0], vars(options))
-    
+
 
 
 if __name__ == "__main__":
