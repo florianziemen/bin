@@ -32,6 +32,24 @@ def light(color):
 def dark(color):
     return [.75 * x  for x in color]
 
+
+def ensmean (xvecs, yvecs, time_scaling):
+  etmin=max([x[0] for x in xvecs])
+  etmax=min([x[-1] for x in xvecs])
+  dest = np.arange(etmin, etmax+1, time_scaling)
+  print "INTERPOLATION TARGET ",(etmin, etmax+1, time_scaling)
+  target = np.zeros(len(dest))
+  for (n, x )  in enumerate(xvecs) :
+    print x.shape
+    yin = yvecs[n][x <= etmax ]
+    xin = x[x <= etmax ]
+    yin = yin[xin >= etmin ]
+    xin = xin[xin >= etmin ]
+    interpolated = np.interp(dest, xin, yin)
+    target = target + interpolated
+  target = target / len (xvecs)
+  return dest, target
+
 def plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts = {}):
     fig = mpl.figure()
     mpl.hold("on")
@@ -52,6 +70,9 @@ def plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts = {}):
 
     yscale=plot_opts.get('yscale', 1.)
     plots = [ mpl.plot(xvec,yvec*yscale, patterndict.get(lb[:5],'-'),  label=namedict.get(lb,lb), color=colordict.get(lb,cmap[i%len(cmap)])) for (xvec,yvec,lb,i) in zip(xvecs,yvecs,labels,np.arange(len(xvecs))) ]
+    if (plot_opts.get("ensmean"), False):
+      x, y  = ensmean(xvecs, yvecs, plot_opts.get("multime", 1.))
+      plots.append ( mpl.plot(x, y*yscale,  '-',  label="Mean", color='k' , linewidth=3))
     if "no_legend" in plot_opts:
         if plot_opts["no_legend"] == False :
             legend = mpl.legend(frameon=1)
@@ -149,11 +170,8 @@ def parse_args():
                     help='''smooth filter function''', default = None)
   parser.add_argument("--no_legend",
                     help='''suppress legend''', action = "store_true")
-  parser.add_argument("--JJAANNDJF-Legend", action = "store_true")
   parser.add_argument("--white_grid",
                     help='''white grid''', action = "store_true")
-  parser.add_argument("--overlay_ivol",
-                    help='''overlay *observed* ice volume evolution''', action = "store_true")
   parser.add_argument("--tick_interval",
                     help='''draw vertical lines at years specified by start range step ''', nargs=3, type=float )
   parser.add_argument("--yscale",
@@ -164,6 +182,7 @@ def parse_args():
                     help='''scale fontsize axis by factor ''', type=float , default=1.)
   parser.add_argument("--names",
                     help='''Comma separated list of experiment names''')
+  parser.add_argument("--ensmean", help='''Add ensembel mean plot''', action = "store_true")
   options = parser.parse_args()
   options_dict = vars(options)
   if options_dict.get("names", False):
