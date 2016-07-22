@@ -13,7 +13,7 @@
 # work.  If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
 
 __all__ = ['magma', 'inferno', 'plasma', 'viridis']
-
+_rignot_data =  ((0.940002, 0.940002, 0.940002), (0.900008, 0.900008, 0.669993), (0, 0.859998, 0.940002), (0.149996, 0.429999, 0.689998), (0.829999, 0.4, 0.669993), (1, 0, 0))
 _magma_data = [[0.001462, 0.000466, 0.013866],
                [0.002258, 0.001295, 0.018331],
                [0.003279, 0.002305, 0.023708],
@@ -1042,7 +1042,7 @@ _viridis_data = [[0.267004, 0.004874, 0.329415],
                  [0.983868, 0.904867, 0.136897],
                  [0.993248, 0.906157, 0.143936]]
 
-from matplotlib.colors import ListedColormap
+from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 
 cmaps = {}
 for (name, data) in (('magma', _magma_data),
@@ -1061,3 +1061,4 @@ magma_r = cmaps['magma_r']
 inferno_r = cmaps['inferno_r']
 plasma_r = cmaps['plasma_r']
 viridis_r = cmaps['viridis_r']
+rignot = LinearSegmentedColormap.from_list( "rignot", _rignot_data)

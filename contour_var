@@ -31,7 +31,14 @@ try:
   mpl.register_cmap(name='viridis', cmap=cmaps.viridis)
   mpl.set_cmap(cmaps.viridis)
   mpl.register_cmap(name='viridis_r', cmap=cmaps.viridis_r)
-  print ("Got viridis")
+  mpl.register_cmap(name='plasma', cmap=cmaps.plasma)
+  mpl.register_cmap(name='plasma_r', cmap=cmaps.plasma_r)
+  mpl.register_cmap(name='magma', cmap=cmaps.magma)
+  mpl.register_cmap(name='magma_r', cmap=cmaps.magma_r)
+  mpl.register_cmap(name='inferno', cmap=cmaps.inferno)
+  mpl.register_cmap(name='inferno_r', cmap=cmaps.inferno_r)
+  print ("Got viridis")  
+  mpl.register_cmap(name='rignot', cmap=cmaps.rignot)
 except ImportError:
   print ("Viridis not found")
 
