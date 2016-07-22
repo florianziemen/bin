@@ -5,6 +5,7 @@ from argparse import ArgumentParser
 
 import flo_utils as fu
 import json
+from math import floor, ceil
 import netCDF4 as nc
 import numpy as np
 import os
@@ -19,12 +20,30 @@ def combine_files (factors, output, options):
   filesets = config["filesets"]
   varnames = filesets.values()[0].keys()
   for varname in varnames:
-    arguments = ["cdo"]
-    for (n, fileset) in enumerate(factors.keys()):
-      if (n < len(factors.keys())-1):
-        arguments = arguments + ["-add", "-mulc,%s"%(factors[fileset]), filesets[fileset][varname] ]
-      else:
-        arguments = arguments + ["-mulc,%s"%(factors[fileset]), filesets[fileset][varname] ]
+    if varname == "smb":
+      for (n, fileset) in enumerate(factors.keys()):
+        if filesets[fileset].get(varname, False):
+          f = factors[fileset]
+          if f > 1:
+            f=1
+          elif f < 0 :
+            f = 0
+          tens_l = "%01d0"%(floor(f*10))
+          tens_h = "%01d0"%(ceil(f*10))
+          remains_h = f-floor(f)
+          remains_l = 1-remains_h
+          path_l = re.sub("<TENS>", tens_l, filesets[fileset][varname])
+          path_h = re.sub("<TENS>", tens_h, filesets[fileset][varname])
+          arguments = ["cdo"]
+          arguments = arguments + ["-add", "-mulc,%s"%(remains_l), path_l ]
+          arguments = arguments + ["-mulc,%s"%(remains_h), path_h ]
+    else:
+      arguments = ["cdo"]
+      for (n, fileset) in enumerate(factors.keys()):
+        if (n < len(factors.keys())-1):
+          arguments = arguments + ["-add", "-mulc,%s"%(factors[fileset]), filesets[fileset][varname] ]
+        else:
+          arguments = arguments + ["-mulc,%s"%(factors[fileset]), filesets[fileset][varname] ]
     arguments.append ("%s_%s.nc"%(options.output, varname))
     fu.cerr (fu.qo (arguments))
 

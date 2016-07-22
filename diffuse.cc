@@ -92,7 +92,7 @@ int main(int argc, char** argv){
     //copy the time to the output file
     tpos[0]= in_timestep;
     in_time.getVar(tpos, &t);
-    //    out_time.putVar(tpos, &t);
+    out_time.putVar(tpos, &t);
     position[0] = in_timestep;
 
     //for one timestep, process each variable
@@ -235,7 +235,6 @@ void diffuse( vector<vector<double> >  & vfield, const double missval) {
       for (size_t j = 0 ; j < jj ; j++ ){
 	vfield[i][j] = infield[i][j] * inmask[i][j] + newfield[i][j] * (1 - inmask[i][j]);
       }
-    std::cerr<< count << " fields changed \n";
     if (count < 1 ){
       size_t i= 0 , j= 0 , io=1 , jo = 1 ;
       newfield [i][j] = (vfield[i+io][j] + vfield[i][j+jo] + .5 * vfield[i+io][j+jo]) / 2.5;

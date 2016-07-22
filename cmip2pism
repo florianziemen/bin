@@ -27,16 +27,20 @@ if [ -z "${outfile}" -o -n "${faulty}" ] ; then
 fi
 
 
-tempdir=$(mktemp -d -t cmip2pism.XXXX)
-COMMON='' #' -seltimestep,1/60 '
+tempdir=$(mktemp -d -p .  -t cmip2pism.XXXX)
+COMMON=' -seltimestep,1/60 '
 cdo -P 6  -remapbil,${target} -setname,air_temp -selvar,tas ${COMMON} ${tas} ${tempdir}/tas.nc & 
 cdo -P 6 -remapbil,${target} -setname,precipitation -setunit,'m s-1' -divc,910 -selvar,pr ${COMMON} ${pr} ${tempdir}/pr.nc & 
 cdo -remapbil,${target} ${orog} ${tempdir}/orog.nc
 
-cdo -P 6 -setname,theta_ocean -fillmiss2 -remapnn,${target}  -selvar,thetao ${COMMON} ${tho} ${tempdir}/tho.nc &  
-cdo -P 6 -setname,salinity_ocean -setunit,'g kg-1' -fillmiss2 -remapnn,${target} -selvar,so ${COMMON} ${sao} ${tempdir}/sao.nc &
-
+cdo -P 6 -setname,theta_ocean  -remapnn,${target}  -selvar,thetao ${COMMON} ${tho} ${tempdir}/tho.nc &
+cdo -P 6 -setname,salinity_ocean -setunit,'g kg-1' -remapnn,${target} -selvar,so ${COMMON} ${sao} ${tempdir}/sao.nc
 wait
+
+diffuse ${tempdir}/tho.nc theta_ocean &
+diffuse ${tempdir}/sao.nc salinity_ocean &
+wait
+
 
 outfile_atm=${outfile/.nc/_atm.nc}
 outfile_oce=${outfile/.nc/_oce.nc}
@@ -52,8 +56,9 @@ for x in ${tempdir}/tas.nc  ${tempdir}/pr.nc ; do
 done
 rm -f temp_merge.nc
 
-mv ${tempdir}/tho.nc  ${outfile_oce}
-ncks -A ${tempdir}/sao.nc ${outfile_oce}
+cp ${tempdir}/tho.nc  ${outfile_oce}
+ncks -A ${tempdir}/tho_filled.nc  ${outfile_oce}
+ncks -A ${tempdir}/sao_filled.nc ${outfile_oce}
 
 
 #cdo -merge ${tempdir}/tas.nc  ${tempdir}/pr.nc  ${tempdir}/orog.nc ${outfile_atm}
