@@ -11,13 +11,23 @@ import os
 import re
 # import subprocess as sp
 import sys
+import threading
 
+cdo='cdo'
 def process_files(options):
+
+  threads = []
   variables = options["variables"]
   files = options["FILES"]
   for ff in files:
     if not fu.check_files(["%s3"%ff], False):
-      print ("ncpdq -3 -a time,y,x %s %s3"%(ff, ff))
+      command = "/sw/rhel6-x64/nco/nco-4.5.0-gcc48/bin/ncpdq -3 -a time,y,x %s %s3"%(ff, ff)
+#      print (command)
+      t = threading.Thread(target=fu.qo, args=(command,))
+      threads.append(t)
+      t.start()
+  [ x.join() for x in threads]
+  threads = []
   filetimes = np.array([ nc.Dataset(x,"r").variables["time"][0] for x in files ])
   files = ["%s3"%ff for ff in files]
   durations = filetimes[1:]-filetimes[:-1]
@@ -36,13 +46,18 @@ def process_files(options):
         extras = "-sub %s %s %s %s"%(extras, f, extras, files[i])
       else:
         extras += " %s "%f
-      command = "cdo -s -cat %s %s"%(extras, outname)
+      command = "%s -s -cat %s %s"%(cdo, extras, outname)
       print (command)
+    #   t = threading.Thread(target=fu.qo, args=(command,))
+    #   threads.append(t)
+    #   t.start()
+    # [ x.join() for x in threads]
+    # threads = []
 #      fu.qo(command)
     if v.get("standard_name", False):
       command = "ncatted -a 'standard_name,%s,o,c,%s' %s"%(n, v.get("standard_name"), outname)
       print (command)
-    # fu.qo(command)
+#      fu.qo(command)
 
 
 
