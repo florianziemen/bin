@@ -41,7 +41,7 @@ def average_he(options):
   print(allfiles)
   fu.mkdir(options.output)
   types=["atm", "bot", "mpiom", "mpiom_surf"]
-  types=["atm", "bot"]
+#   types=["atm", "bot"]
 #   types=["mpiom", "mpiom_surf"]
   name_generators={"atm": generate_atm_name, "bot": generate_bot_name, "mpiom": generate_mpiom_name, "mpiom_surf": generate_mpiom_surf_name}
 
@@ -50,7 +50,11 @@ def average_he(options):
     for ctype in types:
       ng = name_generators[ctype]
       infiles = [ ng(run, allfiles[event][stage]) for (run, event) in zip (experiment_ids, events) ]
-      average_files(infiles, "%s/%s_%02d.nc"%(options.output, ctype,  stage))
+      outfile =  "%s/%s_%02d.nc"%(options.output, ctype,  stage)
+      average_files(infiles, outfile)
+      fu.debug=True
+      fu.qo(["ncatted", "-a", "average_period,global,o,c,%d-%d"%((stage-1)*500,stage*500-1), outfile])
+      fu.debug=False
 
 
 def parse_args():
