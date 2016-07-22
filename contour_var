@@ -230,8 +230,10 @@ def contour_var(var, filename, options):
       mpl.axis("scaled")
 
     if (len(dimensions)  >= 4 or options.GL or options.ANT or options.NATL or options.mapit) : # 2d coordinates
-      pl.drawcoastlines(linewidth=0.25)
-      pl.drawrivers(linewidth=0.25)
+      clc='black'
+      if options.whitecoast:
+        clc = 'white'
+      pl.drawcoastlines(linewidth=0.5, color=clc)
       pl.drawmeridians(np.arange(0,360,10),linewidth=.25, dashes=[10,1e-6],color=(.5,.5,.5))
       pl.drawparallels(np.arange(-90,90,10),linewidth=.25, dashes=[10,1e-6],color=(.5,.5,.5))
 
@@ -336,6 +338,8 @@ def parse_args():
                       help='''set minimum and maximum for contours''', nargs=2, type=float, default = None)
   parser.add_argument("--levels",
                       help='''set levels for plotting. n = n levels, 1,2,3 = draw levels at 1, 2, and 3''')
+  parser.add_argument("--whitecoast",
+                      help='''Draw white coastlines''', action="store_true")
 
   parser.add_argument("-T", "--title",
                       help='''plot title''', default=None)
