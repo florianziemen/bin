@@ -6,6 +6,7 @@ import sys
 import re
 import os
 import flo_utils as fu
+from math import ceil
 
 scriptpath = os.path.dirname(sys.argv[0])
 
@@ -19,10 +20,14 @@ def generate_blocks(options):
         cerr("ERROR: BAD ARGUMENTS TO archive_run")
         cerr("ERROR: Last year before first year! %d < %d"%(last, start))
         sys.exit(64)
-    starts=range(start, last, options.blocksize)
+    starts=range(int(min(ceil(start/blocksize.)*blocksize, last)), last+1, options.blocksize)
     if len(starts) == 0:
         starts = [start]
+    if (starts[0] != start):
+      starts = [start] + starts
     ends=[x-1 for x in starts[1:]]+[last]
+    print (zip(starts, ends))
+    sys.exit(666)
     return (zip(starts,ends))
 
 def deactivate (switches, script):
