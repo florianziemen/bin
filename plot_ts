@@ -70,7 +70,7 @@ def plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts = {}):
 
     yscale=plot_opts.get('yscale', 1.)
     plots = [ mpl.plot(xvec,yvec*yscale, patterndict.get(lb[:5],'-'),  label=namedict.get(lb,lb), color=colordict.get(lb,cmap[i%len(cmap)])) for (xvec,yvec,lb,i) in zip(xvecs,yvecs,labels,np.arange(len(xvecs))) ]
-    if (plot_opts.get("ensmean"), False):
+    if (plot_opts.get("ensmean", False)):
       x, y  = ensmean(xvecs, yvecs, plot_opts.get("multime", 1.))
       plots.append ( mpl.plot(x, y*yscale,  '-',  label="Mean", color='k' , linewidth=3))
     if "no_legend" in plot_opts:
