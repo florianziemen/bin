@@ -236,11 +236,13 @@ def contour_var(var, filename, options):
       else:
         pl.pcolormesh(x, y, data,   cmap=cmap)
       mpl.colorbar()
-      pl.contour (x, y, data, levels,  colors="0.5", linewidths=.25, linestyles="solid")
+      if not options.no_outline:
+        pl.contour (x, y, data, levels,  colors="0.5", linewidths=.25, linestyles="solid")
     else:
       pl.pcolormesh(x, y, data,  cmap=cmap)
       mpl.colorbar()
-      pl.contour (x, y, data,  colors="0.5", linewidths=.25, linestyles="solid")
+      if not options.no_outline:
+        pl.contour (x, y, data,  colors="0.5", linewidths=.25, linestyles="solid")
     if options.scaled:
       mpl.axis("scaled")
 
@@ -339,6 +341,9 @@ def parse_args():
     help='''set y limits (decreasing flips axis)''', nargs=2, type=float)
   parser.add_argument("--scaled",
                       help='''same scaling on both axes''', action="store_true")
+
+  parser.add_argument("--no_outline",
+                      help='''don't outline contour levels''', action="store_true")
 
   parser.add_argument("--ll",
     help='''lat lon of lower left corner NEEDS --ur''', nargs=2, type=float)
