@@ -37,7 +37,7 @@ try:
   mpl.register_cmap(name='magma_r', cmap=cmaps.magma_r)
   mpl.register_cmap(name='inferno', cmap=cmaps.inferno)
   mpl.register_cmap(name='inferno_r', cmap=cmaps.inferno_r)
-  print ("Got viridis")  
+  print ("Got viridis")
   mpl.register_cmap(name='rignot', cmap=cmaps.rignot)
 except ImportError:
   print ("Viridis not found")
@@ -148,7 +148,7 @@ def contour_var(var, filename, options):
     else:
       cmap = sns.cubehelix_palette(as_cmap=True, start=.5)
   except:
-    print ("Trouble using colorbar %s with %s levels"%(options.cmap, levels if levels else "None"), file=sys.stderr)
+    print ("Trouble using colorbar %s."%(options.cmap), file=sys.stderr)
 
   # LEVELS
   levels = sort_levels(options.levels, options.minmax)
