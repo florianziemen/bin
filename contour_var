@@ -197,6 +197,10 @@ def contour_var(var, filename, options):
       elif options.NATL:
             map = Basemap(width=9500000,height=9500000,
                        resolution='l',projection='stere',\
+                       lat_0=72,lon_0=-44.)
+      elif options.PISM:
+            map = Basemap(width=9500000,height=9500000,
+                       resolution='l',projection='stere',\
                        lat_ts=71,lat_0=87,lon_0=-44.)
       elif options.diss_proj:
         print (llcrnrlon, llcrnrlat, urcrnrlon, urcrnrlat)
@@ -246,7 +250,7 @@ def contour_var(var, filename, options):
     if options.scaled:
       mpl.axis("scaled")
 
-    if (len(dimensions)  >= 4 or options.GL or options.ANT or options.NATL or options.mapit) : # 2d coordinates
+    if (len(dimensions)  >= 4 or options.GL or options.ANT or options.NATL or options.PISM or options.mapit) : # 2d coordinates
       clc='black'
       if options.whitecoast:
         clc = 'white'
@@ -359,6 +363,8 @@ def parse_args():
                       help='''Adjust map for Greenland plot''', action="store_true")
   parser.add_argument("-N", "--NATL",
                       help='''Adjust map for NATL plot''', action="store_true")
+  parser.add_argument("-P", "--PISM",
+                      help='''Adjust map for PISM plot''', action="store_true")
   parser.add_argument("-A", "--ANT",
                       help='''Adjust map for ANT plot''', action="store_true")
   parser.add_argument( "--diss_proj",
