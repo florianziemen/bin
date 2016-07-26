@@ -279,9 +279,15 @@ def contour_var(var, filename, options):
         mpl.xlim(options.xlim)
     if "ylim" in options:
       mpl.ylim(options.ylim)
-    mpl.xlabel(labels[0])
-    mpl.ylabel(labels[1])
 
+    if options.xlabel is None:
+      mpl.xlabel(labels[0])
+    else:
+      mpl.xlabel(options.xlabel)
+    if options.ylabel is None:
+      mpl.ylabel(labels[1])
+    else:
+      mpl.ylabel(options.ylabel)
     if options.title is None:
       mpl.title("%s (%s)"%(attrs.get("long_name", var), attrs.get("units", "unknown units")))
     else:
@@ -380,6 +386,10 @@ def parse_args():
 
   parser.add_argument("-T", "--title",
                       help='''plot title''', default=None)
+  parser.add_argument("--xlabel",
+                      help='''x axis label''', default=None)
+  parser.add_argument("--ylabel",
+                      help='''y axis label''', default=None)
   parser.add_argument("-c", "--cmap",
     help='''Name of a colormap''')
 
