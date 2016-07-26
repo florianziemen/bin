@@ -84,7 +84,7 @@ def read_var(var, filename, level, options):
       if not x  in vars.keys():
         print ("Trying to substitute %s"%(x))
         if ("lat" in vars.keys() and "lon" in vars.keys() and (vars["lat"].size > 1 or vars ["lon"].size > 1)):
-          if len(vars["lat"].shape) > 1:
+          if len(np.squeeze(vars["lat"]).shape) > 1:
             break
           print ("Found coordinate variables")
           la = np.squeeze(vars["lat"])
@@ -100,7 +100,7 @@ def read_var(var, filename, level, options):
             else:
               dimensions[offset]=lo
               labels[offset] = "lon"
-  if ("lat" in vars.keys() and "lon" in vars.keys() and (len(vars["lat"].shape) > 1 or options.GL or options.ANT or options.NATL or options.mapit )):
+  if ("lat" in vars.keys() and "lon" in vars.keys() and (len(np.squeeze(vars["lat"]).shape) > 1 or options.GL or options.ANT or options.NATL or options.mapit )):
     print ("found 2d coordinates")
     labels[0] = ""
     labels[1] = ""
