@@ -49,7 +49,8 @@ def fix_attrs(vars,labels):
         labels[n] = vars[x].long_name
   return labels
 
-def read_var(var, filename, options):
+def read_var(var, filename, level, options):
+  print ("reading %s from %s"%(var, filename), file=sys.stderr)
   f = nc(filename)
   vars = f.variables
   var = vars[var]
@@ -61,6 +62,17 @@ def read_var(var, filename, options):
     data = np.ma.masked_values(data, options.missval)
   dims = var.dimensions
   sizes = var.shape
+  if level is not None:
+    print ("SELECTING LEVEL %d"%level, file=sys.stderr)
+    if len(data.shape) == 3:
+      data=data[level]
+      dims=dims[1:]
+    elif len(data.shape):
+      data=data[:,level]
+      dims=[dims[0]]+[ x for x in dims[2:]]
+    else:
+      print("I am confused, you asked for level %d, but data is %d-dimensional"%(level, len(sizes)), file=sys.stderr)
+      sys.exit(666)
   attrs = { k:  var.getncattr(k) for k in var.ncattrs()}
   dimensions = [vars.get(x,np.arange(sizes[n])) for n,x in enumerate(dims) if sizes[n] > 1 ]
   offset=-1
@@ -121,10 +133,10 @@ def sort_levels (levels = None, minmax=None):
 
 def contour_var(var, filename, options):
   # Get the data
-  (data, attrs, dimensions, labels) = read_var(var, filename, options)
+  (data, attrs, dimensions, labels) = read_var(var, filename, options.level, options)
   # Get the data
   if not options.sub is None :
-    (sub_data, sub_attrs, sub_dimensions, sub_labels) = read_var(var, options.sub, options)
+    (sub_data, sub_attrs, sub_dimensions, sub_labels) = read_var(var, options.sub, options.level, options)
     data = data - sub_data
 
   # COLORMAP
@@ -242,9 +254,9 @@ def contour_var(var, filename, options):
     # OVERLAY
     if not options.overlay_var is None:
       if options.overlay_file is None:
-        (overlay_data, overlay_attrs, overlay_dimensions, overlay_labels) = read_var (options.overlay_var, filename, options)
+        (overlay_data, overlay_attrs, overlay_dimensions, overlay_labels) = read_var (options.overlay_var, filename, options.overlay_level, options)
       else:
-        (overlay_data, overlay_attrs, overlay_dimensions, overlay_labels) = read_var (options.overlay_var, options.overlay_file, options)
+        (overlay_data, overlay_attrs, overlay_dimensions, overlay_labels) = read_var (options.overlay_var, options.overlay_file, options.overlay_level, options)
       overlay_levels = sort_levels (options.overlay_levels)
       if (overlay_levels is not None):
         CS = pl.contour(x, y, overlay_data, overlay_levels, colors="k", linewidths=.25)
@@ -335,6 +347,11 @@ def parse_args():
                       help='''Adjust map for diss projection plot''', action="store_true")
   parser.add_argument("--mapit",
                       help='''Definitely do map plot''', action="store_true")
+  parser.add_argument("-l", "--level",
+                      help='''which level to plot (for multi-level vars)''', type=int, default = None)
+
+  parser.add_argument("--overlay_level",
+                      help='''which level to plot (for multi-level vars)''', type=int, default = None)
 
   parser.add_argument("-m", "--minmax",
                       help='''set minimum and maximum for contours''', nargs=2, type=float, default = None)
