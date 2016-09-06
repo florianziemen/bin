@@ -69,7 +69,8 @@ def plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts = {}):
     patterndict={} # cmap[0] is free
 
     yscale=plot_opts.get('yscale', 1.)
-    plots = [ mpl.plot(xvec,yvec*yscale, patterndict.get(lb[:5],'-'),  label=namedict.get(lb,lb), color=colordict.get(lb,cmap[i%len(cmap)])) for (xvec,yvec,lb,i) in zip(xvecs,yvecs,labels,np.arange(len(xvecs))) ]
+    addtox=plot_opts.get('addto_x', 0.)
+    plots = [ mpl.plot(xvec+addtox,yvec*yscale, patterndict.get(lb[:5],'-'),  label=namedict.get(lb,lb), color=colordict.get(lb,cmap[i%len(cmap)])) for (xvec,yvec,lb,i) in zip(xvecs,yvecs,labels,np.arange(len(xvecs))) ]
     if (plot_opts.get("ensmean", False)):
       x, y  = ensmean(xvecs, yvecs, plot_opts.get("multime", 1.))
       plots.append ( mpl.plot(x, y*yscale,  '-',  label="Mean", color='k' , linewidth=3))
@@ -176,6 +177,8 @@ def parse_args():
                     help='''draw vertical lines at years specified by start range step ''', nargs=3, type=float )
   parser.add_argument("--yscale",
                     help='''scale y axis by factor ''', type=float , default=1.)
+  parser.add_argument("--addto_x",
+                    help='''add to x values ''', type=float , default=0.)
   parser.add_argument("--multime",
                     help='''multiply raw x axis by factor ''', type=float , default=1.)
   parser.add_argument("--font_scale",
