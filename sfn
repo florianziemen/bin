@@ -1,0 +1,8 @@
+#!/bin/bash
+
+let nm=$#
+args=($@)
+files=${args[@]:1:$nm}
+let i=${1}+1
+
+ls $files |sort -k $i -t _ -n

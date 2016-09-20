@@ -1,0 +1,3 @@
+#!/bin/bash
+
+ls $1_?????.nc |sort -k 2 -t _ -n
