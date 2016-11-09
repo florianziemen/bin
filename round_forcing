@@ -1,0 +1,73 @@
+#!/usr/bin/env python
+
+import numpy as np
+from math import log
+
+
+data = np.genfromtxt("timeseries").transpose()
+# time -- sea level -- isolation -- co2
+# negative value in insol row/col is 115 ka fraction, positive value is 127 ka fraction
+print (data.shape)
+data[1] = 1 + data[1]/130. #
+data[1] = data[1] * (data[1] < 1) + 1 * (data[1] >= 1) # cut values above 1
+data[1] = data[1] * (data[1] > 0 ) # cut negative values
+
+i000 = 480.394908
+i127 = 551.656494
+i115 = 442.319239
+rl = 1./(i000-i115)
+rh = 1./(i127-i000)
+
+data[2] = (data[2] - i000)
+data[2] = data[2] * rh * (data[2] > 0) + data[2] * rl * (data[2] < 0)
+data[2] = data[2] * (data[2] < 1) + 1 * (data[2] >= 1) # cut values above 1
+data[2] = data[2] * (data[2] > -1) - 1 * (data[2] <= -1) # cut values below -1
+
+# co2 (now) = 284.7
+co2now = 284.7
+data[3] =(  np.log(data[3]) - np.log(co2now/2.) ) / np.log((2))
+data[3] = data[3] * (data[3] < 1) + 1 * (data[3] >= 1) # cut values above 1
+data[3] = data[3] * (data[3] > 0 ) # cut negative values
+
+
+
+  # solar ueber low neutral high
+  # co2 level first index
+  # sea level second index
+  # 0 = pi 1 = lgm
+neutral = [["pmu0121", "pmu0112"], ["pmu0123", "pmu0113"]]
+low = [["pmu0111", "pmu0115"], ["pmu0119", "pmu0117"]]
+high = [["pmu0110", "pmu0114"], ["pmu0118", "pmu0116"]]
+
+n = np.array([ [ data[1] * (1 - abs(data[2])) * data[3]       , (1 - data[1]) * (1 - abs(data[2])) * data[3] ],
+               [ data[1] * (1 - abs(data[2])) * (1 - data[3]) , (1 - data[1]) * (1 - abs(data[2])) * (1- data[3]) ]]).transpose((2,0,1))
+l = (np.array([ [ data[1] * (abs(data[2])) * data[3]       , (1 - data[1]) * (abs(data[2])) * data[3] ],
+               [ data[1] * (abs(data[2])) * (1 - data[3]) , (1 - data[1]) * (abs(data[2])) * (1- data[3]) ]]) * (data[2] < 0)).transpose((2,0,1))
+h = (np.array([ [ data[1] * (abs(data[2])) * data[3]       , (1 - data[1]) * (abs(data[2])) * data[3] ],
+               [ data[1] * (abs(data[2])) * (1 - data[3]) , (1 - data[1]) * (abs(data[2])) * (1- data[3]) ]]) * (data[2] > 0)).transpose((2,0,1))
+
+
+for x in (0, 21, 24, 115, 121, 127):
+  print x
+  print (n[x])
+  print l[x]
+  print h[x]
+  print (n+l+h)[x]
+  if data[2][x] > 0 :
+    factors = h
+    names = high
+  else:
+    factors = l
+    names = low
+  pairs = []
+  for i in (0, 1):
+    for j in (0, 1):
+      if n[x,i,j] != 0:
+        pairs.append([n[x,i,j], neutral[i][j]])
+      if factors[x,i,j] != 0:
+        pairs.append([factors[x,i,j], names[i][j]])
+  command = ""
+  for p in pairs[:-1]:
+    command = command + " -add -mulc,%.5f %s "%(p[0], p[1])
+  command = command + " -mulc,%.5f %s "%(pairs[-1][0], pairs[-1][1])
+  print command
