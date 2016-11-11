@@ -237,6 +237,10 @@ def contour_var(var, filename, options):
 #           pcm_data, pcm_dimensions[-1] = addcyclic(pcm_data, pcm_dimensions[-1])
         x, y = map(*np.meshgrid(dimensions[-1][:], dimensions[-2][:]))
         pcm_x, pcm_y = map(*np.meshgrid(pcm_dimensions[-1][:], pcm_dimensions[-2][:]))
+        # To get reasonably correct ocean levels prepend something like this to the vert var:
+        # z=arange(len(x)+1)
+        # z[1:-1]=.5*(x[1:]+x[:-1])
+        # z[-1]=1.5*x[-1]-.5*x[-2]
 
 
       pl = map
