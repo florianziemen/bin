@@ -1,0 +1,19 @@
+#!/bin/bash
+
+for x in $(seq -60 500) ; do
+    let i011=$x+2095
+    let i012=$x+2633
+    let i013=$x+3079
+    let other=$x+2959
+    i011s=$(printf %04d $i011)
+    i012s=$(printf %04d $i012)
+    i013s=$(printf %04d $i013)
+    others=$(printf %04d $other)
+    out=$(printf %04d $x)
+    echo ncra ../I01/main_fields/main_fields$i011s.nc ../I01/main_fields/main_fields$i012s.nc ../I01/main_fields/main_fields$i013s.nc ../H87/main_fields/main_fields$others.nc ../I02/main_fields/main_fields$others.nc ../I09/main_fields/main_fields$others.nc main_fields$out.nc  
+done  > todo
+# prun.rb -j 5 todo
+
+ncrcat -O $(ls main_fields-0*.nc|tac ) $(ls main_fields[0-9]*.nc ) main_fields_HE.nc
+
+ncatted -a coordinates,cbar,o,c,"lat lon"  -a coordinates,csurf,o,c,"lat lon" -a coordinates,cumul_acab,o,c,"lat lon"  -a coordinates,cumul_calving,o,c,"lat lon" -a coordinates,cumul_shelf_basal_flux,o,c,"lat lon"  -a coordinates,thk,o,c,"lat lon"  -a coordinates,topg,o,c,"lat lon"  -a coordinates,usurf,o,c,"lat lon" main_fields_HE.nc                      

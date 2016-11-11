@@ -53,12 +53,12 @@ def copy_dimensions(infile, outfile, average_dimensions, npoints):
             if not dim in average_dimensions:
                 outfile.createDimension(dim,len(in_dim_d))
                 if dim in infile.variables:
-                    out_dim_v =  outfile.createVariable( dim,in_dim_v.dtype, (dim,) ) 
+                    out_dim_v =  outfile.createVariable( dim,in_dim_v.dtype, (dim,) )
                     out_dim_v[:] = in_dim_v[:]
             else:
                 outfile.createDimension(dim,len(in_dim_d)/npoints)
                 if dim in infile.variables:
-                    out_dim_v =  outfile.createVariable( dim,in_dim_v.dtype, (dim,) ) 
+                    out_dim_v =  outfile.createVariable( dim,in_dim_v.dtype, (dim,) )
                     out_dim_v[:] = 0.
                     for x in xrange(npoints):
                         out_dim_v[:] = out_dim_v[:] + in_dim_v[x:len(out_dim_v)*npoints:npoints]
@@ -90,7 +90,7 @@ def check_var_dims(infile, varname, average_dimensions):
     if dims[0] in average_dimensions and dims[1] in average_dimensions:
         return True
     return False
-                
+
 def convert_var(infile, outfile, varname, npoints):
 
   var = infile.variables[varname]
@@ -99,22 +99,22 @@ def convert_var(infile, outfile, varname, npoints):
     start_dim = 1
   else:
     has_time = False
-    start_dim = 0 
+    start_dim = 0
   in_dims = [infile.dimensions[x] for x in var.dimensions[start_dim:]]
 #  out_dims = [outfile.dimensions[x] for x in var.dimensions[start_dim:]]
-  
-  debug( var.dimensions) 
+
+  debug( var.dimensions)
   debug( var.shape)
+  fill_value = -9e33
   if "_FillValue" in var.ncattrs():
-    debug( "creating with _FillValue")
-    out_var = outfile.createVariable(varname,var.dtype,var.dimensions, fill_value=var._FillValue)
-  else:
-    debug( "creating without _FillValue")
-    out_var = outfile.createVariable(varname,var.dtype,var.dimensions)
+    fill_value=var._FillValue
+  debug( "creating with _FillValue %f"%fill_value)
+  ov = outfile.createVariable(varname,var.dtype,var.dimensions, fill_value=var._FillValue)
 
 
-  debug(out_var.shape)
-  out_var[:] = np.zeros(out_var.shape)
+  debug(ov.shape)
+  out_var = np.zeros(ov.shape)
+  out_count = np.zeros(out_var.shape)
 
   endx = len(in_dims[0]) - len(in_dims[0])%npoints
   endy = len(in_dims[1]) - len(in_dims[1])%npoints
@@ -122,11 +122,13 @@ def convert_var(infile, outfile, varname, npoints):
     for j in xrange (npoints):
       if has_time:
         debug( "adding out_var with offset %d %d"%(i,j))
-        out_var[:] = out_var[:] + var[:, i:endx:npoints, j:endy:npoints]
+        out_var[:] = out_var[:] + var[:, i:endx:npoints, j:endy:npoints] * (1-var.mask[:, i:endx:npoints, j:endy:npoints])
+        out_count = out_count +  (1-var[:, i:endx:npoints, j:endy:npoints].mask)
       else:
-        out_var[:] = out_var[:] + var[i:endx:npoints, j:endy:npoints]
+        out_var[:] = out_var[:] + var[i:endx:npoints, j:endy:npoints] * (1-var[i:endx:npoints, j:endy:npoints].mask)
+        out_count = out_count +  (1-var[i:endx:npoints, j:endy:npoints].mask)
 
-  out_var[:] = out_var[:] / (npoints * npoints)
+  ov[:] = (out_var[:] / (out_count + (out_count == 0))) * (out_count > 0 ) + (out_count == 0) * fill_value
   copy_atts(infile, outfile, varname)
   # print (dir(driver))
   # src_ds = gdal.Open( template )
@@ -134,21 +136,21 @@ def convert_var(infile, outfile, varname, npoints):
   # print outDataset
   # outBand = outDataset.GetRasterBand(1)
   # outBand.WriteArray(np.squeeze(var[:]), 0,0)
-  
-  
+
+
 
 
 def parse_args():
   parser = ArgumentParser()
   parser.description = "block average netcdf file"
   parser.add_argument("FILE", nargs=2)
-  parser.add_argument("-n", "--npoints", 
+  parser.add_argument("-n", "--npoints",
                     help='''number of points to average over''', default=None, type = int)
-  parser.add_argument("-a", "--average_dimensions", 
+  parser.add_argument("-a", "--average_dimensions",
                     help='''dimensions to average over''', default="x,y")
-  parser.add_argument("-x", "--exclude", 
+  parser.add_argument("-x", "--exclude",
                     help='''variables to exclude''', default="lon,lat,lon_bnds,lat_bnds")
-  parser.add_argument("-v", "--verbose", 
+  parser.add_argument("-v", "--verbose",
                     help='''verbose''', action = "store_true")
 
   options = parser.parse_args()
@@ -174,4 +176,3 @@ def main(argv):
           debug( "Omitting %s"%(varname))
 if __name__ == "__main__":
     main(sys.argv)
-

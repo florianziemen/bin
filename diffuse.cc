@@ -165,6 +165,8 @@ void diffuse( vector<vector<double> >  & vfield, const double missval) {
   copyvec(inmask, currmask);
   for (int k = 0 ; k < 4000 ; k++){
     double count = 0 ;
+#pragma omp parallel
+#pragma omp for
     for (size_t i = 1 ; i < ii-1 ; i++ ){
       // low j margin
       newfield [i][0] =
@@ -218,7 +220,9 @@ void diffuse( vector<vector<double> >  & vfield, const double missval) {
     	  + .5 * (currmask[ii-2][j-1] + currmask[ii-2][j+1]);
       }
 
-    for (size_t i = 0 ; i < ii ; i++ )
+#pragma omp parallel
+#pragma omp for
+   for (size_t i = 0 ; i < ii ; i++ )
       for (size_t j = 0 ; j < jj ; j++ ){
 	if (weight[i][j] > 1.6 ){
 	  newfield[i][j] = newfield[i][j] / weight[i][j];
