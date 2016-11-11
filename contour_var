@@ -282,7 +282,7 @@ def contour_var(var, filename, options):
       if not options.no_outline:
         pl.contour (x, y, pcm_data, levels,  colors="0.5", linewidths=.25, linestyles="solid")
     else:
-      pl.pcolormesh(x, y, pcm_data,  cmap=cmap)
+      pl.pcolormesh(pcm_x, pcm_y, pcm_data,  cmap=cmap)
       mpl.colorbar()
       if not options.no_outline:
         pl.contour (x, y, data,  colors="0.5", linewidths=.25, linestyles="solid")
