@@ -204,9 +204,9 @@ def contour_var(var, filename, options):
                       lat_ts=71,lat_0=90,lon_0=-39.)
         print ("GL")
       elif options.NATL:
-            map = Basemap(width=9500000,height=9500000,
+            map = Basemap(width=9500000,height=10000000, area_thresh=10000.,
                        resolution='l',projection='stere',\
-                       lat_0=72,lon_0=-44.)
+                       lat_0=67,lon_0=-44.)
       elif options.PISM:
             map = Basemap(width=9500000,height=9500000,
                        resolution='l',projection='stere',\
@@ -214,7 +214,7 @@ def contour_var(var, filename, options):
       elif options.diss_proj:
         print (llcrnrlon, llcrnrlat, urcrnrlon, urcrnrlat)
         map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
-                      resolution='l',projection='stere',\
+                      resolution='l',projection='stere', area_thresh=10000., \
                       lat_0=90, lat_ts=71,lon_0=-44.)
       elif options.ANT:
         print ("ANT")
