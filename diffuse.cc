@@ -151,6 +151,8 @@ void create_dims(NcFile& outfile, const NcVar & sample_var){
 void copyvec( vector<vector<double> > in,  vector<vector<double> > & out){
   size_t ii = in.size(),
     jj = in[0].size();
+#pragma omp parallel
+#pragma omp for
   for (size_t i = 0 ; i < ii ; i++ )
     for (size_t j = 0 ; j < jj ; j++ )
       out[i][j] = in[i][j];
@@ -159,6 +161,8 @@ void copyvec( vector<vector<double> > in,  vector<vector<double> > & out){
 void multiplyvec( vector<vector<double> > & vec,  vector<vector<double> > & factor){
   size_t ii = vec.size(),
     jj = vec[0].size();
+#pragma omp parallel
+#pragma omp for
   for (size_t i = 0 ; i < ii ; i++ )
     for (size_t j = 0 ; j < jj ; j++ )
       vec[i][j] = vec[i][j] * factor[i][j];
@@ -168,6 +172,8 @@ void multiplyvec( vector<vector<double> > & vec,  vector<vector<double> > & fact
 void copyvec( vector<vector<bool> > in,  vector<vector<bool> > & out){
   size_t ii = in.size(),
     jj = in[0].size();
+#pragma omp parallel
+#pragma omp for
   for (size_t i = 0 ; i < ii ; i++ )
     for (size_t j = 0 ; j < jj ; j++ )
       out[i][j] = in[i][j];
@@ -251,7 +257,7 @@ void diffuse( vector<vector<double> >  & vfield, vector<vector<double> >  & igno
 		}
 
 #pragma omp parallel
-#pragma omp for
+#pragma omp for reduction (+:count)
 		for (size_t i = 0 ; i < ii ; i++ ){
       for (size_t j = 0 ; j < jj ; j++ ){
 				if (weight[i][j] * ignoremask[i][j] > 1.6 ||(last_rounds && (weight[i][j] > .1)) ){
