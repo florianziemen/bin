@@ -72,6 +72,12 @@ def mix_forcing(year, options):
   command = command + " -mulc,%.5f %s/ebm_data_%s.grb "%(pairs[-1][0], options.ebm_data_path, pairs[-1][1])
   command = command + " ebm_data_%+07d.grb"%year
   print ( command )
+  command = "cdo "
+  for p in pairs[:-1]:
+    command = command + " -add -mulc,%.5f %s/mpiom_%s_ncea_cdo_filled.nc "%(p[0], options.ebm_data_path, p[1])
+  command = command + " -mulc,%.5f %s/mpiom_%s_ncea_cdo_filled.nc "%(pairs[-1][0], options.ebm_data_path, pairs[-1][1])
+  command = command + " oce_data_%+07d.grb"%year
+  print ( command )
 
 def parse_args():
   '''Parses the command line arguments'''
