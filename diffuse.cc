@@ -6,28 +6,37 @@ using namespace netCDF;
 void reset_sum(vector<double>& sum);
 
 void create_dims(NcFile& outfile, const NcVar & sample_var);
-void diffuse( vector<vector<double> >  & vfield, const double missval) ;
+void diffuse( vector<vector<double> >  & vfield, vector<vector<double> >  & ignoremask, const double missval) ;
 
 
 
 int main(int argc, char** argv){
-  if (argc < 3){
-    std::cerr<<"Call " <<argv[0] << " INFILE VAR1 [VAR2 ... [VARN]]\n";
+  if (argc < 4){
+    std::cerr<<"Call " <<argv[0] << " INFILE MASKFILE VAR1 [VAR2 ... [VARN]]\n";
     return 64;
   }
   vector<char*> vars;
-  for (int i = 2 ; i < argc ; i++)
+  for (int i = 3 ; i < argc ; i++)
     vars.push_back(argv[i]);
+
+	// Mask file
+  char* maskfilename = argv[2];
+	NcFile maskfile (maskfilename, NcFile::read);
+	if  (maskfile.isNull()){
+		cerr<< "trouble opening file :" << maskfilename << '\n';
+		return 1;
+	}
+	NcVar mask = maskfile.getVar("mask");
 
 
   //Input data, the name is read from the command line
   //Open input file (one after the other)
   char* infilename = argv[1];
   NcFile infile (infilename, NcFile::read);
-    if  (infile.isNull()){
-      cerr<< "trouble opening file :" << infilename << '\n';
-      return 1;
-    }
+	if  (infile.isNull()){
+		cerr<< "trouble opening file :" << infilename << '\n';
+		return 1;
+	}
   vector <NcVar> input_vars; // read all the input variables.
   for (int v=0; v <vars.size() ;v++)
     input_vars.push_back( infile.getVar(vars[v]));
@@ -51,7 +60,7 @@ int main(int argc, char** argv){
 
   vector <NcVar> output_vars;
   vector <std::string> dim_names; // Get a list of all dimension names
-				  // for creating new variables.
+	// for creating new variables.
   vector <size_t> dim_sizes;
   std::cerr<<"getting names and sizes\n";
   vector <NcDim> dims = input_vars.begin()->getDims();
@@ -83,12 +92,21 @@ int main(int argc, char** argv){
   double t;
   double field[dim_sizes[1]][dim_sizes[2]];
   vector < vector <double> > vfield ( dim_sizes[1], vector<double>(dim_sizes[2],0)) ;
+  vector < vector <double> > ignoremask ( dim_sizes[1], vector<double>(dim_sizes[2],0)) ;
   vector<size_t> position(dim_sizes.size(), 0);
   vector<size_t> sizes(dim_sizes);
   sizes[0] =  1;
   vector<size_t> tpos(1,0);
-  //loop over all timesteps in one file
-  for (size_t in_timestep = 0 ; in_timestep < input_vars[0].getDim(0).getSize() ; in_timestep++ ) {
+
+	mask.getVar(position, sizes, field[0]);
+	for (size_t i = 0 ; i < dim_sizes[1] ; i++ )
+		for (size_t j = 0 ; j < dim_sizes[2] ; j++ )
+			ignoremask[i][j] = (field[i][j] != 2) ;
+
+
+
+	//loop over all timesteps in one file
+	for (size_t in_timestep = 0 ; in_timestep < input_vars[0].getDim(0).getSize() ; in_timestep++ ) {
     //copy the time to the output file
     tpos[0]= in_timestep;
     in_time.getVar(tpos, &t);
@@ -100,13 +118,13 @@ int main(int argc, char** argv){
       input_vars[v].getVar(position, sizes, field[0]);
       double fv = fill_values[v];
       for (size_t i = 0 ; i < dim_sizes[1] ; i++ )
-	for (size_t j = 0 ; j < dim_sizes[2] ; j++ )
-	  vfield[i][j] = field[i][j];
-            diffuse(vfield, fv);
+				for (size_t j = 0 ; j < dim_sizes[2] ; j++ )
+					vfield[i][j] = field[i][j];
+			diffuse(vfield, ignoremask, fv);
       for (size_t i = 0 ; i < dim_sizes[1] ; i++ )
-	for (size_t j = 0 ; j < dim_sizes[2] ; j++ ){
-	  field[i][j] = vfield[i][j];
-	}
+				for (size_t j = 0 ; j < dim_sizes[2] ; j++ ){
+					field[i][j] = vfield[i][j];
+				}
       output_vars[v].putVar(position, sizes, field[0]);
     }
 
@@ -123,11 +141,11 @@ void reset_sum(vector<double> &  sum){
 void create_dims(NcFile& outfile, const NcVar & sample_var){
   std::vector<NcDim> dims = sample_var.getDims();
   for (std::vector<NcDim>::iterator d = dims.begin(); d != dims.end(); d++ ){
-      if (d->isUnlimited())
-	outfile.addDim(d->getName());
-      else
-	outfile.addDim(d->getName(), d->getSize());
-    }
+		if (d->isUnlimited())
+			outfile.addDim(d->getName());
+		else
+			outfile.addDim(d->getName(), d->getSize());
+	}
 }
 
 void copyvec( vector<vector<double> > in,  vector<vector<double> > & out){
@@ -137,6 +155,16 @@ void copyvec( vector<vector<double> > in,  vector<vector<double> > & out){
     for (size_t j = 0 ; j < jj ; j++ )
       out[i][j] = in[i][j];
 }
+
+void multiplyvec( vector<vector<double> > & vec,  vector<vector<double> > & factor){
+  size_t ii = vec.size(),
+    jj = vec[0].size();
+  for (size_t i = 0 ; i < ii ; i++ )
+    for (size_t j = 0 ; j < jj ; j++ )
+      vec[i][j] = vec[i][j] * factor[i][j];
+}
+
+
 void copyvec( vector<vector<bool> > in,  vector<vector<bool> > & out){
   size_t ii = in.size(),
     jj = in[0].size();
@@ -145,7 +173,7 @@ void copyvec( vector<vector<bool> > in,  vector<vector<bool> > & out){
       out[i][j] = in[i][j];
 }
 
-void diffuse( vector<vector<double> >  & vfield, const double missval) {
+void diffuse( vector<vector<double> >  & vfield, vector<vector<double> >  & ignoremask, const double missval) {
   size_t ii = vfield.size(),
     jj = vfield[0].size();
   vector < vector <double> > infield ( ii , vector<double>( jj ,0)) ;
@@ -153,7 +181,8 @@ void diffuse( vector<vector<double> >  & vfield, const double missval) {
   vector < vector <double> > currmask ( ii , vector<double>( jj , 0)) ;
   vector < vector <double> > weight ( ii , vector<double>( jj ,0)) ;
   vector < vector <double> > newfield ( ii , vector<double>( jj ,0)) ;
-
+	bool last_rounds = false;
+	int countdown = 10 ;
   copyvec(vfield, infield);
   for (size_t i = 0 ; i < ii ; i++ ){
     for (size_t j = 0 ; j < jj ; j++ ){
@@ -163,6 +192,7 @@ void diffuse( vector<vector<double> >  & vfield, const double missval) {
     }
   }
   copyvec(inmask, currmask);
+	multiplyvec(currmask , ignoremask);
   for (int k = 0 ; k < 4000 ; k++){
     double count = 0 ;
 #pragma omp parallel
@@ -173,27 +203,27 @@ void diffuse( vector<vector<double> >  & vfield, const double missval) {
       	currmask[i-1][0] * vfield[i-1][0] + currmask[i+1][0] * vfield[i+1][0]
       	+ currmask[i][1] * vfield[i][1]
       	+ .5 *(   currmask[i-1][1] * vfield[i-1][1]
-      		  + currmask[i+1][1] * vfield[i+1][1] );
+									+ currmask[i+1][1] * vfield[i+1][1] );
       weight[i][0] = currmask[i-1][0] + currmask[i+1][0]
       	+ currmask[i][1] + .5 * (currmask[i-1][1] + currmask[i+1][1]);
       // interior
       for (size_t j = 1 ; j < jj-1 ; j++ ){
-	newfield [i][j] =
-	  currmask[i-1][j] * vfield[i-1][j] + currmask[i+1][j] * vfield[i+1][j]
-	  + currmask[i][j-1] * vfield[i][j-1] + currmask[i][j+1] * vfield[i][j+1]
-	  + .5 *(   currmask[i-1][j-1] * vfield[i-1][j-1] + currmask[i-1][j+1] * vfield[i-1][j+1]
-		    + currmask[i+1][j-1] * vfield[i+1][j-1] + currmask[i+1][j+1] * vfield[i+1][j+1] );
-	weight[i][j] = currmask[i-1][j] + currmask[i+1][j]
-	  + currmask[i][j-1] + currmask[i][j+1]
-	  + .5 * (currmask[i-1][j-1] + currmask[i-1][j+1]
-		  + currmask[i+1][j-1] + currmask[i+1][j+1]);
+				newfield [i][j] =
+					currmask[i-1][j] * vfield[i-1][j] + currmask[i+1][j] * vfield[i+1][j]
+					+ currmask[i][j-1] * vfield[i][j-1] + currmask[i][j+1] * vfield[i][j+1]
+					+ .5 *(   currmask[i-1][j-1] * vfield[i-1][j-1] + currmask[i-1][j+1] * vfield[i-1][j+1]
+										+ currmask[i+1][j-1] * vfield[i+1][j-1] + currmask[i+1][j+1] * vfield[i+1][j+1] );
+				weight[i][j] = currmask[i-1][j] + currmask[i+1][j]
+					+ currmask[i][j-1] + currmask[i][j+1]
+					+ .5 * (currmask[i-1][j-1] + currmask[i-1][j+1]
+									+ currmask[i+1][j-1] + currmask[i+1][j+1]);
       }
       // high j margin
       newfield [i][jj-1] =
       	currmask[i-1][jj-1] * vfield[i-1][jj-1] + currmask[i+1][jj-1] * vfield[i+1][jj-1]
       	+ currmask[i][jj-2] * vfield[i][jj-2]
       	+ .5 *(   currmask[i-1][jj-2] * vfield[i-1][jj-2]
-      		  + currmask[i+1][jj-2] * vfield[i+1][jj-2] );
+									+ currmask[i+1][jj-2] * vfield[i+1][jj-2] );
       weight[i][jj-1] = currmask[i-1][jj-1] + currmask[i+1][jj-1]
       	+ currmask[i][jj-2] + .5 * (currmask[i-1][jj-2] + currmask[i+1][jj-2]);
     }
@@ -207,9 +237,9 @@ void diffuse( vector<vector<double> >  & vfield, const double missval) {
     	weight[0][j] = currmask[0+1][j]
     	  + currmask[0][j-1] + currmask[0][j+1]
     	  + .5 * (currmask[0+1][j-1] + currmask[0+1][j+1]);
-      }
+		}
     // high i margin
-      for (size_t j = 1 ; j < jj-1 ; j++ ){
+		for (size_t j = 1 ; j < jj-1 ; j++ ){
     	newfield [ii-1][j] =
     	  currmask[ii-2][j] * vfield[ii-2][j]
     	  + currmask[ii-1][j-1] * vfield[ii-1][j-1] + currmask[ii-1][j+1] * vfield[ii-1][j+1]
@@ -218,41 +248,49 @@ void diffuse( vector<vector<double> >  & vfield, const double missval) {
     	weight[ii-1][j] = currmask[ii-2][j]
     	  + currmask[ii-1][j-1] + currmask[ii-1][j+1]
     	  + .5 * (currmask[ii-2][j-1] + currmask[ii-2][j+1]);
-      }
+		}
 
 #pragma omp parallel
 #pragma omp for
-   for (size_t i = 0 ; i < ii ; i++ )
+		for (size_t i = 0 ; i < ii ; i++ ){
       for (size_t j = 0 ; j < jj ; j++ ){
-	if (weight[i][j] > 1.6 ){
-	  newfield[i][j] = newfield[i][j] / weight[i][j];
-	  weight[i][j] = 1;
-	  newfield[i][j] = newfield[i][j] * (1 - currmask[i][j] ) + vfield[i][j] * currmask[i][j];
-	  count = count + (1-currmask[i][j]);
-	}else{
-	  newfield[i][j] = missval;
-	  weight[i][j] = 0 ;
-	}
+				if (weight[i][j] * ignoremask[i][j] > 1.6 ||(last_rounds && (weight[i][j] > .1)) ){
+					newfield[i][j] = newfield[i][j] / weight[i][j];
+					weight[i][j] = 1;
+					newfield[i][j] = newfield[i][j] * (1 - currmask[i][j] ) + vfield[i][j] * currmask[i][j];
+					count = count + (1-currmask[i][j]);
+				}else{
+					newfield[i][j] = missval;
+					weight[i][j] = 0 ;
+				}
       }
-    copyvec(weight, currmask);
-    for (size_t i = 0 ; i < ii ; i++ )
-      for (size_t j = 0 ; j < jj ; j++ ){
-	vfield[i][j] = infield[i][j] * inmask[i][j] + newfield[i][j] * (1 - inmask[i][j]);
-      }
-    if (count < 1 ){
-      size_t i= 0 , j= 0 , io=1 , jo = 1 ;
-      newfield [i][j] = (vfield[i+io][j] + vfield[i][j+jo] + .5 * vfield[i+io][j+jo]) / 2.5;
-      vfield[i][j] = infield[i][j] * inmask[i][j] + newfield[i][j] * (1 - inmask[i][j]);
-      i= ii-1 ; j= 0 ;  io=-1 , jo = 1 ;
-      newfield [i][j] = (vfield[i+io][j] + vfield[i][j+jo] + .5 * vfield[i+io][j+jo]) / 2.5;
-      vfield[i][j] = infield[i][j] * inmask[i][j] + newfield[i][j] * (1 - inmask[i][j]);
-      i= 0 ; j= jj-1 ;  io=1 , jo = -1 ;
-      newfield [i][j] = (vfield[i+io][j] + vfield[i][j+jo] + .5 * vfield[i+io][j+jo]) / 2.5;
-      vfield[i][j] = infield[i][j] * inmask[i][j] + newfield[i][j] * (1 - inmask[i][j]);
-      i= ii-1 ; j= jj-1 ;  io=-1 , jo = -1 ;
-      newfield [i][j] = (vfield[i+io][j] + vfield[i][j+jo] + .5 * vfield[i+io][j+jo]) / 2.5;
-      vfield[i][j] = infield[i][j] * inmask[i][j] + newfield[i][j] * (1 - inmask[i][j]);
-      return ;
+		}
+		copyvec(weight, currmask);
+		for (size_t i = 0 ; i < ii ; i++ ){
+			for (size_t j = 0 ; j < jj ; j++ ){
+				vfield[i][j] = infield[i][j] * inmask[i][j] + newfield[i][j] * (1 - inmask[i][j]);
+			}
+		}
+		if (count < 1 || last_rounds ){
+			if (not last_rounds){
+				last_rounds = true ;
+			}
+			else if (countdown == 0 ){
+				size_t i= 0 , j= 0 , io=1 , jo = 1 ;
+				newfield [i][j] = (vfield[i+io][j] + vfield[i][j+jo] + .5 * vfield[i+io][j+jo]) / 2.5;
+				vfield[i][j] = infield[i][j] * inmask[i][j] + newfield[i][j] * (1 - inmask[i][j]);
+				i= ii-1 ; j= 0 ;  io=-1 , jo = 1 ;
+				newfield [i][j] = (vfield[i+io][j] + vfield[i][j+jo] + .5 * vfield[i+io][j+jo]) / 2.5;
+				vfield[i][j] = infield[i][j] * inmask[i][j] + newfield[i][j] * (1 - inmask[i][j]);
+				i= 0 ; j= jj-1 ;  io=1 , jo = -1 ;
+				newfield [i][j] = (vfield[i+io][j] + vfield[i][j+jo] + .5 * vfield[i+io][j+jo]) / 2.5;
+				vfield[i][j] = infield[i][j] * inmask[i][j] + newfield[i][j] * (1 - inmask[i][j]);
+				i= ii-1 ; j= jj-1 ;  io=-1 , jo = -1 ;
+				newfield [i][j] = (vfield[i+io][j] + vfield[i][j+jo] + .5 * vfield[i+io][j+jo]) / 2.5;
+				vfield[i][j] = infield[i][j] * inmask[i][j] + newfield[i][j] * (1 - inmask[i][j]);
+				return ;
+			}
+			--countdown;
     }
 
   } // k loop
