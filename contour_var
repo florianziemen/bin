@@ -8,7 +8,7 @@ import numpy as np
 import matplotlib.pylab as mpl
 import matplotlib.colors as colors
 import re
-# import flo_utils as fu
+import flo_utils as fu
 
 from argparse import ArgumentParser
 # import json
@@ -51,7 +51,11 @@ def fix_attrs(vars,labels):
 
 def read_var(var, filename, level, options):
   print ("reading %s from %s"%(var, filename), file=sys.stderr)
-  f = nc(filename)
+  try:
+    f = nc(filename)
+  except IOError:
+    fu.cerr("Error opening %s"%filename)
+    sys.exit(666)
   vars = f.variables
   var = vars[var]
   if type(var[:]) is np.ma.masked_array:
