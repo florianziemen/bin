@@ -217,6 +217,8 @@ def contour_var(var, filename, options):
   else:
     alldata = data.reshape([1]+[ i for i in data.shape])
   for (num, data) in enumerate(alldata):
+    if options.scale is not None:
+      data = data * options.scale
     if (options.figsize):
       mpl.figure(figsize=options.figsize)
     if (len(dimensions) >= 4  or options.GL or options.ANT or options.NATL or options.mapit) : # 2d coordinates
@@ -273,8 +275,6 @@ def contour_var(var, filename, options):
       pcm_x = x # actually needs to be shifted, too!
       pcm_y = y # actually needs to be shifted, too!
 
-    if options.scale is not None:
-      data = data * options.scale
 
     # DRAW IT
     mpl.gca().patch.set_color('.75')
