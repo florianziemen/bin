@@ -1,0 +1,122 @@
+#!/bin/bash
+#SBATCH --job-name=interp      # Specify job name
+#SBATCH --partition=shared     # Specify partition name
+#SBATCH --ntasks=1             # Specify max. number of tasks to be invoked
+#SBATCH --time=5:00:00         # Set a limit on the total run time
+#SBATCH --mail-type=FAIL       # Notify user by email in case of job failure
+#SBATCH --account=bm0948       # Charge resources on this project account
+#SBATCH --output=ebm.o%j    # File name for standard output
+#SBATCH --error=ebm.e%j     # File name for standard error output
+
+set -evx
+
+input=$1
+usurf=$2
+isg=$3
+atmgrid=$4
+outfile=$5
+
+#Interpolation on ice sheet grid for different experiments
+exp=EXPERIMENT_ID #pmu0032_zonmean
+startyear=2500
+endyear=2519
+pow=2
+# isg='/work/bm0948/m300467/EBData/TOPO/ice5g_0k_5min.nc'
+# isg='/work/bm0948/m300019/PISM/SPINUP/GL0049/pism_init_yx.nc'
+toponame=usurf
+workpath=$(pwd)
+
+cdo='cdo -s -P 6 '
+
+# datpath=/work/bm0948/m300467/ebm
+# path=$datpath/ebm_lev_${exp}/script
+# cd $path
+
+# temp_s = var600
+# smb = var601 - var602
+
+
+
+
+# # get smb on levels to  ${workpath}/Output_Z${level}.ext
+# for level in 0000 0100 0200 0300 0400 0500 0625 0750 0875 1000 1125 1250 1375 1500 1625 1750 1875 2000 2500 3000 4000 5000 6000 8000
+# do
+#   ${cdo} -f ext -b 64L -setlevel,${level} -selvar,amelt,acc,temp_s $path/Z${level}/Output_0001.nc ${workpath}/Output_Z${level}.ext
+# done
+
+# # combine all levels
+# ${cdo} merge ${workpath}/Output_Z????.ext ${workpath}/Output_Zall.ext
+# # split off yearly output and  get last timestep of every year of SMB
+# ${cdo} -f nc splityear -setgrid,zs.nc ${workpath}/Output_Zall.ext ${workpath}/YEAR
+
+# for year in $(seq ${startyear} ${endyear}); do
+#         ncks -d time,-1 ${workpath}/YEAR${year}.nc ${workpath}/H1${year}
+# done
+
+# # get all last timesteps (final SMBs of all years)
+# ${cdo} -f ext -b 64L mergetime ${workpath}/H1???? ${workpath}/Output_Zall.ext
+# rm ${workpath}/H1???? ${workpath}/Output_Z????.ext ${workpath}/YEAR????.nc
+# ################################################################################
+# ################################################################################
+# ################################################################################
+# ################################################################################
+# ################################################################################
+
+# exit 0
+
+# ################################################################################
+# ################################################################################
+# ################################################################################
+# ################################################################################
+# ################################################################################
+# INTERPOLATE
+# split into vars, do 2d interpolation, split into years, do vert interpolation, combine all years,  # (REMOVED) only take areas with non-neg surface elev in topo file,
+
+# get target topograhpy > 0
+if [ ! -f ${usurf/.nc/_usurf_yx.nc} ] ; then
+    offset=$(cdo -s  -info -fldmin  -ifthen -eqc,4 -selvar,mask ${usurf}  -selvar,usurf ${usurf} |tail -n 1 |awk -F: '{print $5}' |sed 's/\s//g')
+    echo $offset
+    ncap2 -Ovs "usurf=usurf-(${offset})" ${usurf} ${usurf/.nc/_usurf.nc}
+    ncpdq -Oa time,y,x ${usurf/.nc/_usurf.nc} ${usurf/.nc/_usurf_yx.nc}
+fi
+usurf=${usurf/.nc/_usurf_yx.nc}
+
+${cdo} -f ext -b 64L mul -selname,${toponame} ${usurf} -gec,0 -selname,${toponame} ${usurf} ${workpath}/fort.51
+
+# root for interpolation
+wrz=$(echo "1/${pow}" | bc -l)
+
+${cdo} splitcode $input ${workpath}/var
+# rm ${workpath}/Output_Zall.ext
+for var in 600 601 602; do
+        #CDO zieht keine dritten Wurzeln aus negativen Zahlen daher spalte auf
+        ${cdo} -gec,0 ${workpath}/var${var}.ext ${workpath}/mask
+        ${cdo} add -pow,${wrz} -mul ${workpath}/mask ${workpath}/var${var}.ext -mulc,-1 -pow,${wrz} -mul -subc,1 ${workpath}/mask ${workpath}/var${var}.ext ${workpath}/preINT
+        rm ${workpath}/mask
+
+        ${cdo} -f ext -b 64L -pow,${pow} -remapbil,${isg} -setgrid,${atmgrid} ${workpath}/preINT ${workpath}/INT
+        for year in $(seq ${startyear} ${endyear}); do
+            ${cdo} -selyear,$year ${workpath}/INT ${workpath}/fort.50
+	    cd ${workpath}
+            /home/zmaw/m300467/vertint.x
+	    cd - 
+            ${cdo} -f nc -setgrid,${isg} ${workpath}/fort.60 ${workpath}/${var}_${year}_Pow.nc
+            rm ${workpath}/fort.50 ${workpath}/fort.60
+        done
+        ${cdo} -mergetime ${workpath}/${var}_????_Pow.nc ${workpath}/${var}all.nc
+        rm ${workpath}/${var}_????_Pow.nc ${workpath}/var${var}.ext ${workpath}/preINT ${workpath}/INT
+# 	${cdo} mul ${workpath}/${var}all.nc -gec,0 -selname,${toponame} ${isg} ${workpath}/${var}all.nc1
+done
+# merge vars 
+${cdo} -merge ${workpath}/601all.nc ${workpath}/602all.nc ${workpath}/600all.nc ${workpath}/Output_Int_flo.nc
+rm  ${workpath}/60?all.nc #  ${workpath}/60?all.nc1
+
+# time mean and correct output vars.
+${cdo} timmean ${workpath}/Output_Int_flo.nc ${workpath}/Output_Int_mean_flo.nc
+if [ -f ${outfile} ] ; then
+    mv ${outfile} ${outfile}.bak
+fi
+
+${cdo} -f nc -r  -merge  -setunit,'kg m-2 yr-1' -setmisstoc,-5000 -setname,climatic_mass_balance  -mulc,365 -mulc,86400 -mulc,1000 -sub -selcode,601 ${workpath}/Output_Int_mean_flo.nc -selcode,602 ${workpath}/Output_Int_mean_flo.nc  -setunit,'Kelvin' -setmisstoc,260 -setname,ice_surface_temp -selcode,600 ${workpath}/Output_Int_mean_flo.nc ${workpath}/${outfile}
+
+exit 0

@@ -1,0 +1,50 @@
+#!/bin/bash
+#SBATCH --job-name=interp      # Specify job name
+#SBATCH --partition=shared     # Specify partition name
+#SBATCH --ntasks=1             # Specify max. number of tasks to be invoked
+#SBATCH --time=5:00:00         # Set a limit on the total run time
+#SBATCH --mail-type=FAIL       # Notify user by email in case of job failure
+#SBATCH --account=bm0948       # Charge resources on this project account
+#SBATCH --output=ebm.o%j    # File name for standard output
+#SBATCH --error=ebm.e%j     # File name for standard error output
+
+set -evx
+#Interpolation on ice sheet grid for different experiments
+exp=EXPERIMENT_ID #pmu0032_zonmean
+startyear=${startyear:-1000}
+endyear=${endyear:-1049}
+pow=2
+#isg='/work/bm0948/m300467/EBData/TOPO/ice5g_0k_5min.nc'
+isg=${isg:-/work/bm0948/m300019/PISM/SPINUP/GL0049/pism_init_yx.nc}
+toponame=usurf
+toponame=Topo
+datpath=/work/bm0948/m300467/ebm
+path=$datpath/ebm_lev_${exp}/script
+workpath=$(pwd)
+
+cd $path
+
+# temp_s = var600
+# smb = var601 - var602
+
+
+
+
+# get smb on levels to  $workpath/Output_Z${level}.ext
+for level in 0000 0100 0200 0300 0400 0500 0625 0750 0875 1000 1125 1250 1375 1500 1625 1750 1875 2000 2500 3000 4000 5000 6000 8000
+do
+  cdo -s -f ext -b 64L -setlevel,${level} -selvar,amelt,acc,temp_s $path/Z${level}/Output_0001.nc $workpath/Output_Z${level}.ext
+done
+
+# combine all levels
+cdo -s merge $workpath/Output_Z????.ext $workpath/Output_Zall.ext
+# split off yearly output and  get last timestep of every year of SMB
+cdo -s -f nc splityear -setgrid,zs.nc $workpath/Output_Zall.ext $workpath/YEAR
+
+for year in $(seq ${startyear} ${endyear}); do
+        ncks -d time,-1 $workpath/YEAR${year}.nc $workpath/H1${year}
+done
+
+# get all last timesteps (final SMBs of all years)
+cdo -s -f ext -b 64L mergetime $workpath/H1???? $workpath/Output_Zall.ext
+rm $workpath/H1???? $workpath/Output_Z????.ext $workpath/YEAR????.nc

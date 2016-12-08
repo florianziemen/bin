@@ -55,6 +55,7 @@ def convert_file (filename, opts={}):
     fdx = outfile.createDimension("x", len(x))
     fdy = outfile.createDimension("y", len(y))
     fdy = outfile.createDimension("grid_corners", 4)
+    outfile.proj4 = inSpatialRef.ExportToProj4()
 
     fvx = outfile.createVariable("x","f8",("x",))
     fvy = outfile.createVariable("y","f8",("y",))

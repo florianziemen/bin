@@ -8,7 +8,7 @@ import numpy as np
 import matplotlib.pylab as mpl
 import matplotlib.colors as colors
 import re
-# import flo_utils as fu
+import flo_utils as fu
 
 from argparse import ArgumentParser
 # import json
@@ -51,7 +51,11 @@ def fix_attrs(vars,labels):
 
 def read_var(var, filename, level, options):
   print ("reading %s from %s"%(var, filename), file=sys.stderr)
-  f = nc(filename)
+  try:
+    f = nc(filename)
+  except IOError:
+    fu.cerr("Error opening %s"%filename)
+    sys.exit(666)
   vars = f.variables
   var = vars[var]
   if type(var[:]) is np.ma.masked_array:
@@ -113,6 +117,24 @@ def read_var(var, filename, level, options):
       dl = lon[1]-lon[0]
       lon2 = np.arange(-dl/2., 360, dl)
       pcm_dimensions[-1] = lon2
+
+    if "bounds" in vars["lon"].ncattrs() and vars["lon"].getncattr("bounds") in vars.keys():
+      newshape = [ x + 1 for x in pcm_dimensions[-1].shape]
+      lon = np.zeros(newshape, dtype=pcm_dimensions[-1].dtype)
+      lb = vars[vars["lon"].getncattr("bounds")]
+      lon[0:-1,0:-1] = lb[:,:,0]
+      lon[-1,0:-1] = lb[-1,:,1]
+      lon[0:-1,-1] = lb[:,-1,3]
+      lon[-1,-1] = lb[-1,-1,2]
+      pcm_dimensions[-1] = lon
+      lat = np.zeros(newshape, dtype=pcm_dimensions[-1].dtype)
+      lb = vars[vars["lat"].getncattr("bounds")]
+      lat[0:-1,0:-1] = lb[:,:,0]
+      lat[-1,0:-1] = lb[-1,:,1]
+      lat[0:-1,-1] = lb[:,-1,3]
+      lat[-1,-1] = lb[-1,-1,2]
+      pcm_dimensions[-2] = lat
+
   else:
     if options.transpose: # python has a very strange understanding of order -- we'll fix that
       dimensions[-2:]=dimensions[-1:-3:-1]
@@ -195,6 +217,8 @@ def contour_var(var, filename, options):
   else:
     alldata = data.reshape([1]+[ i for i in data.shape])
   for (num, data) in enumerate(alldata):
+    if options.scale is not None:
+      data = data * options.scale
     if (options.figsize):
       mpl.figure(figsize=options.figsize)
     if (len(dimensions) >= 4  or options.GL or options.ANT or options.NATL or options.mapit) : # 2d coordinates
@@ -204,9 +228,9 @@ def contour_var(var, filename, options):
                       lat_ts=71,lat_0=90,lon_0=-39.)
         print ("GL")
       elif options.NATL:
-            map = Basemap(width=9500000,height=9500000,
+            map = Basemap(width=9500000,height=10000000, area_thresh=10000.,
                        resolution='l',projection='stere',\
-                       lat_0=72,lon_0=-44.)
+                       lat_0=67,lon_0=-44.)
       elif options.PISM:
             map = Basemap(width=9500000,height=9500000,
                        resolution='l',projection='stere',\
@@ -214,7 +238,7 @@ def contour_var(var, filename, options):
       elif options.diss_proj:
         print (llcrnrlon, llcrnrlat, urcrnrlon, urcrnrlat)
         map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
-                      resolution='l',projection='stere',\
+                      resolution='l',projection='stere', area_thresh=10000., \
                       lat_0=90, lat_ts=71,lon_0=-44.)
       elif options.ANT:
         print ("ANT")
@@ -237,6 +261,10 @@ def contour_var(var, filename, options):
 #           pcm_data, pcm_dimensions[-1] = addcyclic(pcm_data, pcm_dimensions[-1])
         x, y = map(*np.meshgrid(dimensions[-1][:], dimensions[-2][:]))
         pcm_x, pcm_y = map(*np.meshgrid(pcm_dimensions[-1][:], pcm_dimensions[-2][:]))
+        # To get reasonably correct ocean levels prepend something like this to the vert var:
+        # z=arange(len(x)+1)
+        # z[1:-1]=.5*(x[1:]+x[:-1])
+        # z[-1]=1.5*x[-1]-.5*x[-2]
 
 
       pl = map
@@ -247,17 +275,25 @@ def contour_var(var, filename, options):
       pcm_x = x # actually needs to be shifted, too!
       pcm_y = y # actually needs to be shifted, too!
 
-    if options.scale is not None:
-      data = data * options.scale
 
     # DRAW IT
     mpl.gca().patch.set_color('.75')
+    if options.missvalcolor:
+      mpl.gca().patch.set_color(options.missvalcolor)
     if options.EN:
       pcm_data = pcm_data [:24]
       pcm_x = pcm_x[:25]
       pcm_y = pcm_y[:25]
     else:
       pcm_data = data
+    if (( options.coast_first) and( (len(dimensions)  >= 4 or options.GL or options.ANT or options.NATL or options.diss_proj or options.PISM or options.mapit))) : # 2d coordinates
+      clc='.5'
+      if options.whitecoast:
+        clc = 'white'
+      pl.drawcoastlines(linewidth=0.25, color=clc, zorder=-999)
+      if options.rivers:
+        pl.drawrivers(linewidth=0.25)
+
     if (not levels is None ):
       print (pcm_x.shape, pcm_y.shape, pcm_data.shape)
       if (not norm is None):
@@ -268,22 +304,23 @@ def contour_var(var, filename, options):
       if not options.no_outline:
         pl.contour (x, y, pcm_data, levels,  colors="0.5", linewidths=.25, linestyles="solid")
     else:
-      pl.pcolormesh(x, y, pcm_data,  cmap=cmap)
+      pl.pcolormesh(pcm_x, pcm_y, pcm_data,  cmap=cmap)
       mpl.colorbar()
       if not options.no_outline:
         pl.contour (x, y, data,  colors="0.5", linewidths=.25, linestyles="solid")
     if options.scaled:
       mpl.axis("scaled")
 
-    if (len(dimensions)  >= 4 or options.GL or options.ANT or options.NATL or options.PISM or options.mapit) : # 2d coordinates
-      clc='black'
+    if ((not options.coast_first) and( (len(dimensions)  >= 4 or options.GL or options.ANT or options.NATL or options.diss_proj or options.PISM or options.mapit))) : # 2d coordinates
+      clc='.5'
       if options.whitecoast:
         clc = 'white'
-      pl.drawcoastlines(linewidth=0.5, color=clc)
+      pl.drawcoastlines(linewidth=0.25, color=clc)
+    if (( (len(dimensions)  >= 4 or options.GL or options.ANT or options.NATL or options.diss_proj or options.PISM or options.mapit))) : # 2d coordinates
       if options.rivers:
         pl.drawrivers(linewidth=0.25)
-      pl.drawmeridians(np.arange(0,360,10),linewidth=.5, dashes=[10,1e-6],color=(.5,.5,.5))
-      pl.drawparallels(np.arange(-90,90,10),linewidth=.5, dashes=[10,1e-6],color=(.5,.5,.5))
+      pl.drawmeridians(np.arange(0,360,10),linewidth=options.gridwidth, dashes=[10,1e-6],color=(.5,.5,.5))
+      pl.drawparallels(np.arange(-90,90,10),linewidth=options.gridwidth, dashes=[10,1e-6],color=(.5,.5,.5))
 
     # OVERLAY
 
@@ -296,12 +333,24 @@ def contour_var(var, filename, options):
       if options.overlay_scale is not None:
         overlay_data = overlay_data * options.overlay_scale
       if (overlay_levels is not None):
+<<<<<<< HEAD
         CS = pl.contour(x, y, overlay_data, overlay_levels, colors="k", linewidths=.5)
       else:
         CS = pl.contour(x, y, overlay_data, colors="k", linewidths=.5)
       for line in CS.collections:
         if line.get_linestyle() != [(None, None)]:
           line.set_linestyle([(0, (12.0, 3.0))])
+=======
+        CS = pl.contour(x, y, overlay_data, overlay_levels, colors="k", linewidths=1.5)
+      else:
+        CS = pl.contour(x, y, overlay_data, colors="k", linewidths=1.5)
+      if options.overlay_thick is not None:
+        CS = pl.contour(x, y, overlay_data, (options.overlay_thick,), colors="k", linewidths=3.)
+
+      for line in CS.collections:
+        if line.get_linestyle() != [(None, None)]:
+          line.set_linestyle([(0, (12.0, 4.0))])
+>>>>>>> 2243f12072685b7591c5472924fcb6b1f73bf2fb
 
     # MAKE IT NICE
     if "xlim" in options:
@@ -318,7 +367,10 @@ def contour_var(var, filename, options):
     else:
       mpl.ylabel(options.ylabel)
     if options.title is None:
-      mpl.title("%s (%s)"%(attrs.get("long_name", var), attrs.get("units", "unknown units")))
+      if attrs.get("units", False):
+        mpl.title("%s (%s)"%(attrs.get("long_name", var), attrs.get("units", "")))
+      else:
+        mpl.title("%s"%(attrs.get("long_name", var)))
     else:
       mpl.title(options.title)
 
@@ -326,7 +378,7 @@ def contour_var(var, filename, options):
     if not slices:
       if not options.outfile is  None:
         if options.outfile[-3:] == "png":
-          mpl.savefig(options.outfile, dpi=400 )
+          mpl.savefig(options.outfile, dpi=200 )
           mpl.close('all')
         else:
           mpl.savefig(options.outfile)
@@ -415,8 +467,12 @@ def parse_args():
                       help='''set levels for plotting. n = n levels, 1,2,3 = draw levels at 1, 2, and 3''')
   parser.add_argument("--whitecoast",
                       help='''Draw white coastlines''', action="store_true")
+  parser.add_argument("--coast_first",
+                      help='''Draw coastlines before contour plot''', action="store_true")
   parser.add_argument("--rivers",
                       help='''Draw rivers''', action="store_true")
+  parser.add_argument("--gridwidth",
+                      help='''Width of gridlines''', type=float , default=0.25)
 
   parser.add_argument("-T", "--title",
                       help='''plot title''', default=None)
@@ -431,11 +487,14 @@ def parse_args():
 
   parser.add_argument("-s", "--sub", default=None)
   parser.add_argument("--missval", type = float, default = None)
+  parser.add_argument("--missvalcolor", default = None)
 
   parser.add_argument("--overlay_var", default=None)
   parser.add_argument("--overlay_file", default=None)
   parser.add_argument("--overlay_levels", default=None,
     help='''set levels for plotting. n = n levels, 1,2,3 = draw levels at 1, 2, and 3''')
+  parser.add_argument("--overlay_thick", default=None, type=float,
+    help='''set level for thick line in overlay''')
 
 
   options = parser.parse_args()

@@ -1,0 +1,105 @@
+#!/usr/bin/env python
+from __future__ import print_function
+import flo_utils as fu
+
+from argparse import ArgumentParser
+import sys
+
+import numpy as np
+from math import log
+
+
+def mix_forcing(year, options):
+  data = np.genfromtxt("timeseries")[::-1].transpose()
+  # time -- sea level -- isolation -- co2
+  # negative value in insol row/col is 115 ka fraction, positive value is 127 ka fraction
+  data[1] = 1 + data[1]/130. #
+  data[1] = data[1] * (data[1] < 1) + 1 * (data[1] >= 1) # cut values above 1
+  data[1] = data[1] * (data[1] > 0 ) # cut negative values
+
+  i000 = 480.394908
+  i127 = 551.656494
+  i115 = 442.319239
+  rl = 1./(i000-i115)
+  rh = 1./(i127-i000)
+
+  data[2] = (data[2] - i000)
+  data[2] = data[2] * rh * (data[2] > 0) + data[2] * rl * (data[2] < 0)
+  data[2] = data[2] * (data[2] < 1) + 1 * (data[2] >= 1) # cut values above 1
+  data[2] = data[2] * (data[2] > -1) - 1 * (data[2] <= -1) # cut values below -1
+
+  # co2 (now) = 284.7
+  co2now = 284.7
+  data[3] =(  np.log(data[3]) - np.log(co2now/2.) ) / np.log((2))
+  data[3] = data[3] * (data[3] < 1) + 1 * (data[3] >= 1) # cut values above 1
+  data[3] = data[3] * (data[3] > 0 ) # cut negative values
+
+
+
+    # solar ueber low neutral high
+    # co2 level first index
+    # sea level second index
+    # 0 = pi 1 = lgm
+  neutral = [["pmu0121", "pmu0112"], ["pmu0123", "pmu0113"]]
+  low = [["pmu0111", "pmu0115"], ["pmu0119", "pmu0117"]]
+  high = [["pmu0110", "pmu0114"], ["pmu0118", "pmu0116"]]
+
+  n = np.array([ [ data[1] * (1 - abs(data[2])) * data[3]       , (1 - data[1]) * (1 - abs(data[2])) * data[3] ],
+                 [ data[1] * (1 - abs(data[2])) * (1 - data[3]) , (1 - data[1]) * (1 - abs(data[2])) * (1- data[3]) ]]).transpose((2,0,1))
+  l = (np.array([ [ data[1] * (abs(data[2])) * data[3]       , (1 - data[1]) * (abs(data[2])) * data[3] ],
+                 [ data[1] * (abs(data[2])) * (1 - data[3]) , (1 - data[1]) * (abs(data[2])) * (1- data[3]) ]]) * (data[2] < 0)).transpose((2,0,1))
+  h = (np.array([ [ data[1] * (abs(data[2])) * data[3]       , (1 - data[1]) * (abs(data[2])) * data[3] ],
+                 [ data[1] * (abs(data[2])) * (1 - data[3]) , (1 - data[1]) * (abs(data[2])) * (1- data[3]) ]]) * (data[2] > 0)).transpose((2,0,1))
+
+  if np.interp(year, data[0], data[2]) > 0 :
+    factors = h
+    names = high
+  else:
+    factors = l
+    names = low
+  pairs = []
+  for i in (0, 1):
+    for j in (0, 1):
+      nv = np.interp(year, data[0], n[:,i,j])
+      if nv != 0:
+        pairs.append([nv, neutral[i][j]])
+      fv = np.interp(year, data[0], factors[:,i,j])
+      if fv != 0:
+        pairs.append([fv, names[i][j]])
+  command = "cdo "
+  for p in pairs[:-1]:
+    command = command + " -add -mulc,%.5f %s/ebm_data_%s.grb "%(p[0], options.ebm_data_path, p[1])
+  command = command + " -mulc,%.5f %s/ebm_data_%s.grb "%(pairs[-1][0], options.ebm_data_path, pairs[-1][1])
+  command = command + " ebm_data_%+07d.grb"%year
+  print ( command )
+  command = "cdo "
+  for p in pairs[:-1]:
+    command = command + " -add -mulc,%.5f %s/mpiom_%s_ncea_cdo_filled.nc "%(p[0], options.ebm_data_path, p[1])
+  command = command + " -mulc,%.5f %s/mpiom_%s_ncea_cdo_filled.nc "%(pairs[-1][0], options.ebm_data_path, pairs[-1][1])
+  command = command + " oce_data_%+07d.grb"%year
+  print ( command )
+
+def parse_args():
+  '''Parses the command line arguments'''
+
+  parser = ArgumentParser()
+  parser.description = "Mix climate states based on time series data"
+  parser.add_argument("year", type=int)
+  parser.add_argument("--ebm_data_path", required=True)
+
+  parser.add_argument("-v", "--verbose",
+    help='''Be verbose''', action="store_true")
+
+
+
+  options = parser.parse_args()
+  return options
+
+
+def main():
+  '''Create forcing file for year specified'''
+  options = parse_args()
+  mix_forcing(options.year, options)
+
+if __name__ == "__main__":
+  main()
