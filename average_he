@@ -2,6 +2,7 @@
 
 from  __future__ import print_function
 from argparse import ArgumentParser
+import glob
 import subprocess as sp
 import numpy as np
 import re
@@ -9,6 +10,7 @@ import sys
 import os
 import json
 import flo_utils as fu
+# import math
 
 ncea = "ncea"
 
@@ -18,17 +20,37 @@ def average_files(infiles, outfile):
   print ([ncea] + infiles + [outfile])
   fu.qo ([ncea] + infiles + [outfile])
 
-def generate_atm_name(run_id, file_years):
-  return "%s/ECHAM/OUTPUT/%sATM_%slm.nc"%(run_id, run_id, file_years)
+def generate_atm_name(run_id, offset, timestep):
+  file_years = round ((offset + timestep)/100)*10
+  return ("%s/ECHAM/OUTPUT/10yr/%sATM_%d-9_lm.nc"%(run_id, run_id, file_years))
 
-def generate_bot_name(run_id, file_years):
-  return "%s/ECHAM/OUTPUT/%sBOT_%slm.nc"%(run_id, run_id, file_years)
+def generate_bot_name(run_id, offset, timestep):
+  file_years = round ((offset + timestep)/100)*10
+  return ("%s/ECHAM/OUTPUT/10yr/%sBOT_%d-9_lm.nc"%(run_id, run_id, file_years))
 
-def generate_mpiom_name(run_id, file_years):
-  return "%s/MPIOM/OUTPUT/%s_mpiom_monthly_%slm.nc"%(run_id,run_id, file_years)
+def generate_mpiom_name(run_id, offset, timestep):
+  file_years = round ((offset + timestep)/100)*10
+  pattern = "%s/MPIOM/OUTPUT/10_year_means/3d_year_%d?-90_lm.nc"%(run_id, file_years)
+  files = (glob.glob(pattern))
+  if (len(files) == 1):
+    return files[0]
+  else:
+    fu.cerr("ERROR GENERATING MPIOM NAMES! RECEIVED WRONG COUNT OF MATCHES FOR THE PATTERN")
+    fu.cerr(pattern)
+    fu.cerr (files)
+    sys.exit(666)
 
-def generate_mpiom_surf_name(run_id, file_years):
-  return "%s/MPIOM/OUTPUT/%s_mpiom_monthly_%ssurflm.nc"%(run_id,run_id, file_years)
+def generate_mpiom_surf_name(run_id, offset, timestep):
+  file_years = round ((offset + timestep)/100)*10
+  pattern = "%s/MPIOM/OUTPUT/10_year_means/2d_year_%d?-90_lm.nc"%(run_id, file_years)
+  files =  (glob.glob(pattern))
+  if (len(files) == 1):
+    return files[0]
+  else:
+    fu.cerr("ERROR GENERATING MPIOM NAMES! RECEIVED WRONG COUNT OF MATCHES FOR THE PATTERN")
+    fu.cerr(pattern)
+    fu.cerr (files)
+    sys.exit(666)
 
 
 
@@ -36,24 +58,25 @@ def average_he(options):
   events = options.events
   experiment_ids = [ x[0:3] for x in events ]
   print (experiment_ids)
-  event_configs = {x : js_config["events"][x] for x in events }
-  allfiles = { eid : event_configs[eid]["before"] + event_configs[eid]["during"] + event_configs[eid]["after"] for eid in events}
-  print(allfiles)
+  offsets = { x : js_config["offsets"][x] for x in events }
+  timesteps = np.arange(-350, 3551, 100)
+
   fu.mkdir(options.output)
+
+
+
   types=["atm", "bot", "mpiom", "mpiom_surf"]
-#   types=["atm", "bot"]
-#   types=["mpiom", "mpiom_surf"]
   name_generators={"atm": generate_atm_name, "bot": generate_bot_name, "mpiom": generate_mpiom_name, "mpiom_surf": generate_mpiom_surf_name}
 
-  stages = len (allfiles[allfiles.keys()[0]])
-  for stage in xrange (stages):
+  for timestep in timesteps:
     for ctype in types:
       ng = name_generators[ctype]
-      infiles = [ ng(run, allfiles[event][stage]) for (run, event) in zip (experiment_ids, events) ]
-      outfile =  "%s/%s_%02d.nc"%(options.output, ctype,  stage)
+      infiles = [ ng(run, offsets[event], timestep) for (run, event) in zip (experiment_ids, events) ]
+      infiles = [ x for x in infiles if x ]
+      outfile =  "%s/%s_%+05d.nc"%(options.output, ctype,  timestep)
       average_files(infiles, outfile)
       fu.debug=True
-      fu.qo(["ncatted", "-a", "average_period,global,o,c,%d-%d"%((stage-1)*500,stage*500-1), outfile])
+      fu.qo(["ncatted", "-a", "average_period,global,o,c,%d-%d"%(timestep-50, timestep+50), outfile])
       fu.debug=False
 
 
@@ -64,6 +87,8 @@ def parse_args():
   parser.add_argument ("-o", "--output", help='where to dump the output')
   parser.add_argument("-v", "--verbose",
                       help='''Be verbose''', action="store_true")
+  parser.add_argument("--ncecat",
+                      help='''Use ncecat instead of ncea''', action="store_true")
 
   options = parser.parse_args()
   return options
@@ -73,6 +98,9 @@ def main():
   options = parse_args()
   if options.verbose:
     print (dir(options))
+  if options.ncecat:
+    global ncea
+    ncea = "ncecat"
   average_he(options)
 if __name__ == "__main__":
   main()
