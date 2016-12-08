@@ -10,6 +10,7 @@ import sys
 import os
 import json
 import flo_utils as fu
+from netCDF4 import Dataset as nc
 # import math
 
 ncea = "ncea"
@@ -52,6 +53,9 @@ def generate_mpiom_surf_name(run_id, offset, timestep):
     fu.cerr (files)
     sys.exit(666)
 
+def generate_pism_name(run_id, offset, timestep):
+  file_years = round ((offset + timestep)/10)
+  return ("%s/mPISM/OUTPUT/main_fields/main_fields%d.nc"%(run_id, file_years))
 
 
 def average_he(options):
@@ -59,14 +63,16 @@ def average_he(options):
   experiment_ids = [ x[0:3] for x in events ]
   print (experiment_ids)
   offsets = { x : js_config["offsets"][x] for x in events }
-  timesteps = np.arange(-350, 3551, 100)
+  timesteps = np.arange(-350, 3551, options.interval)
 
   fu.mkdir(options.output)
 
-
-
-  types=["atm", "bot", "mpiom", "mpiom_surf"]
-  name_generators={"atm": generate_atm_name, "bot": generate_bot_name, "mpiom": generate_mpiom_name, "mpiom_surf": generate_mpiom_surf_name}
+  if options.PISM:
+    types = ["main_fields"]
+    name_generators = {"main_fields":generate_pism_name}
+  else:
+    types = ["atm", "bot", "mpiom", "mpiom_surf"]
+    name_generators = {"atm": generate_atm_name, "bot": generate_bot_name, "mpiom": generate_mpiom_name, "mpiom_surf": generate_mpiom_surf_name}
 
   for timestep in timesteps:
     for ctype in types:
@@ -75,16 +81,24 @@ def average_he(options):
       infiles = [ x for x in infiles if x ]
       outfile =  "%s/%s_%+05d.nc"%(options.output, ctype,  timestep)
       average_files(infiles, outfile)
-      fu.debug=True
-      fu.qo(["ncatted", "-a", "average_period,global,o,c,%d-%d"%(timestep-50, timestep+50), outfile])
-      fu.debug=False
+      fdb = fu.debug
+      if options.PISM:
+        of = nc(outfile, "r+")
+        of.variables["t"][0]=timestep
+      else:
+        fu.debug=True
+        fu.qo(["ncatted", "-a", "average_period,global,o,c,%d-%d"%(timestep-options.interval/2, timestep+options.interval/2), outfile])
+        fu.debug=fdb
+
 
 
 def parse_args():
   parser = ArgumentParser()
   parser.description = "Average HE data"
   parser.add_argument ("events", help='First year to use in average', nargs='*')
-  parser.add_argument ("-o", "--output", help='where to dump the output')
+  parser.add_argument ("-o", "--output", help='where to dump the output', required=True)
+  parser.add_argument ( "--interval", help='interval at which to expect data', type=int, default=100)
+  parser.add_argument ( "--PISM", help='Process PISM files', action="store_true")
   parser.add_argument("-v", "--verbose",
                       help='''Be verbose''', action="store_true")
   parser.add_argument("--ncecat",
