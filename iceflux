@@ -1,0 +1,15 @@
+#!/bin/bash
+
+infile=$1
+outfile=$(dirname $infile)/SICDIV_$(basename ${infile})
+arcgri=arcgri.nc
+
+# vfluxdiv gets a flipped sign because the v -index grows s-ward, while the vel grows n-ward THANKS! JUST COST ME LIKE AN HOUR OR TWO! (yes, I should have noticed earlier, but it was late, and I was tired.)
+# For now I'll do one with an FV and one with an FD approach, Both seem reasonable, but I'm not 100% sure, how the indexing of DLYU and friends is done.
+# The results are pretty similar, but for values close to 0, the sign can flip.
+
+ufluxdiv="           -selindexbox,1,121,2,101 -div -sub -selindexbox,2,122,1,101  -sethalo,1,1 -sethalo,-1,-1 -mul -setmisstoc,0 -selvar,SICTRU  $infile -selvar,DLYU $arcgri   -selindexbox,1,121,1,101  -sethalo,1,1 -sethalo,-1,-1 -mul -setmisstoc,0 -selvar,SICTRU  $infile  -selvar,DLYU $arcgri  -selindexbox,1,121,1,101 -mul -selvar,DLXP $arcgri  -selvar,DLYP $arcgri"
+vfluxdiv=" -mulc,-1  -selindexbox,2,122,1,100 -div -sub -selindexbox,1,122,2,101  -sethalo,1,1 -sethalo,-1,-1 -mul -setmisstoc,0 -selvar,SICTRV  $infile -selvar,DLXV $arcgri   -selindexbox,1,122,1,100  -sethalo,1,1 -sethalo,-1,-1 -mul -setmisstoc,0 -selvar,SICTRV  $infile  -selvar,DLXV $arcgri  -selindexbox,1,122,1,100 -mul -selvar,DLXP $arcgri -selvar,DLYP $arcgri "
+
+cdo -s -setname,SICDIV -setunit,'m s-1' -ifthen -selindexbox,2,122,2,101 -addc,1 -selvar,SICOMO $infile -add $ufluxdiv  $vfluxdiv ${outfile}
+ncatted -a 'long_name,SICDIV,o,c,seaice flux divergence' ${outfile}
