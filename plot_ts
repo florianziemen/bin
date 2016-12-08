@@ -179,11 +179,12 @@ def parse_args():
   parser.add_argument("--multime",
                     help='''multiply raw x axis by factor ''', type=float , default=1.)
   parser.add_argument("--font_scale",
-                    help='''scale fontsize axis by factor ''', type=float , default=1.)
+                    help='''scale fontsize by factor ''', type=float , default=1.)
   parser.add_argument("--names",
                     help='''Comma separated list of experiment names''')
   parser.add_argument("--ensmean", help='''Add ensembel mean plot''', action = "store_true")
   options = parser.parse_args()
+  sns.set(style=sns.axes_style(), font_scale=options.font_scale)
   options_dict = vars(options)
   if options_dict.get("names", False):
     print options_dict["names"]
@@ -279,7 +280,7 @@ def main(argv):
       yvecs=filter(yvecs, plot_opts)
 
   if options.get("white_grid", False):
-    sns.set(style="whitegrid", context="poster", font_scale=plot_opts.get("font_scale", 1.))
+    sns.set(style="whitegrid", context="poster")
   fig = plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts)
   if not options.get("output", False):
     mpl.show()
