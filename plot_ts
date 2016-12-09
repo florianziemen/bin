@@ -50,8 +50,20 @@ def ensmean (xvecs, yvecs, time_scaling):
   target = target / len (xvecs)
   return dest, target
 
+def get_color(name, num):
+  print (name, num)
+  cmap=sns.color_palette()
+  linecol = js_config.get("colors",{}).get(name, num)
+  print (linecol)
+  print (type (linecol))
+  if type (linecol) is int or type(linecol) is np.int64:
+    print (linecol, len(cmap))
+    linecol =cmap[linecol]
+  return linecol
+
 def plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts = {}):
-    fig = mpl.figure()
+    fig = mpl.figure(figsize=(16/2.54,9/2.54))
+#    fig = mpl.figure()
     mpl.hold("on")
     def cleanup_name(filename):
         return re.sub("_"," ", re.sub(".nc$", "", filename))
@@ -60,17 +72,21 @@ def plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts = {}):
     else:
       labels = [y.get("label", cleanup_name(y["file_name"])) for y in yattrs]
     ax=mpl.subplot(1,1,1)
-    cmap=sns.color_palette("Set2", 8)
+    cmap=sns.husl_palette(max(len(xvecs),6),s=.6) # sns.color_palette("Set2", 8)
+    sns.set_palette(cmap)
     print (len(cmap))
     namedict ={}
 
-    colordict={}
-
-    patterndict={} # cmap[0] is free
+#    colordict={"I01":(cmap[1]), "H87":(cmap[3]), "I02":(cmap[4]), "I09":(cmap[5])}
+    patterndict={}
+    mpl.subplots_adjust(bottom=0.2, left=.15)
 
     yscale=plot_opts.get('yscale', 1.)
+    xscale=plot_opts.get('xscale', 1.)
     addtox=plot_opts.get('addto_x', 0.)
-    plots = [ mpl.plot(xvec+addtox,yvec*yscale, patterndict.get(lb[:5],'-'),  label=namedict.get(lb,lb), color=colordict.get(lb,cmap[i%len(cmap)])) for (xvec,yvec,lb,i) in zip(xvecs,yvecs,labels,np.arange(len(xvecs))) ]
+    plots = [ mpl.plot(xvec * xscale + addtox, yvec * yscale, patterndict.get(lb[:5],'-'),  label=namedict.get(lb,lb), color=get_color(lb,i%len(cmap))) for (xvec,yvec,lb,i) in zip(xvecs,yvecs,labels,np.arange(len(xvecs))) ]
+#    for nnn,xxx in enumerate(((plots[0]),plots[2], plots[3])):
+#      xxx[0].set_dashes([15,nnn*2+4])
     if (plot_opts.get("ensmean", False)):
       x, y  = ensmean(xvecs, yvecs, plot_opts.get("multime", 1.))
       plots.append ( mpl.plot(x, y*yscale,  '-',  label="Mean", color='k' , linewidth=3))
@@ -177,6 +193,8 @@ def parse_args():
                     help='''draw vertical lines at years specified by start range step ''', nargs=3, type=float )
   parser.add_argument("--yscale",
                     help='''scale y axis by factor ''', type=float , default=1.)
+  parser.add_argument("--xscale",
+                    help='''scale x axis by factor ''', type=float , default=1.)
   parser.add_argument("--addto_x",
                     help='''add to x values ''', type=float , default=0.)
   parser.add_argument("--multime",
@@ -211,9 +229,10 @@ def specials(figure, xattrs, plot_opts, ax):
 
 
 def process_xvecs(xvecs, xattrs, plot_opts):
-  if plot_opts["xvar"] == "time":
+  if plot_opts["xvar"] == "time" or plot_opts["xvar"] == "t":
     attr = xattrs[0]
-    if "calendar" in attr.keys() and attr["calendar"]:
+    if "calendar" in attr.keys() and attr["calendar"] and not "years" in xattrs[0]["units"]:
+      print (xattrs[0]["units"])
       xvecs = [ nc.date2num(nc.num2date(vec , units=attr["units"] , calendar=attr["calendar"]), units="days since 0000-01-01 00:00:00", calendar=attr["calendar"] ) / 360. for (vec, attr) in zip (xvecs, xattrs) ]
       xvecs = [ x * plot_opts["multime"] for x in xvecs ]
     if plot_opts.get ('offsets', False):
