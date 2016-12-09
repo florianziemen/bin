@@ -148,11 +148,11 @@ def check_files(filenames, fatal = True):
     filenames=filenames.split("\n")
   for filename in filenames:
     ok = ok and os.access(filename,os.R_OK)
-    if  not ok:
+    if  not os.access(filename,os.R_OK):
       if fatal:
-        sys.exit("FU: file '" + filename + "' does not exist! Exiting!")
+        sys.exit("FU: file '" + os.path.abspath(filename) + "' does not exist! Exiting!")
       else:
-        cerr("FU: file '" + filename + "' does not exist! Continuing anyway since not considered fatal.")
+        cerr("FU: cheked file '" + os.path.abspath(filename) + "' --  It does not exist. Continuing anyway since not considered fatal.")
 
   return ok
 
