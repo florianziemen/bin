@@ -66,26 +66,30 @@ def mix_forcing(year, options):
       fv = np.interp(year, data[0], factors[:,i,j])
       if fv != 0:
         pairs.append([fv, names[i][j]])
-  command = "cdo "
+  command = "cdo -a -splityear -settaxis,1000-01-01,00:30:00,1hour "
   for p in pairs[:-1]:
     command = command + " -add -mulc,%.5f %s/ebm_data_%s.grb "%(p[0], options.ebm_data_path, p[1])
   command = command + " -mulc,%.5f %s/ebm_data_%s.grb "%(pairs[-1][0], options.ebm_data_path, pairs[-1][1])
-  command = command + " ebm_data_%+07d.grb"%year
-  print ( command )
-  command = "cdo "
+  command = command + " %s"%options.atm_file_name
+  fu.qo ( command )
+  command = "cdo -r -settaxis,1000-01-01,00:30:00,1month "
   for p in pairs[:-1]:
-    command = command + " -add -mulc,%.5f %s/mpiom_%s_ncea_cdo_filled.nc "%(p[0], options.ebm_data_path, p[1])
-  command = command + " -mulc,%.5f %s/mpiom_%s_ncea_cdo_filled.nc "%(pairs[-1][0], options.ebm_data_path, pairs[-1][1])
-  command = command + " oce_data_%+07d.grb"%year
-  print ( command )
+    command = command + " -add -mulc,%.5f %s/mpiom_%s_ncea_cdo_filled_xy.nc "%(p[0], options.ebm_data_path, p[1])
+  command = command + " -mulc,%.5f %s/mpiom_%s_ncea_cdo_filled_xy.nc "%(pairs[-1][0], options.ebm_data_path, pairs[-1][1])
+  command = command + " %s"%options.oce_file_name
+  fu.qo ( command )
+  command = "ncatted -a units,time,o,c,'days since 0001-01-01 00:00:00' %s"%options.oce_file_name
+  fu.qo ( command )
 
 def parse_args():
   '''Parses the command line arguments'''
 
   parser = ArgumentParser()
   parser.description = "Mix climate states based on time series data"
-  parser.add_argument("year", type=int)
+  parser.add_argument("--year", type=int, required=True)
   parser.add_argument("--ebm_data_path", required=True)
+  parser.add_argument("--atm_file_name", required=True)
+  parser.add_argument("--oce_file_name", required=True)
 
   parser.add_argument("-v", "--verbose",
     help='''Be verbose''', action="store_true")
