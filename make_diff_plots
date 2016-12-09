@@ -17,8 +17,8 @@ from os.path import expanduser
 home = expanduser("~m300019")
 tempdir = mkdtemp(dir=".")
 latexfile = tempdir+"/plots.tex"
-plot_var_script = home+"/Apps/bin/plot_var"
-contour_var_script = home+"/Apps/ghb/contour_var"
+plot_var_script = home+"/Apps/fep-bin/plot_var"
+contour_var_script = home+"/Apps/bin/contour_var"
 
 debug = False
 def rm_if_exist(files):

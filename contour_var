@@ -366,12 +366,14 @@ def contour_var(var, filename, options):
         CS = pl.contour(x, y, overlay_data[min(num, overlay_slicecount)], overlay_levels, colors="k", linewidths=1.5)
       else:
         CS = pl.contour(x, y, overlay_data[min(num, overlay_slicecount)], colors="k", linewidths=1.5)
-      if options.overlay_thick is not None:
-        CS = pl.contour(x, y, overlay_data[min(num, overlay_slicecount)], (options.overlay_thick,), colors="k", linewidths=3.)
-
       for line in CS.collections:
         if line.get_linestyle() != [(None, None)]:
           line.set_linestyle([(0, (12.0, 4.0))])
+      if options.overlay_thick is not None:
+        CS = pl.contour(x, y, overlay_data[min(num, overlay_slicecount)], (options.overlay_thick,), colors="k", linewidths=3.)
+        for line in CS.collections:
+          if line.get_linestyle() != [(None, None)]:
+            line.set_linestyle([(0, (12.0, 4.0))])
 
     # MAKE IT NICE
     if "xlim" in options:

@@ -12,7 +12,7 @@ import flo_utils as fu
 
 def backup_file(filename):
     if os.access(filename, os.R_OK):
-        print "file " + filename + " exists. Moving it to " + filename + "~"
+        print ("file " + filename + " exists. Moving it to " + filename + "~")
         shutil.move(filename, filename + "~")
 
 
@@ -65,25 +65,30 @@ pism_args = []
 config = {}
 if os.access(args.config, os.R_OK):
     config = json.load(open(args.config,"r"))
+else:
+    fu.cerr("RUN_PISM: COULD NOT FIND CONFIG FILE %s"%args.config)
+    sys.exit(666)
 
 for x in args_dict.keys():
     if not args_dict[x] is  None :
         config[x] = args_dict[x]
 
+# fu.debug_cerr([(x,config[x]) for x in  config.keys()])
+
 errors = 0
 required = ( "output",)
 for x in required:
     if not x in config.keys():
-        print "run_pism:ERROR: option " + x + " missing! GOING TO EXIT"
+        print ("run_pism:ERROR: option " + x + " missing! GOING TO EXIT")
         errors = errors + 1
 
 if not "years" in config.keys() and not "time_file" in config.keys():
-        print "run_pism:ERROR: Don't know for how long to run. Need -y or --time_file! GOING TO EXIT"
+        print ("run_pism:ERROR: Don't know for how long to run. Need -y or --time_file! GOING TO EXIT")
         errors = errors + 1
 
 
 if ( not args.input):
-    print "run_pism: ERROR: need some input --input or -i ! GOING TO EXIT!"
+    print ("run_pism: ERROR: need some input --input or -i ! GOING TO EXIT!")
     errors = errors + 1
 
 if args.input:
@@ -94,17 +99,21 @@ if args.output[-3:] == ".nc":
     fu.mkdir(output_start)
     output_start="%s/%s"%(output_start,output_start)
 
+elif not '/' in args.output:
+    output_start = args.output
+    output_start="%s/%s"%(output_start,output_start)
+    fu.mkdir(output_start)
 else:
-    print "run_pism: ERROR: need netcdf output file name ending on '.nc' ! GOING TO EXIT!"
+    print ("run_pism: ERROR: need netcdf output file name ending on '.nc' ! GOING TO EXIT!")
     errors = errors + 1
 
 
 
 if errors:
-  print "arguments:"
-  print args_dict
-  print "full config:"
-  print config
+  print  ("arguments:")
+  print  (args_dict)
+  print  ("full config:")
+  print  (config)
   sys.exit(1)
 
 if args.smb_only:
@@ -241,7 +250,7 @@ if ("ts_vars" in config.keys()):
     pism_args.append(" -ts_vars " + config["ts_vars"])
 
 if "direct" in config.keys():
-    print config["direct"]
+    print  (config["direct"])
 
 if "pass_arguments" in config.keys(): # anything - coming from the command line
     if "direct" in config.keys():
@@ -249,7 +258,7 @@ if "pass_arguments" in config.keys(): # anything - coming from the command line
     else:
         config["direct"] = [config["pass_arguments"]]
 if ("direct" in config.keys()):
-    print config["direct"]
+    print  (config["direct"])
     pism_args.append(" ".join(config["direct"]))
 # pism_args.append(config["skip"])
 
@@ -261,7 +270,7 @@ if args.no_mpi:
 else:
     start = " ".join((config["mpi"], config["pism"]))
 
-print pism_args
+print  (pism_args)
 
 full_pism_call = start + " " + " ".join(pism_args)
 
@@ -276,9 +285,9 @@ backup_file(error_file)
 log_file = output_start + ".log"
 backup_file(log_file)
 
-print " running " + full_pism_call
+print  (" running " + full_pism_call)
 
-print "tail -f ", log_file , error_file
+print  ("tail -f ", log_file , error_file)
 
 spc = subprocess.check_call(shlex.split(full_pism_call), stdout = open(log_file, "w"), stderr= open(error_file, "w"))
 

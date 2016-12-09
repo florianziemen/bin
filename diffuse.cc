@@ -89,43 +89,56 @@ int main(int argc, char** argv){
   const string timename = input_vars[0].getDim(0).getName();
   NcVar in_time = infile.getVar(timename);
   NcVar out_time = outfile.addVar(timename, in_time.getType().getName(), timename);
-  double t;
   double field[dim_sizes[1]][dim_sizes[2]];
   vector < vector <double> > vfield ( dim_sizes[1], vector<double>(dim_sizes[2],0)) ;
   vector < vector <double> > ignoremask ( dim_sizes[1], vector<double>(dim_sizes[2],0)) ;
   vector<size_t> position(dim_sizes.size(), 0);
   vector<size_t> sizes(dim_sizes);
   sizes[0] =  1;
-  vector<size_t> tpos(1,0);
+  vector<size_t> tpos(1,0), tlen(1,dim_sizes[0]);
 
 	mask.getVar(position, sizes, field[0]);
+#pragma omp parallel
+#pragma omp for
 	for (size_t i = 0 ; i < dim_sizes[1] ; i++ )
 		for (size_t j = 0 ; j < dim_sizes[2] ; j++ )
-			ignoremask[i][j] = (field[i][j] != 2) ;
+			ignoremask[i][j] = (field[i][j] > 2.5) ;
 
 
 
 	//loop over all timesteps in one file
-	for (size_t in_timestep = 0 ; in_timestep < input_vars[0].getDim(0).getSize() ; in_timestep++ ) {
+	//	for (size_t in_timestep = 0 ; in_timestep < input_vars[0].getDim(0).getSize() ; in_timestep++ ) {
     //copy the time to the output file
-    tpos[0]= in_timestep;
-    in_time.getVar(tpos, &t);
-    out_time.putVar(tpos, &t);
+	//    tpos[0]= in_timestep;
+	{
+	  double t[dim_sizes[0]] ;
+	  in_time.getVar(tpos, tlen, &t);
+	  out_time.putVar(tpos, tlen, &t);
+	}
+	std::cerr<< "ENTERING 2d loop\n";
+	for (size_t in_timestep = 0 ; in_timestep < input_vars[0].getDim(0).getSize() ; in_timestep++ ) {
     position[0] = in_timestep;
-
     //for one timestep, process each variable
     for (int v=0; v <vars.size() ;v++){
       input_vars[v].getVar(position, sizes, field[0]);
       double fv = fill_values[v];
+#pragma omp parallel
+#pragma omp for
       for (size_t i = 0 ; i < dim_sizes[1] ; i++ )
-				for (size_t j = 0 ; j < dim_sizes[2] ; j++ )
-					vfield[i][j] = field[i][j];
-			diffuse(vfield, ignoremask, fv);
+	for (size_t j = 0 ; j < dim_sizes[2] ; j++ )
+	  vfield[i][j] = field[i][j];
+      std::cerr<< "calling diffuse\n";
+      diffuse(vfield, ignoremask, fv);
+      std::cerr<< "called diffuse\n";
+#pragma omp parallel
+#pragma omp for
       for (size_t i = 0 ; i < dim_sizes[1] ; i++ )
-				for (size_t j = 0 ; j < dim_sizes[2] ; j++ ){
-					field[i][j] = vfield[i][j];
-				}
+	for (size_t j = 0 ; j < dim_sizes[2] ; j++ ){
+	  field[i][j] = vfield[i][j];
+	}
+      std::cerr<< "writing data\n";
       output_vars[v].putVar(position, sizes, field[0]);
+      std::cerr<< "done writing data\n";
     }
 
   }
@@ -148,7 +161,7 @@ void create_dims(NcFile& outfile, const NcVar & sample_var){
 	}
 }
 
-void copyvec( vector<vector<double> > in,  vector<vector<double> > & out){
+inline void copyvec( vector<vector<double> > & in,  vector<vector<double> > & out){
   size_t ii = in.size(),
     jj = in[0].size();
 #pragma omp parallel
@@ -157,6 +170,7 @@ void copyvec( vector<vector<double> > in,  vector<vector<double> > & out){
     for (size_t j = 0 ; j < jj ; j++ )
       out[i][j] = in[i][j];
 }
+
 
 void multiplyvec( vector<vector<double> > & vec,  vector<vector<double> > & factor){
   size_t ii = vec.size(),
@@ -169,7 +183,7 @@ void multiplyvec( vector<vector<double> > & vec,  vector<vector<double> > & fact
 }
 
 
-void copyvec( vector<vector<bool> > in,  vector<vector<bool> > & out){
+void copyvec( vector<vector<bool> > & in,  vector<vector<bool> > & out){
   size_t ii = in.size(),
     jj = in[0].size();
 #pragma omp parallel
@@ -188,8 +202,10 @@ void diffuse( vector<vector<double> >  & vfield, vector<vector<double> >  & igno
   vector < vector <double> > weight ( ii , vector<double>( jj ,0)) ;
   vector < vector <double> > newfield ( ii , vector<double>( jj ,0)) ;
 	bool last_rounds = false;
-	int countdown = 10 ;
+	int countdown = 50 ;
   copyvec(vfield, infield);
+#pragma omp parallel
+#pragma omp for
   for (size_t i = 0 ; i < ii ; i++ ){
     for (size_t j = 0 ; j < jj ; j++ ){
       inmask[i][j] = (infield[i][j] == missval) ? 0 : 1; // 0 is false
@@ -198,7 +214,7 @@ void diffuse( vector<vector<double> >  & vfield, vector<vector<double> >  & igno
     }
   }
   copyvec(inmask, currmask);
-	multiplyvec(currmask , ignoremask);
+  multiplyvec(currmask , ignoremask);
   for (int k = 0 ; k < 4000 ; k++){
     double count = 0 ;
 #pragma omp parallel
@@ -259,19 +275,26 @@ void diffuse( vector<vector<double> >  & vfield, vector<vector<double> >  & igno
 #pragma omp parallel
 #pragma omp for reduction (+:count)
 		for (size_t i = 0 ; i < ii ; i++ ){
-      for (size_t j = 0 ; j < jj ; j++ ){
-				if (weight[i][j] * ignoremask[i][j] > 1.6 ||(last_rounds && (weight[i][j] > .1)) ){
+		  for (size_t j = 0 ; j < jj ; j++ ){
+		    if (weight[i][j] * ignoremask[i][j] > 1.6 || (last_rounds && weight[i][j] > 1.6) || (last_rounds && countdown < 11. && weight[i][j] > .1) ){
 					newfield[i][j] = newfield[i][j] / weight[i][j];
 					weight[i][j] = 1;
 					newfield[i][j] = newfield[i][j] * (1 - currmask[i][j] ) + vfield[i][j] * currmask[i][j];
-					count = count + (1-currmask[i][j]);
-				}else{
+					count = count + (1-currmask[i][j])* ignoremask[i][j];
+				}else if (currmask[i][j] == 1 || inmask[i][j] == 1){
+				  newfield[i][j] = vfield[i][j];
+				  weight [i][j] = 1 ;
+				}
+				else {
 					newfield[i][j] = missval;
 					weight[i][j] = 0 ;
 				}
       }
 		}
+
 		copyvec(weight, currmask);
+#pragma omp parallel
+#pragma omp for
 		for (size_t i = 0 ; i < ii ; i++ ){
 			for (size_t j = 0 ; j < jj ; j++ ){
 				vfield[i][j] = infield[i][j] * inmask[i][j] + newfield[i][j] * (1 - inmask[i][j]);
@@ -279,7 +302,8 @@ void diffuse( vector<vector<double> >  & vfield, vector<vector<double> >  & igno
 		}
 		if (count < 1 || last_rounds ){
 			if (not last_rounds){
-				last_rounds = true ;
+			  std::cerr<< " \n k= " << k << " entering last rounds \n";
+			  last_rounds = true ;
 			}
 			else if (countdown == 0 ){
 				size_t i= 0 , j= 0 , io=1 , jo = 1 ;

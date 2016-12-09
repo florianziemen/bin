@@ -2,11 +2,11 @@
 
 name=$1
 
-sed "s|JOBNAME|${name}___$(echo ${PWD}|sed 's|/|_|g')|" $HOME/jobs/template.sh > ${name}
+sed "s|JOBNAME|${name}_$(echo ${PWD}|sed 's|/|_|g')|" $HOME/jobs/template.sh > ${name}
 
-emacsclient  -c +17 ${name}
+emacsclient -c +14 ${name}
 
-echo qsub ${name}
+echo sbatch ${name}
 
 
 
