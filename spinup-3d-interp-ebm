@@ -1,0 +1,113 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+from argparse import ArgumentParser
+
+import flo_utils as fu
+import json
+import netCDF4 as nc
+import numpy as np
+import os
+import re
+# import subprocess as sp
+import sys
+
+def advance_in_time(options):
+  state = json.load(open(options["state"]))
+  last_year = state["last_year"]
+  dt = options["dt"]
+  state["target_year"] = last_year + dt
+  last_run=False
+  if (state["target_year"] >= options["stop_year"]) :
+    last_run = True
+    state["target_year"] = options["stop_year"]
+    dt = state["target_year"] - last_year
+  climate_mix_year = .5 * (last_year + state["target_year"]) # hit the center of the next interval.
+    
+  # prepare run_pism arguments
+  pns = options["pism_name_start"]
+  pin =  "%s_%+07d/%s_%+07d.nc"%(pns, state["last_year"], pns, state["last_year"])
+  pout = pns + "_%+07d.nc"%state["target_year"]
+
+
+  
+  # Prepare climate forcing
+  climate_mix_year_string = "%+07d"%climate_mix_year
+  smb_infile_name = re.sub("YYYY",climate_mix_year_string, options["smb_infile_template"])
+  oce_infile_name = re.sub("YYYY",climate_mix_year_string, options["oce_infile_template"])
+  smb_file_name = re.sub("YYYY",climate_mix_year_string, options["smb_file_template"])
+  oce_file_name = re.sub("YYYY",climate_mix_year_string, options["oce_file_template"])
+
+  if not fu.check_files([smb_file_name, oce_file_name], fatal=False):
+    fu.cerr("Generating focing  fields")
+    fu.qo(("ebm2pism_ebm_only_3d_interp", smb_infile_name, pin, options["remap_target"], smb_file_name ))
+    # echo smb file ${smb}
+    # echo usurf file ${usurf}
+    # echo REMAPPING TARGET ${target}
+    # echo OUTPUT file ${outfile}
+    os.symlink(oce_infile_name, oce_file_name)
+
+
+  rpo = options["run_pism_options"]
+  if options["verbose"]:
+    rpo += ["--verbose"]
+  rpo += ["--surface_given_file", smb_file_name]  # climate forcing
+  rpo += ["--ocean_th_file", oce_file_name ]  # climate forcing
+  rpo += ["-y", str(dt)] # duration
+  rpo += ["--ys", str(last_year)]
+  rpo += ["-i", pin] # input file
+  rpo += ["-o", pout] # output file
+
+  # save config
+  json.dump(state, open(options["state"], "w"), sort_keys=True, indent=2)
+
+  # run pism
+  fu.cerr("calling run_pism with options \n")
+  fu.cerr(rpo)
+  fu.qo(["run_pism"] + rpo )
+
+  # update config
+  state["last_year"] = state["target_year"]
+  json.dump(state, open(options["state"], "w"), sort_keys=True, indent=2)
+
+  # ready for next job
+  fu.cerr("DONE RUNNING PISM")
+  if not last_run:
+    fu.qo(("sbatch", options["jobfile"]))
+
+
+    
+
+
+    
+def parse_args():
+  parser = ArgumentParser()
+  parser.description = "Combine climate files to create intermediate climate states"
+#  parser.add_argument ("startyear", help='First year to use in average',  type=int)
+#  parser.add_argument ("endyear", help='Last year to use in average',  type=int)
+  #  parser.add_argument ("run", help='run to average')
+  parser.add_argument("-c", "--config",
+                      help='''Config file (required)''', required = True)
+  parser.add_argument("-v", "--verbose",
+                    help='''Be verbose''', action="store_true")
+
+  options = parser.parse_args()
+  options_dict = vars(options)
+  config = json.load(open(options.config))
+  for x in options_dict.keys():
+      if not options_dict[x] is  None :
+          config[x] = options_dict[x]
+
+  if options.verbose:
+      fu.cerr(dir(options))
+      fu.cerr(dir(config))
+      fu.set_debug(True)
+      
+  return config
+
+def main():
+  options = parse_args()
+  advance_in_time(options)
+  
+if __name__ == "__main__":
+    main()
