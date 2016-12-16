@@ -68,13 +68,16 @@ def get_my_bin():
   return my_bin
 
 
-def query (question, stdin_string=False):
+def query (question, stdin_string=False, env={}):
   if type(question) is str:
     question=shlex.split(question)
 
 
     debug_cerr("FU: trying " + " ".join(question))
-  a = sp.Popen(question, stdin = sp.PIPE, stdout = sp.PIPE, stderr = sp.PIPE)
+  if env:
+    a = sp.Popen(question, stdin = sp.PIPE, stdout = sp.PIPE, stderr = sp.PIPE, env=env)
+  else:
+    a = sp.Popen(question, stdin = sp.PIPE, stdout = sp.PIPE, stderr = sp.PIPE)
 
   if stdin_string:
     (so, se) = a.communicate(stdin_string)
@@ -92,8 +95,8 @@ def query (question, stdin_string=False):
     exit (a.returncode)
   return (so,se)
 
-def qo(question, stdin_string=False):
-  a = query(question, stdin_string)[0]
+def qo(question, stdin_string=False, env={}):
+  a = query(question, stdin_string, env)[0]
   return a
 
 
@@ -152,7 +155,7 @@ def check_files(filenames, fatal = True):
       if fatal:
         sys.exit("FU: file '" + os.path.abspath(filename) + "' does not exist! Exiting!")
       else:
-        cerr("FU: cheked file '" + os.path.abspath(filename) + "' --  It does not exist. Continuing anyway since not considered fatal.")
+        cerr("FU: checked file '" + os.path.abspath(filename) + "' --  It does not exist. Continuing anyway since not considered fatal.")
 
   return ok
 
