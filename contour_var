@@ -249,42 +249,42 @@ def contour_var(var, filename, options):
       mpl.figure(figsize=options.figsize)
     if (len(dimensions) >= 4  or options.diss_proj or options.MOLL or options.CYL or options.GL or options.ANT or options.NATL or options.mapit) : # 2d coordinates
       if options.MOLL:
-        map = Basemap(resolution='l',projection='moll',\
+        map = Basemap(resolution=options.resolution, projection='moll',\
                       lon_0=0, area_thresh=10000.)
         print ("MOLL")
       elif options.CYL:
-        map = Basemap(resolution='l',projection='cyl',\
+        map = Basemap(resolution=options.resolution, projection='cyl',\
                       lon_0=0, area_thresh=10000.)
         print ("CYL")
       elif options.GL:
         map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
-                      resolution='l',projection='stere',\
+                      resolution=options.resolution, projection='stere',\
                       lat_ts=71,lat_0=90,lon_0=-39.)
         print ("GL")
       elif options.NATL:
             map = Basemap(width=9500000,height=10000000, area_thresh=10000.,
-                       resolution='l',projection='stere',\
+                       resolution=options.resolution, projection='stere',\
                        lat_0=67,lon_0=-44.)
       elif options.PISM:
             map = Basemap(width=9500000,height=9500000,
-                       resolution='l',projection='stere',\
+                       resolution=options.resolution, projection='stere',\
                        lat_ts=71,lat_0=87,lon_0=-44.)
       elif options.diss_proj:
         print (llcrnrlon, llcrnrlat, urcrnrlon, urcrnrlat)
         map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
-                      resolution='l',projection='stere', area_thresh=10000., \
+                      resolution=options.resolution, projection='stere', area_thresh=10000., \
                       lat_0=90, lat_ts=71,lon_0=-44.)
       elif options.ANT:
         print ("ANT")
         print (llcrnrlon, llcrnrlat, urcrnrlon, urcrnrlat)
         map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
-                      resolution='l',projection='stere',\
+                      resolution=options.resolution, projection='stere',\
                       lat_0=-90, lat_ts=-71,lon_0=180)
       else:
         print ("USING NSIDC POLAR STEREOGRAPHIC PROJECTION 90 -45 70")
         print (llcrnrlon, llcrnrlat, urcrnrlon, urcrnrlat)
         map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
-                      resolution='f',projection='stere',\
+                      resolution=options.resolution, projection='stere', area_thresh=10000.,\
                       lat_0=90, lat_ts=70,lon_0=-45.)
       pcm_data=data
       if (len (dimensions[-1][:].shape) > 1 ):
@@ -503,6 +503,8 @@ def parse_args():
                       help='''Draw coastlines before contour plot''', action="store_true")
   parser.add_argument("--rivers",
                       help='''Draw rivers''', action="store_true")
+  parser.add_argument("--resolution",
+                      help='''Resolution of map features [clihf]''', default="l")
   parser.add_argument("--gridwidth",
                       help='''Width of gridlines''', type=float , default=0.25)
   parser.add_argument("--grid_spacing",
