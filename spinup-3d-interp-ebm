@@ -9,6 +9,7 @@ import netCDF4 as nc
 import numpy as np
 import os
 import re
+import shutil
 # import subprocess as sp
 import sys
 
@@ -27,7 +28,7 @@ def advance_in_time(options):
   # prepare run_pism arguments
   pns = options["pism_name_start"]
   pin =  "%s_%+07d/%s_%+07d.nc"%(pns, state["last_year"], pns, state["last_year"])
-  pout = pns + "_%+07d.nc"%state["target_year"]
+  pout = "%s_%+07d/%s_%+07d.nc"%(pns, state["target_year"], pns, state["target_year"])
 
 
   
@@ -38,13 +39,15 @@ def advance_in_time(options):
   smb_file_name = re.sub("YYYY",climate_mix_year_string, options["smb_file_template"])
   oce_file_name = re.sub("YYYY",climate_mix_year_string, options["oce_file_template"])
 
-  if not fu.check_files([smb_file_name, oce_file_name], fatal=False):
-    fu.cerr("Generating focing  fields")
+  if not fu.check_files([smb_file_name], fatal=False):
+    fu.cerr("Generating smb  fields")
     fu.qo(("ebm2pism_ebm_only_3d_interp", smb_infile_name, pin, options["remap_target"], smb_file_name ))
     # echo smb file ${smb}
     # echo usurf file ${usurf}
     # echo REMAPPING TARGET ${target}
     # echo OUTPUT file ${outfile}
+  if not fu.check_files([oce_file_name], fatal=False):
+    fu.cerr("Linking oce  fields")
     os.symlink(oce_infile_name, oce_file_name)
 
 
@@ -57,6 +60,9 @@ def advance_in_time(options):
   rpo += ["--ys", str(last_year)]
   rpo += ["-i", pin] # input file
   rpo += ["-o", pout] # output file
+  if options["vilma"]:
+    vilma_topg=pin[:-3]+"_new_topg.nc"
+    rpo += ["--topg_file", vilma_topg]
 
   # save config
   json.dump(state, open(options["state"], "w"), sort_keys=True, indent=2)
@@ -66,6 +72,12 @@ def advance_in_time(options):
   fu.cerr(rpo)
   fu.qo(["run_pism"] + rpo )
 
+
+  if options["vilma"]:
+    pism2vilma(pout)
+    adapt_vilma_input(state)
+    run_vilma(state)
+    adapt_restart(pout)
   # update config
   state["last_year"] = state["target_year"]
   json.dump(state, open(options["state"], "w"), sort_keys=True, indent=2)
@@ -74,12 +86,33 @@ def advance_in_time(options):
   fu.cerr("DONE RUNNING PISM")
   if not last_run:
     fu.qo(("sbatch", options["jobfile"]))
+  return pout
+
+def pism2vilma(pout):
+  vilma_file  = fu.qo(["pism2vilma", pout]).rstrip()
+  fu.qo(["ncrcat",  "-O", "vilma_inp/pism4vilma.nc", vilma_file, "vilma_inp/pism4vilma.nc"])
 
 
-    
+def adapt_vilma_input(state):
+  # which time steps are available?
+  old_text=open("vilma_inp/pism4vilma.inp","r").readlines()
+  old_text[1]="%s\n"%(int(old_text[1])+1)
+  file_string = state["last_year"]
+  old_text.append("%.3f\n"%(state["target_year"]/1000.+.025))
+  open ("vilma_inp/pism4vilma.inp", "w").writelines(old_text)
+  # when do we need output?
+#  old_text=open("vilma_inp/wepochs.inp","r").readlines()
+#  old_text.append("%s\n"%(state["target_year"]/1000.))
+ # open ("vilma_inp/wepochs.inp", "w").writelines(old_text)
 
+def run_vilma(state):
+  (o,e) = fu.query(["/home/mpim/m300019/Apps/ghb/vilma.sh"], env={"btime": str(state["last_year"]/1000.), "etime": str(state["target_year"]/1000.)})
+  print (o)
+  print (e)
 
-    
+def adapt_restart(pout):
+  fu.qo(["vilma2pism", "vilma_out/rsl.nc", "rsl_present.nc", pout[:-3]+"_new_topg.nc", pout])
+
 def parse_args():
   parser = ArgumentParser()
   parser.description = "Combine climate files to create intermediate climate states"
@@ -90,6 +123,8 @@ def parse_args():
                       help='''Config file (required)''', required = True)
   parser.add_argument("-v", "--verbose",
                     help='''Be verbose''', action="store_true")
+  parser.add_argument("-V", "--vilma",
+                    help='''prepare for VILMA''', action="store_true")
 
   options = parser.parse_args()
   options_dict = vars(options)
@@ -107,7 +142,7 @@ def parse_args():
 
 def main():
   options = parse_args()
-  advance_in_time(options)
+  pout = advance_in_time(options)
   
 if __name__ == "__main__":
     main()
