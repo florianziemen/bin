@@ -40,7 +40,7 @@ def advance_in_time(options):
   oce_file_name = re.sub("YYYY",climate_mix_year_string, options["oce_file_template"])
 
   if not fu.check_files([smb_file_name], fatal=False):
-    fu.cerr("Generating smb  fields")
+    fu.cerr("Generating smb fields")
     fu.qo(("ebm2pism_ebm_only_3d_interp", smb_infile_name, pin, options["remap_target"], smb_file_name ))
     # echo smb file ${smb}
     # echo usurf file ${usurf}
@@ -74,10 +74,9 @@ def advance_in_time(options):
 
 
   if options["vilma"]:
-    pism2vilma(pout)
+    pism2vilma(pin, pout)
     adapt_vilma_input(state)
-    run_vilma(state)
-    adapt_restart(pout)
+    run_vilma(state, pout)
   # update config
   state["last_year"] = state["target_year"]
   json.dump(state, open(options["state"], "w"), sort_keys=True, indent=2)
@@ -88,29 +87,45 @@ def advance_in_time(options):
     fu.qo(("sbatch", options["jobfile"]))
   return pout
 
-def pism2vilma(pout):
+def pism2vilma(pin,pout):
   vilma_file  = fu.qo(["pism2vilma", pout]).rstrip()
-  fu.qo(["ncrcat",  "-O", "vilma_inp/pism4vilma.nc", vilma_file, "vilma_inp/pism4vilma.nc"])
+  vilma_old=pin[:-3] + "_thk_for_vilma.nc"
+  fu.qo(["ncrcat",  "-O", "vilma_inp/ice5g_123ka.nc", vilma_old, vilma_file, "vilma_inp/pism4vilma.nc"])
 
 
 def adapt_vilma_input(state):
   # which time steps are available?
   old_text=open("vilma_inp/pism4vilma.inp","r").readlines()
-  old_text[1]="%s\n"%(int(old_text[1])+1)
-  file_string = state["last_year"]
-  old_text.append("%.3f\n"%(state["target_year"]/1000.+.025))
+  new_text=[old_text[0]]
+  new_text.append("3\n")
+  new_text.append("-123\n")
+  new_text.append("%.3f\n"%(state["last_year"]/1000.-.025))
+  new_text.append("%.3f\n"%(state["target_year"]/1000.+.025))
   open ("vilma_inp/pism4vilma.inp", "w").writelines(old_text)
   # when do we need output?
 #  old_text=open("vilma_inp/wepochs.inp","r").readlines()
 #  old_text.append("%s\n"%(state["target_year"]/1000.))
  # open ("vilma_inp/wepochs.inp", "w").writelines(old_text)
 
-def run_vilma(state):
+def run_vilma(state, pout):
   (o,e) = fu.query(["/home/mpim/m300019/Apps/ghb/vilma.sh"], env={"btime": str(state["last_year"]/1000.), "etime": str(state["target_year"]/1000.)})
   print (o)
   print (e)
-
-def adapt_restart(pout):
+  testline = open("vega.log").readlines()[-2][:-1]
+  if testline != '--->>> close_evolution: direct return! ' :
+    fu.cerr("ERROR EXIT")
+    fu.cerr ("Strange stuff happening in VILMA")
+    fu.cerr ("expected the second last line of vega.log to be")
+    fu.cerr ('"--->>> close_evolution: direct return! "')
+    fu.cerr ('but found "%s"'%testline)
+    fu.cerr ("ERROR EXIT")
+    exit (667)
+  if os.path.getmtime("vilma_out/rsl.nc") < os.path.getmtime("vilma_inp/pism4vilma.nc"):
+    fu.cerr ("ERROR EXIT")
+    fu.cerr ("vilma_out/rsl.nc is older than vilma_inp/pism4vilma.nc")
+    fu.cerr ("looks like vilma did not do it's homework")
+    fu.cerr ("ERROR EXIT")
+    fu.cerr (667)
   fu.qo(["vilma2pism", "vilma_out/rsl.nc", "rsl_present.nc", pout[:-3]+"_new_topg.nc", pout])
 
 def parse_args():
