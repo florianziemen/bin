@@ -1,0 +1,31 @@
+#!/bin/bash
+
+set -evx
+
+PISM_GRID_TEMPLATE=/work/ba0989/work_bm0948/common/pism_grid_template.nc
+
+infile=$1
+rsl_present=$2
+pism_topg=$3
+old_pism_file_for_time=$4
+#pism_topg=$(dirname $infile)/new_topg_$(basename $infile) ## USELESS AS INFILE USUALLY WILL BE rsl.nc
+master_topo=/work/ba0989/work_bm0948/common/INPUT/RTOPO/RTopo-2.0.1_30sec_bedrock_topography_10minbil_ncecat.nc
+global_file=$(dirname $infile)/global_topo_$(basename $infile)
+
+last_rsl=$(dirname $infile)/last_rsl_$(basename $infile)
+cdo -seltimestep,-1 ${infile} ${last_rsl}
+ncatted -a standard_name,lat,o,c,latitude -a standard_name,lon,o,c,longitude\
+	-a units,lat,o,c,degree_north -a units,lon,o,c,degree_east \
+	-a coordinates,rsl,o,c,'lat lon' ${last_rsl}
+
+
+remap_to_master=" -remapbil,${master_topo} -selvar,rsl -sub ${last_rsl} ${rsl_present} "
+
+
+cdo -sub ${master_topo} ${remap_to_master} ${global_file}
+
+# GARBAGE_surface_-20.5k_rsl_adjusted.nc : master-topo.nc delta_rsl_20.5k.nc
+# 	cdo -sub 10min-topo-present.nc -setrtoc,0,10000,0 delta_rsl_20.5k.nc GARBAGE_surface_-20.5k_rsl_adjusted.nc
+
+cdo -b 64 -remapbil,${PISM_GRID_TEMPLATE} ${global_file} ${pism_topg}
+ncks -Av time,x,y $old_pism_file_for_time ${pism_topg}
