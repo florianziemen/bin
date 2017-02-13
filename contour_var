@@ -106,8 +106,8 @@ def read_var(var, filename, level, options):
                 lo [lo>180] = lo[lo>180]-360
               dimensions[offset]=lo
               labels[offset] = "lon"
-  if ("lat" in vars.keys() and "lon" in vars.keys() and (len(np.squeeze(vars["lat"]).shape) > 1 or options.MOLL or options.CYL or options.GL or options.ANT or options.NATL or options.mapit )):
-    print ("found 2d coordinates")
+  if ("lat" in vars.keys() and "lon" in vars.keys() and (len(np.squeeze(vars["lat"]).shape) > 1 or options.diss_proj or options.MOLL or options.CYL or options.GL or options.ANT or options.NATL or options.mapit )):
+    print ("Using map and projection")
     labels[0] = ""
     labels[1] = ""
     dimensions = dimensions +[ vars["lat"], vars["lon"] ]
@@ -115,9 +115,8 @@ def read_var(var, filename, level, options):
       print ("CONSIDERING LON AS 1d")
       lon = dimensions[-1][:]
       (data, lon) = shiftgrid(180,data,lon)
-      (data, lon) = addcyclic(data, lon)
+#      (data, lon) = addcyclic(data, lon)
       lon=lon-360
-      print (lon)
       dimensions[-1] = lon
     pcm_dimensions = dimensions[:]
     if options.EN or options.EG:
@@ -125,8 +124,7 @@ def read_var(var, filename, level, options):
       pcm_dimensions[-2] = np.array([90]+(.5*(lat[1:]+lat[:-1])).tolist()+[-90])
       lon = pcm_dimensions[-1]
       dl = lon[1]-lon[0]
-      lon2 = np.arange(-180-dl/2., 180+dl, dl)
-      print (lon2)
+      lon2 = np.arange(lon[0]-dl/2., lon[-1]+dl*1.4, dl)
       pcm_dimensions[-1] = lon2
     if "bounds" in vars["lon"].ncattrs() and vars["lon"].getncattr("bounds") in vars.keys():
       newshape = [ x + 1 for x in pcm_dimensions[-1].shape]
@@ -203,7 +201,7 @@ def contour_var(var, filename, options):
       norm = colors.BoundaryNorm(boundaries=levels, ncolors=256)
 
   # map and projection stuff
-  if (len(dimensions) >= 4 or options.MOLL or options.CYL or options.GL or options.ANT or options.NATL or options.mapit)  : # 2d coordinates
+  if (len(dimensions) >= 4 or options.diss_proj or options.MOLL or options.CYL or options.GL or options.ANT or options.NATL or options.mapit)  : # 2d coordinates
     print ("using 2d coordinates")
     # map = Basemap(width=8000000,height=8500000,
     #                  resolution='l',projection='stere',\
@@ -249,44 +247,44 @@ def contour_var(var, filename, options):
       data = data * options.scale
     if (options.figsize):
       mpl.figure(figsize=options.figsize)
-    if (len(dimensions) >= 4  or options.MOLL or options.CYL or options.GL or options.ANT or options.NATL or options.mapit) : # 2d coordinates
+    if (len(dimensions) >= 4  or options.diss_proj or options.MOLL or options.CYL or options.GL or options.ANT or options.NATL or options.mapit) : # 2d coordinates
       if options.MOLL:
-        map = Basemap(resolution='l',projection='moll',\
+        map = Basemap(resolution=options.resolution, projection='moll',\
                       lon_0=0, area_thresh=10000.)
         print ("MOLL")
       elif options.CYL:
-        map = Basemap(resolution='l',projection='cyl',\
+        map = Basemap(resolution=options.resolution, projection='cyl',\
                       lon_0=0, area_thresh=10000.)
         print ("CYL")
       elif options.GL:
         map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
-                      resolution='l',projection='stere',\
+                      resolution=options.resolution, projection='stere',\
                       lat_ts=71,lat_0=90,lon_0=-39.)
         print ("GL")
       elif options.NATL:
             map = Basemap(width=9500000,height=10000000, area_thresh=10000.,
-                       resolution='l',projection='stere',\
+                       resolution=options.resolution, projection='stere',\
                        lat_0=67,lon_0=-44.)
       elif options.PISM:
             map = Basemap(width=9500000,height=9500000,
-                       resolution='l',projection='stere',\
+                       resolution=options.resolution, projection='stere',\
                        lat_ts=71,lat_0=87,lon_0=-44.)
       elif options.diss_proj:
         print (llcrnrlon, llcrnrlat, urcrnrlon, urcrnrlat)
         map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
-                      resolution='l',projection='stere', area_thresh=10000., \
+                      resolution=options.resolution, projection='stere', area_thresh=10000., \
                       lat_0=90, lat_ts=71,lon_0=-44.)
       elif options.ANT:
         print ("ANT")
         print (llcrnrlon, llcrnrlat, urcrnrlon, urcrnrlat)
         map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
-                      resolution='l',projection='stere',\
+                      resolution=options.resolution, projection='stere',\
                       lat_0=-90, lat_ts=-71,lon_0=180)
       else:
         print ("USING NSIDC POLAR STEREOGRAPHIC PROJECTION 90 -45 70")
         print (llcrnrlon, llcrnrlat, urcrnrlon, urcrnrlat)
         map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
-                      resolution='f',projection='stere',\
+                      resolution=options.resolution, projection='stere', area_thresh=10000.,\
                       lat_0=90, lat_ts=70,lon_0=-45.)
       pcm_data=data
       if (len (dimensions[-1][:].shape) > 1 ):
@@ -329,7 +327,6 @@ def contour_var(var, filename, options):
       pl.drawcoastlines(linewidth=0.25, color=clc, zorder=-999)
       if options.rivers:
         pl.drawrivers(linewidth=0.25)
-
     if (not levels is None ):
       print (pcm_x.shape, pcm_y.shape, pcm_data.shape)
       if (not norm is None):
@@ -506,10 +503,12 @@ def parse_args():
                       help='''Draw coastlines before contour plot''', action="store_true")
   parser.add_argument("--rivers",
                       help='''Draw rivers''', action="store_true")
+  parser.add_argument("--resolution",
+                      help='''Resolution of map features [clihf]''', default="l")
   parser.add_argument("--gridwidth",
                       help='''Width of gridlines''', type=float , default=0.25)
   parser.add_argument("--grid_spacing",
-                      help='''Spacing of gridlines''', type=float , default=30)
+                      help='''Spacing of gridlines''', type=float , default=10)
 
   parser.add_argument("-T", "--title",
                       help='''plot title''', default=None)
