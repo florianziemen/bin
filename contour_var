@@ -369,6 +369,10 @@ def contour_var(var, filename, options):
         CS = pl.contour(x, y, overlay_data[min(num, overlay_slicecount)], overlay_levels, colors="k", linewidths=1.5)
       else:
         CS = pl.contour(x, y, overlay_data[min(num, overlay_slicecount)], colors="k", linewidths=1.5)
+      if options.overlay_mark_gt:
+        mpl.clabel(CS, fontsize=9, inline=1, use_clabeltext=True, rightside_up = False, fmt=u'\u2227') # \u25BC for black triangles
+      if options.overlay_clabel:
+        mpl.clabel(CS, fontsize=9, inline=1, use_clabeltext=True, rightside_up = True, fmt=options.overlay_clabel_format)
       for line in CS.collections:
         if line.get_linestyle() != [(None, None)]:
           line.set_linestyle([(0, (12.0, 4.0))])
@@ -377,6 +381,7 @@ def contour_var(var, filename, options):
         for line in CS.collections:
           if line.get_linestyle() != [(None, None)]:
             line.set_linestyle([(0, (12.0, 4.0))])
+
 
     # MAKE IT NICE
     if "xlim" in options:
@@ -539,6 +544,12 @@ def parse_args():
     help='''set levels for plotting. n = n levels, 1,2,3 = draw levels at 1, 2, and 3''')
   parser.add_argument("--overlay_thick", default=None, type=float,
     help='''set level for thick line in overlay''')
+  parser.add_argument("--overlay_clabel", action="store_true",
+    help='''add labels to overlay contours''')
+  parser.add_argument("--overlay_clabel_format", default="%f",
+    help='''format for overlay contour labels''')
+  parser.add_argument("--overlay_mark_gt", action="store_true",
+    help='''add > signs to overlay contours to mark directions''')
 
 
   options = parser.parse_args()
