@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+
+
 from __future__ import print_function
 
 
@@ -150,7 +152,10 @@ def read_var(var, filename, level, options):
       print (dimensions[-1][:])
       labels=labels[::-1]
     else:
-      data = data.transpose(0,2,1)
+      if (len(data.shape) == 3):
+        data = data.transpose(0,2,1)
+      else:
+        data=data.transpose()
       print (dimensions[-2][:])
       print (dimensions[-1][:])
 
@@ -197,7 +202,7 @@ def contour_var(var, filename, options):
   levels = sort_levels(options.levels, options.minmax)
   norm = None
   if not levels is None:
-    if len(levels) > 1:
+    if type (levels ) is not int : # len(levels) > 1:
       norm = colors.BoundaryNorm(boundaries=levels, ncolors=256)
 
   # map and projection stuff
@@ -295,10 +300,6 @@ def contour_var(var, filename, options):
 #           pcm_data, pcm_dimensions[-1] = addcyclic(pcm_data, pcm_dimensions[-1])
         x, y = map(*np.meshgrid(dimensions[-1][:], dimensions[-2][:]))
         pcm_x, pcm_y = map(*np.meshgrid(pcm_dimensions[-1][:], pcm_dimensions[-2][:]))
-        # To get reasonably correct ocean levels prepend something like this to the vert var:
-        # z=arange(len(x)+1)
-        # z[1:-1]=.5*(x[1:]+x[:-1])
-        # z[-1]=1.5*x[-1]-.5*x[-2]
 
 
       pl = map
@@ -308,6 +309,11 @@ def contour_var(var, filename, options):
       y = dimensions[-1][:]
       pcm_x = x # actually needs to be shifted, too!
       pcm_y = y # actually needs to be shifted, too!
+      if options.ocedepth:
+        z = np.arange(len(y)+1)
+        z[1:-1] = .5*(y[1:]+y[:-1])
+        z[-1] = 1.5*y[-1]-.5*y[-2]
+        pcm_y = z
 
 
     # DRAW IT
@@ -485,6 +491,8 @@ def parse_args():
                       help='''ECHAM NORTHERN HEMISPHERE PLOT''', action="store_true")
   parser.add_argument("--EG",
                       help='''ECHAM Global plot''', action="store_true")
+  parser.add_argument("--ocedepth",
+                      help='''Estimate ocean depth levels in pcolormesh''', action="store_true")
 
   parser.add_argument("--scale",
                       help='''scale data by''', type=float, default = None)
