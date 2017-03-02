@@ -1,0 +1,14 @@
+#!/bin/bash
+
+let nmo=$#-1
+args=($@)
+infiles=${args[@]:0:$nmo}
+outfile=${args[$nmo]}
+
+for infile in $infiles; do
+    ipcrop $x 2>&1 >/dev/null
+done
+pdfjoin ${infiles} --outfile ${outfile}
+
+mkdir -p SINGLES
+mv ${infiles} SINGLES/
