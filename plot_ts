@@ -306,7 +306,7 @@ def main(argv):
       yvecs=filter(yvecs, plot_opts)
 
   if options.get("white_grid", False):
-    sns.set(style="whitegrid", context="poster")
+    sns.set(style="whitegrid") # , context="poster
   fig = plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts)
   if not options.get("output", False):
     mpl.show()
