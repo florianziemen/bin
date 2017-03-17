@@ -24,6 +24,7 @@ from mpl_toolkits.basemap import Basemap, addcyclic, shiftgrid
 try:
   import seaborn as sns
   seaborn = True
+  sns.set_style("white")
 except ImportError:
   seaborn = False
 
@@ -49,14 +50,14 @@ def fix_meridians(mm):
     for mmm in mm.itervalues():
         for mmmm in mmm[1]:
             mmmm.set_text('-') # u'\u23D0')
-            mmmm.set_fontsize(5)
+            mmmm.set_fontsize(10)
             mmmm.set_rotation(90)
 
 def fix_parallels(pp):
           for ppp in pp.itervalues():
             for pppp in ppp[1]:
                 pppp.set_text('-') # u'\u23AF')
-                pppp.set_fontsize(5)
+                pppp.set_fontsize(10)
 
 def fix_attrs(vars,labels):
   for n,x in enumerate(labels):
@@ -387,11 +388,8 @@ def contour_var(var, filename, options):
       if options.whitecoast:
         clc = 'white'
       pl.drawcoastlines(linewidth=0.25, color=clc)
-    if (( (len(dimensions)  >= 4 or options.MOLL or options.CYL or options.GL or options.ANT or options.NATL or options.diss_proj or options.PISM or options.mapit))) : # 2d coordinates
-      if options.rivers:
-        pl.drawrivers(linewidth=0.25)
-      pl.drawmeridians(np.arange(0,360,options.grid_spacing),linewidth=options.gridwidth, dashes=[10,1e-6],color=(.5,.5,.5))
-      pl.drawparallels(np.arange(-90,90,options.grid_spacing),linewidth=options.gridwidth, dashes=[10,1e-6],color=(.5,.5,.5))
+
+
 
     # OVERLAY
 
@@ -413,6 +411,16 @@ def contour_var(var, filename, options):
         for line in CS.collections:
           if line.get_linestyle() != [(None, None)]:
             line.set_linestyle([(0, (12.0, 4.0))])
+      if options.xticks is not None:
+          pl.xticks(sort_levels(options.xticks))
+      try:
+        ax = mpl.gca()
+        ax.get_yaxis().set_tick_params(direction='out')
+        ax.get_xaxis().set_tick_params(direction='out')
+        mpl.gca().tick_params('both', length=2, width=.5, which='minor')
+        mpl.gca().tick_params('both', length=4, width=.5, which='major')
+      except:
+        pass
 
 
     # MAKE IT NICE
@@ -431,12 +439,25 @@ def contour_var(var, filename, options):
       mpl.ylabel(options.ylabel)
     if options.title is None:
       if attrs.get("units", False):
-        mpl.title("%s (%s)"%(attrs.get("long_name", var), attrs.get("units", "")))
+        mpl.title("%s (%s)"%(attrs.get("long_name", var), attrs.get("units", "")), y=1.02)
       else:
         mpl.title("%s"%(attrs.get("long_name", var)))
     else:
-      mpl.title(options.title)
+      mpl.title(options.title, y=1.02)
 
+    if (( (len(dimensions)  >= 4 or any(maps)))) : # 2d coordinates
+      if options.rivers:
+        pl.drawrivers(linewidth=0.25)
+      mm=pl.drawmeridians(np.arange(0,359.99,options.grid_spacing),linewidth=options.gridwidth, dashes=[10,1e-6],color=(.5,.5,.5),  labels=[ options.draw_ticks, 0, 0, options.draw_ticks], fmt='-', xoffset=0, yoffset=0, fontsize=.01)
+      if (options.draw_ticks):
+        fix_meridians(mm)
+      mm=pl.drawmeridians(np.arange(0,359.99,options.grid_spacing),linewidth=options.gridwidth, dashes=[10,1e-6],color=(.5,.5,.5),  labels=[ 0, options.draw_ticks, options.draw_ticks, 0], fmt='-', xoffset=0, yoffset=0, fontsize=.01)
+      if (options.draw_ticks):
+        fix_meridians(mm)
+
+      pp=pl.drawparallels(np.arange(-90,90,options.grid_spacing),linewidth=options.gridwidth, dashes=[10,1e-6],color=(.5,.5,.5), labels=[ options.draw_ticks, options.draw_ticks, options.draw_ticks, options.draw_ticks], fmt='-', xoffset=0, yoffset=0, fontsize=0.01)
+      if (options.draw_ticks):
+        fix_parallels(pp)
     # SAVE TO FILE OR SHOW
     if not slices:
       if not options.outfile is  None:
@@ -544,6 +565,8 @@ def parse_args():
                       help='''set minimum and maximum for contours''', nargs=2, type=float, default = None)
   parser.add_argument("--levels",
                       help='''set levels for plotting. n = n levels, 1,2,3 = draw levels at 1, 2, and 3''')
+  parser.add_argument("--xticks",
+                      help='''set values for x ticks''')
   parser.add_argument("--whitecoast",
                       help='''Draw white coastlines''', action="store_true")
   parser.add_argument("--coast_first",
@@ -556,6 +579,8 @@ def parse_args():
                       help='''Width of gridlines''', type=float , default=0.25)
   parser.add_argument("--grid_spacing",
                       help='''Spacing of gridlines''', type=float , default=10)
+  parser.add_argument("--draw_ticks",
+                      help='''draw ticks for gridlines''', action="store_true")
 
   parser.add_argument("-T", "--title",
                       help='''plot title''', default=None)
