@@ -66,6 +66,9 @@ def fix_attrs(vars,labels):
   return labels
 
 def read_var(var, filename, level, options):
+  maps= (options.MOLL, options.CYL, options.HAMMER, options.GL, options.ANT, options.NATL, options.diss_proj, options.PISM, options.mapit)
+  global_maps = (options.MOLL, options.CYL, options.HAMMER)
+
   print ("reading %s from %s"%(var, filename), file=sys.stderr)
   try:
     f = nc(filename)
@@ -122,12 +125,12 @@ def read_var(var, filename, level, options):
                 lo [lo>180] = lo[lo>180]-360
               dimensions[offset]=lo
               labels[offset] = "lon"
-  if ("lat" in vars.keys() and "lon" in vars.keys() and (len(np.squeeze(vars["lat"]).shape) > 1 or options.diss_proj or options.MOLL or options.CYL or options.GL or options.ANT or options.NATL or options.mapit )):
+  if ("lat" in vars.keys() and "lon" in vars.keys() and (len(np.squeeze(vars["lat"]).shape) > 1 or any(maps) )):
     print ("Using map and projection")
     labels[0] = ""
     labels[1] = ""
     dimensions = dimensions +[ vars["lat"], vars["lon"] ]
-    if ((options.MOLL or options.CYL) and len(dimensions[-1].shape) < 2):
+    if (any(global_maps) and len(dimensions[-1].shape) < 2):
       print ("CONSIDERING LON AS 1d")
       lon = dimensions[-1][:]
       (data, lon) = shiftgrid(180,data,lon)
@@ -200,7 +203,8 @@ def contour_var(var, filename, options):
   if not options.sub is None :
     (sub_data, sub_attrs, sub_dimensions, sub_pcm_dimensions, sub_labels) = read_var(var, options.sub, options.level, options)
     data = data - sub_data
-
+  maps= (options.MOLL, options.CYL, options.HAMMER, options.GL, options.ANT, options.NATL, options.diss_proj, options.PISM, options.mapit)
+  global_maps = (options.MOLL, options.CYL, options.HAMMER)
   # COLORMAP
   cmap = None
 #  cmap = sns.color_palette(options.cmap, options.levels if options.levels and len(options.levels.split(",")) == 1 else 7, as_cmap=True)
@@ -220,7 +224,7 @@ def contour_var(var, filename, options):
       norm = colors.BoundaryNorm(boundaries=levels, ncolors=256)
 
   # map and projection stuff
-  if (len(dimensions) >= 4 or options.diss_proj or options.MOLL or options.CYL or options.GL or options.ANT or options.NATL or options.mapit)  : # 2d coordinates
+  if (len(dimensions) >= 4 or any(maps))  : # 2d coordinates
     print ("using 2d coordinates")
     # map = Basemap(width=8000000,height=8500000,
     #                  resolution='l',projection='stere',\
@@ -266,7 +270,7 @@ def contour_var(var, filename, options):
       data = data * options.scale
     if (options.figsize):
       mpl.figure(figsize=options.figsize)
-    if (len(dimensions) >= 4  or options.diss_proj or options.MOLL or options.CYL or options.GL or options.ANT or options.NATL or options.mapit) : # 2d coordinates
+    if (len(dimensions) >= 4  or any(maps)) : # 2d coordinates
       if options.MOLL:
         map = Basemap(resolution=options.resolution, projection='moll',\
                       lon_0=0, area_thresh=10000.)
@@ -340,7 +344,7 @@ def contour_var(var, filename, options):
       pcm_y = pcm_y[:25]
     else:
       pcm_data = data
-    if (( options.coast_first) and( (len(dimensions)  >= 4 or options.MOLL or options.CYL or options.GL or options.ANT or options.NATL or options.diss_proj or options.PISM or options.mapit))) : # 2d coordinates
+    if (( options.coast_first) and( (len(dimensions)  >= 4 or any (maps)))) : # 2d coordinates
       clc='.5'
       if options.whitecoast:
         clc = 'white'
@@ -364,7 +368,7 @@ def contour_var(var, filename, options):
     if options.scaled:
       mpl.axis("scaled")
 
-    if ((not options.coast_first) and( (len(dimensions)  >= 4 or options.MOLL or options.CYL or options.GL or options.ANT or options.NATL or options.diss_proj or options.PISM or options.mapit))) : # 2d coordinates
+    if ((not options.coast_first) and( (len(dimensions)  >= 4 or any(maps)))) : # 2d coordinates
       clc='.5'
       if options.whitecoast:
         clc = 'white'
