@@ -118,6 +118,9 @@ def plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts = {}):
         mpl.xlim( plot_opts["xlim"] )
     if "ylim" in plot_opts.keys():
         mpl.ylim(plot_opts["ylim"])
+    if "tick_interval" in plot_opts.keys():
+        ti=plot_opts["tick_interval"]
+        mpl.xticks=np.arange(ti[0], ti[1],ti[2])
     if "output" in plot_opts.keys():
         mpl.savefig(plot_opts["output"])
     return fig
