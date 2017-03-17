@@ -354,9 +354,11 @@ def contour_var(var, filename, options):
     if (not levels is None ):
       print (pcm_x.shape, pcm_y.shape, pcm_data.shape)
       if (not norm is None):
-        pl.pcolormesh(pcm_x, pcm_y, pcm_data,  norm = norm ,  cmap=cmap )
+        pcol = pl.pcolormesh(pcm_x, pcm_y, pcm_data,  norm = norm ,  cmap=cmap,  rasterized=True)
+        pcol.set_edgecolor("face")
       else:
-        pl.pcolormesh(pcm_x, pcm_y, pcm_data,   cmap=cmap)
+        pcol = pl.pcolormesh(pcm_x, pcm_y, pcm_data,   cmap=cmap, rasterized=True)
+        pcol.set_edgecolor("face")
       mpl.colorbar()
       if not options.no_outline:
         pl.contour (x, y, pcm_data, levels,  colors="0.5", linewidths=.25, linestyles="solid")
