@@ -414,7 +414,7 @@ def contour_var(var, filename, options):
       clc='.5'
       if options.whitecoast:
         clc = 'white'
-      pl.drawcoastlines(linewidth=0.25, color=clc)
+      pl.drawcoastlines(linewidth=0.5, color=clc)
 
 
 
