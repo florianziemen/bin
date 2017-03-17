@@ -41,8 +41,22 @@ try:
   mpl.register_cmap(name='inferno_r', cmap=cmaps.inferno_r)
   print ("Got viridis")
   mpl.register_cmap(name='rignot', cmap=cmaps.rignot)
+  mpl.register_cmap(name='rignot_r', cmap=cmaps.rignot_r)
 except ImportError:
   print ("Viridis not found")
+
+def fix_meridians(mm):
+    for mmm in mm.itervalues():
+        for mmmm in mmm[1]:
+            mmmm.set_text('-') # u'\u23D0')
+            mmmm.set_fontsize(5)
+            mmmm.set_rotation(90)
+
+def fix_parallels(pp):
+          for ppp in pp.itervalues():
+            for pppp in ppp[1]:
+                pppp.set_text('-') # u'\u23AF')
+                pppp.set_fontsize(5)
 
 def fix_attrs(vars,labels):
   for n,x in enumerate(labels):
