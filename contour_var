@@ -288,6 +288,9 @@ def contour_var(var, filename, options):
                       lon_0=0, area_thresh=10000.)
         print ("CYL-limit")
       elif options.HAMMER:
+        map = Basemap(resolution=options.resolution, projection='hammer',\
+                      lon_0=0, area_thresh=10000.)
+        print ("HAMMER")
       elif options.GL:
         map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
                       resolution=options.resolution, projection='stere',\
@@ -502,6 +505,8 @@ def parse_args():
                       help='''Adjust map for Cylindrical plot''', action="store_true")
   parser.add_argument("-G", "--GL",
                       help='''Adjust map for Greenland plot''', action="store_true")
+  parser.add_argument("-H", "--HAMMER",
+                      help='''Adjust map for Hammer plot''', action="store_true")
   parser.add_argument("-N", "--NATL",
                       help='''Adjust map for NATL plot''', action="store_true")
   parser.add_argument("-P", "--PISM",
