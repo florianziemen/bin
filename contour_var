@@ -388,7 +388,7 @@ def contour_var(var, filename, options):
       else:
         CS = pl.contour(x, y, overlay_data[min(num, overlay_slicecount)], colors="k", linewidths=options.overlay_linewidths)
       if options.overlay_mark_gt:
-        mpl.clabel(CS, fontsize=9, inline=1, use_clabeltext=True, rightside_up = False, fmt=u'\u2227') # \u25BC for black triangles
+        mpl.clabel(CS, fontsize=9, inline=1, use_clabeltext=True, rightside_up = False, fmt='A') # \u25BC for black triangles # u'\u2227'
       if options.overlay_clabel:
         mpl.clabel(CS, fontsize=9, inline=1, use_clabeltext=True, rightside_up = True, fmt=options.overlay_clabel_format)
       for line in CS.collections:
