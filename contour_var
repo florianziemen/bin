@@ -384,9 +384,9 @@ def contour_var(var, filename, options):
     if not options.overlay_var is None:
       overlay_levels = sort_levels (options.overlay_levels)
       if (overlay_levels is not None):
-        CS = pl.contour(x, y, overlay_data[min(num, overlay_slicecount)], overlay_levels, colors="k", linewidths=1.5)
+        CS = pl.contour(x, y, overlay_data[min(num, overlay_slicecount)], overlay_levels, colors="k", linewidths=options.overlay_linewidths)
       else:
-        CS = pl.contour(x, y, overlay_data[min(num, overlay_slicecount)], colors="k", linewidths=1.5)
+        CS = pl.contour(x, y, overlay_data[min(num, overlay_slicecount)], colors="k", linewidths=options.overlay_linewidths)
       if options.overlay_mark_gt:
         mpl.clabel(CS, fontsize=9, inline=1, use_clabeltext=True, rightside_up = False, fmt=u'\u2227') # \u25BC for black triangles
       if options.overlay_clabel:
@@ -560,6 +560,8 @@ def parse_args():
   parser.add_argument("--overlay_file", default=None)
   parser.add_argument("--overlay_levels", default=None,
     help='''set levels for plotting. n = n levels, 1,2,3 = draw levels at 1, 2, and 3''')
+  parser.add_argument("--overlay_linewidths", default=1.5, type=float,
+    help='''Thickness of overlay lines''')
   parser.add_argument("--overlay_thick", default=None, type=float,
     help='''set level for thick line in overlay''')
   parser.add_argument("--overlay_clabel", action="store_true",
