@@ -197,6 +197,29 @@ def sort_levels (levels = None, minmax=None):
     levels = None
   return levels
 
+
+def truncate_colormap(cmap, minval=0.0, maxval=1.0, n=100):
+  new_cmap = colors.LinearSegmentedColormap.from_list(
+    "ABCDE",
+#        'trunc({n},{a:.2f},{b:.2f})'.format(n=cmap.name, a=minval, b=maxval),
+        cmap(np.linspace(minval, maxval, n)))
+  new_cmap.set_under(cmap(0.))
+  new_cmap.set_over(cmap(1.))
+
+
+  return new_cmap
+
+def white_center(cmap):
+  l = len(cmap._segmentdata['green'])
+  csd=cmap._segmentdata
+  cmap._segmentdata['red'][l/2]=(csd['red'][l/2][0],1,csd['red'][l/2][0])
+  cmap._segmentdata['red'][l/2-1]=(csd['red'][l/2-1][0],csd['red'][l/2-1][0],1)
+  cmap._segmentdata['green'][l/2]=(csd['green'][l/2][0],1,csd['green'][l/2][0])
+  cmap._segmentdata['green'][l/2-1]=(csd['green'][l/2-1][0],csd['green'][l/2-1][0],1)
+  cmap._segmentdata['blue'][l/2]=(csd['blue'][l/2][0],1,csd['blue'][l/2][0])
+  cmap._segmentdata['blue'][l/2-1]=(csd['blue'][l/2-1][0],csd['blue'][l/2-1][0],1)
+  return cmap
+
 def contour_var(var, filename, options):
   # Get the data
   (data, attrs, dimensions, pcm_dimensions, labels) = read_var(var, filename, options.level, options)
@@ -211,11 +234,15 @@ def contour_var(var, filename, options):
 #  cmap = sns.color_palette(options.cmap, options.levels if options.levels and len(options.levels.split(",")) == 1 else 7, as_cmap=True)
   try:
     if (options.cmap):
-      cmap=options.cmap
+      cmap=mpl.get_cmap(options.cmap)
     else:
       cmap = sns.cubehelix_palette(as_cmap=True, start=.5)
   except:
-    print ("Trouble using colorbar %s."%(options.cmap), file=sys.stderr)
+    print ("Trouble using colormap %s."%(options.cmap), file=sys.stderr)
+  cmap=truncate_colormap(cmap,0.1,0.9)
+  if options.white_center:
+    cmap=white_center(cmap)
+
 
   # LEVELS
   levels = sort_levels(options.levels, options.minmax)
@@ -372,12 +399,12 @@ def contour_var(var, filename, options):
       else:
         pcol = pl.pcolormesh(pcm_x, pcm_y, pcm_data,   cmap=cmap, rasterized=True)
         pcol.set_edgecolor("face")
-      mpl.colorbar()
+      mpl.colorbar(extend='both')
       if not options.no_outline:
         pl.contour (x, y, pcm_data, levels,  colors="0.5", linewidths=.25, linestyles="solid")
     else:
       pl.pcolormesh(pcm_x, pcm_y, pcm_data,  cmap=cmap)
-      mpl.colorbar()
+      mpl.colorbar(extend='both')
       if not options.no_outline:
         pl.contour (x, y, data,  colors="0.5", linewidths=.25, linestyles="solid")
     if options.scaled:
@@ -590,6 +617,9 @@ def parse_args():
                       help='''y axis label''', default=None)
   parser.add_argument("-c", "--cmap",
     help='''Name of a colormap''')
+  parser.add_argument("--white_center",
+    help='''set the center of the colormap to white''', action="store_true")
+
   parser.add_argument("--font_scale",
                     help='''scale fontsize by factor ''', type=float , default=1.)
 
