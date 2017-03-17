@@ -229,16 +229,19 @@ def contour_var(var, filename, options):
     # map = Basemap(width=8000000,height=8500000,
     #                  resolution='l',projection='stere',\
     #                  lat_ts=70,lat_0=72,lon_0=-45.)
-    if not (options.ll is None or options.ur is None or options.MOLL or options.CYL):
+    limits = False
+    if not (options.ll is None or options.ur is None):
       llcrnrlon = options.ll[1]
       urcrnrlon = options.ur[1]
       llcrnrlat = options.ll[0]
       urcrnrlat = options.ur[0]
-    elif (not (options.NATL or options.MOLL or options.CYL)):
+      limits = True
+    elif (not (options.NATL or any(global_maps))):
       llcrnrlon = dimensions[-1][0,0]
       urcrnrlon = dimensions[-1][-1,-1]
       llcrnrlat = dimensions[-2][0,0]
       urcrnrlat = dimensions[-2][-1,-1]
+      limits = True
   slices = False
   if (len(data.shape) == 3):
     slices = True
@@ -275,10 +278,16 @@ def contour_var(var, filename, options):
         map = Basemap(resolution=options.resolution, projection='moll',\
                       lon_0=0, area_thresh=10000.)
         print ("MOLL")
-      elif options.CYL:
+      elif options.CYL and not limits:
         map = Basemap(resolution=options.resolution, projection='cyl',\
                       lon_0=0, area_thresh=10000.)
         print ("CYL")
+      elif options.CYL and limits:
+        map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,\
+                      resolution=options.resolution, projection='cyl',\
+                      lon_0=0, area_thresh=10000.)
+        print ("CYL-limit")
+      elif options.HAMMER:
       elif options.GL:
         map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
                       resolution=options.resolution, projection='stere',\
