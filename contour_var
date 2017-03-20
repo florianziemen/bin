@@ -239,7 +239,7 @@ def contour_var(var, filename, options):
       cmap = sns.cubehelix_palette(as_cmap=True, start=.5)
   except:
     print ("Trouble using colormap %s."%(options.cmap), file=sys.stderr)
-  cmap=truncate_colormap(cmap,0.1,0.9)
+  cmap=truncate_colormap(cmap,0.07,0.93)
   if options.white_center:
     cmap=white_center(cmap)
 
