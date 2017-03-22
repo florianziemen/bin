@@ -74,7 +74,7 @@ def fix_attrs(vars,labels):
         labels[n] = vars[x].long_name
   return labels
 
-def read_var(var, filename, level, options):
+def read_var(var, filename, level, options, ECHAM):
   maps= (options.MOLL, options.CYL, options.HAMMER, options.GL, options.ANT, options.NATL, options.diss_proj, options.PISM, options.mapit)
   global_maps = (options.MOLL, options.CYL, options.HAMMER)
 
@@ -147,7 +147,7 @@ def read_var(var, filename, level, options):
       lon=lon-360
       dimensions[-1] = lon
     pcm_dimensions = dimensions[:]
-    if options.EN or options.EG:
+    if (ECHAM):
       lat = pcm_dimensions[-2]
       pcm_dimensions[-2] = np.array([90]+(.5*(lat[1:]+lat[:-1])).tolist()+[-90])
       lon = pcm_dimensions[-1]
@@ -189,6 +189,37 @@ def read_var(var, filename, level, options):
 
   return (data, attrs, dimensions, pcm_dimensions, labels)
 
+def sort_dimensions(dimensions, pcm_dimensions, map, maps, data, options):
+    if (len(dimensions) >= 4  or any(maps)) : # 2d coordinates
+      pcm_data=data
+      if (len (dimensions[-1][:].shape) > 1 ):
+        x, y = map(dimensions[-1][:], dimensions[-2][:])
+        pcm_x, pcm_y = map(pcm_dimensions[-1][:], pcm_dimensions[-2][:])
+      else:
+        x, y = map(*np.meshgrid(dimensions[-1][:], dimensions[-2][:]))
+        pcm_x, pcm_y = map(*np.meshgrid(pcm_dimensions[-1][:], pcm_dimensions[-2][:]))
+
+
+      pl = map
+    else:
+      pl = mpl
+      x = dimensions[-2][:]
+      y = dimensions[-1][:]
+      pcm_x = x # actually needs to be shifted, too!
+      pcm_y = y # actually needs to be shifted, too!
+      if options.ocedepth:
+        z = np.arange(len(y)+1)
+        z[1:-1] = .5*(y[1:]+y[:-1])
+        z[-1] = 1.5*y[-1]-.5*y[-2]
+        pcm_y = z
+    if options.EN:
+      pcm_data = pcm_data [:24]
+      pcm_x = pcm_x[:25]
+      pcm_y = pcm_y[:25]
+    else:
+      pcm_data = data
+    return (x, y, pcm_x, pcm_y, pcm_data, pl)
+
 
 def sort_levels (levels = None, minmax=None):
 #   levels = levels[0] if levels else None
@@ -229,14 +260,16 @@ def white_center(cmap):
   return cmap
 
 def contour_var(var, filename, options):
-  # Get the data
-  (data, attrs, dimensions, pcm_dimensions, labels) = read_var(var, filename, options.level, options)
-  # Get the data
-  if not options.sub is None :
-    (sub_data, sub_attrs, sub_dimensions, sub_pcm_dimensions, sub_labels) = read_var(var, options.sub, options.level, options)
-    data = data - sub_data
   maps= (options.MOLL, options.CYL, options.HAMMER, options.GL, options.ANT, options.NATL, options.diss_proj, options.PISM, options.mapit)
   global_maps = (options.MOLL, options.CYL, options.HAMMER)
+  ECHAM = (options.EN or options.EG)
+  OVERLAY_ECHAM = (options.overlay_EN or options.overlay_EG)
+  # Get the data
+  (data, attrs, dimensions, pcm_dimensions, labels) = read_var(var, filename, options.level, options, ECHAM)
+  # Get the data
+  if not options.sub is None :
+    (sub_data, sub_attrs, sub_dimensions, sub_pcm_dimensions, sub_labels) = read_var(var, options.sub, options.level, options, ECHAM)
+    data = data - sub_data
   # COLORMAP
   cmap = None
 #  cmap = sns.color_palette(options.cmap, options.levels if options.levels and len(options.levels.split(",")) == 1 else 7, as_cmap=True)
@@ -288,9 +321,12 @@ def contour_var(var, filename, options):
     alldata = data.reshape([1]+[ i for i in data.shape])
   if not options.overlay_var is None:
     if options.overlay_file is None:
-      (overlay_data, overlay_attrs, overlay_dimensions, overlay_pcm_dimensions, overlay_labels) = read_var (options.overlay_var, filename, options.overlay_level, options)
+      (overlay_data, overlay_attrs, overlay_dimensions, overlay_pcm_dimensions, overlay_labels) = read_var (options.overlay_var, filename, options.overlay_level, options, OVERLAY_ECHAM)
     else:
-      (overlay_data, overlay_attrs, overlay_dimensions, overlay_pcm_dimensions, overlay_labels) = read_var (options.overlay_var, options.overlay_file, options.overlay_level, options)
+      (overlay_data, overlay_attrs, overlay_dimensions, overlay_pcm_dimensions, overlay_labels) = read_var (options.overlay_var, options.overlay_file, options.overlay_level, options, OVERLAY_ECHAM)
+    if not options.overlay_sub_file is None:
+            overlay_sub_data = read_var (options.overlay_var, options.overlay_sub_file, options.overlay_level, options, OVERLAY_ECHAM)[0]
+            overlay_data = overlay_data - overlay_sub_data
     if (len(overlay_data.shape) == 3):
       overlay_slicecount = len(overlay_data)
       if overlay_slicecount != slicecount:
@@ -302,8 +338,6 @@ def contour_var(var, filename, options):
       overlay_slicecount = 0
     if options.overlay_scale is not None:
       overlay_data = overlay_data * options.overlay_scale
-
-
   for (num, data) in enumerate(alldata):
     if options.scale is not None:
       data = data * options.scale
@@ -350,48 +384,23 @@ def contour_var(var, filename, options):
         print (llcrnrlon, llcrnrlat, urcrnrlon, urcrnrlat)
         map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
                       resolution=options.resolution, projection='stere',\
-                      lat_0=-90, lat_ts=-71,lon_0=180)
+                      lat_0=-90, lat_ts=-71,lon_0=135)
       else:
         print ("USING NSIDC POLAR STEREOGRAPHIC PROJECTION 90 -45 70")
         print (llcrnrlon, llcrnrlat, urcrnrlon, urcrnrlat)
         map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
                       resolution=options.resolution, projection='stere', area_thresh=10000.,\
                       lat_0=90, lat_ts=70,lon_0=-45.)
-      pcm_data=data
-      if (len (dimensions[-1][:].shape) > 1 ):
-        x, y = map(dimensions[-1][:], dimensions[-2][:])
-        pcm_x, pcm_y = map(pcm_dimensions[-1][:], pcm_dimensions[-2][:])
-      else:
-#        if options.EN:
-#           pcm_data, pcm_dimensions[-1] = addcyclic(pcm_data, pcm_dimensions[-1])
-        x, y = map(*np.meshgrid(dimensions[-1][:], dimensions[-2][:]))
-        pcm_x, pcm_y = map(*np.meshgrid(pcm_dimensions[-1][:], pcm_dimensions[-2][:]))
-
-
-      pl = map
     else:
-      pl = mpl
-      x = dimensions[-2][:]
-      y = dimensions[-1][:]
-      pcm_x = x # actually needs to be shifted, too!
-      pcm_y = y # actually needs to be shifted, too!
-      if options.ocedepth:
-        z = np.arange(len(y)+1)
-        z[1:-1] = .5*(y[1:]+y[:-1])
-        z[-1] = 1.5*y[-1]-.5*y[-2]
-        pcm_y = z
-
+      map=False
+    (x, y, pcm_x, pcm_y, pcm_data, pl) = sort_dimensions(dimensions, pcm_dimensions, map, maps, data, options)
+    if not options.overlay_var is None:
+      (overlay_x, overlay_y) = sort_dimensions(overlay_dimensions, overlay_pcm_dimensions, map, maps, overlay_data, options)[0:2]
 
     # DRAW IT
     mpl.gca().patch.set_color('.75')
     if options.missvalcolor:
       mpl.gca().patch.set_color(options.missvalcolor)
-    if options.EN:
-      pcm_data = pcm_data [:24]
-      pcm_x = pcm_x[:25]
-      pcm_y = pcm_y[:25]
-    else:
-      pcm_data = data
     if (( options.coast_first) and( (len(dimensions)  >= 4 or any (maps)))) : # 2d coordinates
       clc='.5'
       if options.whitecoast:
@@ -409,7 +418,7 @@ def contour_var(var, filename, options):
         pcol.set_edgecolor("face")
       mpl.colorbar(extend='both')
       if not options.no_outline:
-        pl.contour (x, y, pcm_data, levels,  colors="0.5", linewidths=.25, linestyles="solid")
+        pl.contour (x, y, data, levels,  colors="0.5", linewidths=.25, linestyles="solid")
     else:
       pl.pcolormesh(pcm_x, pcm_y, pcm_data,  cmap=cmap)
       mpl.colorbar(extend='both')
@@ -431,9 +440,9 @@ def contour_var(var, filename, options):
     if not options.overlay_var is None:
       overlay_levels = sort_levels (options.overlay_levels)
       if (overlay_levels is not None):
-        CS = pl.contour(x, y, overlay_data[min(num, overlay_slicecount)], overlay_levels, colors="k", linewidths=options.overlay_linewidths)
+        CS = pl.contour(overlay_x, overlay_y, overlay_data[min(num, overlay_slicecount)], overlay_levels, colors="k", linewidths=options.overlay_linewidths)
       else:
-        CS = pl.contour(x, y, overlay_data[min(num, overlay_slicecount)], colors="k", linewidths=options.overlay_linewidths)
+        CS = pl.contour(overlay_x, overlay_y, overlay_data[min(num, overlay_slicecount)], colors="k", linewidths=options.overlay_linewidths)
       if options.overlay_mark_gt:
         mpl.clabel(CS, fontsize=9, inline=1, use_clabeltext=True, rightside_up = False, fmt='A') # \u25BC for black triangles # u'\u2227'
       if options.overlay_clabel:
@@ -442,7 +451,7 @@ def contour_var(var, filename, options):
         if line.get_linestyle() != [(None, None)]:
           line.set_linestyle([(0, (12.0, 4.0))])
       if options.overlay_thick is not None:
-        CS = pl.contour(x, y, overlay_data[min(num, overlay_slicecount)], (options.overlay_thick,), colors="k", linewidths=3.)
+        CS = pl.contour(overlay_x, overlay_y, overlay_data[min(num, overlay_slicecount)], (options.overlay_thick,), colors="k", linewidths=3.)
         for line in CS.collections:
           if line.get_linestyle() != [(None, None)]:
             line.set_linestyle([(0, (12.0, 4.0))])
@@ -595,6 +604,10 @@ def parse_args():
                       help='''ECHAM NORTHERN HEMISPHERE PLOT''', action="store_true")
   parser.add_argument("--EG",
                       help='''ECHAM Global plot''', action="store_true")
+  parser.add_argument("--overlay_EN",
+                      help='''overlay ECHAM northern hemisphere plot''', action="store_true")
+  parser.add_argument("--overlay_EG",
+                      help='''overlay ECHAM Global plot''', action="store_true")
   parser.add_argument("--ocedepth",
                       help='''Estimate ocean depth levels in pcolormesh''', action="store_true")
 
@@ -646,6 +659,7 @@ def parse_args():
 
   parser.add_argument("--overlay_var", default=None)
   parser.add_argument("--overlay_file", default=None)
+  parser.add_argument("--overlay_sub_file", default=None)
   parser.add_argument("--overlay_levels", default=None,
     help='''set levels for plotting. n = n levels, 1,2,3 = draw levels at 1, 2, and 3''')
   parser.add_argument("--overlay_linewidths", default=1.5, type=float,
