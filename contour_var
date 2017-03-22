@@ -46,6 +46,14 @@ try:
 except ImportError:
   print ("Viridis not found")
 
+def read_proxies(filenames):
+    data=[]
+    for filename in filenames.split(":"):
+        dat=np.loadtxt(filename)
+        print (dat.shape)
+        data.append(dat)
+    return data
+
 def fix_meridians(mm):
     for mmm in mm.itervalues():
         for mmmm in mmm[1]:
@@ -448,6 +456,15 @@ def contour_var(var, filename, options):
         mpl.gca().tick_params('both', length=4, width=.5, which='major')
       except:
         pass
+    if not options.overlay_proxies is None:
+      proxy_data = read_proxies(options.overlay_proxies)
+      for dat in proxy_data:
+        lon=dat[:,0]
+        lat=dat[:,1]
+        val=dat[:,2]
+        if map is not None:
+          lon,lat=map(lon,lat)
+        pl.scatter(lon, lat, c=val, cmap=cmap, norm=norm)
 
 
     # MAKE IT NICE
@@ -641,6 +658,8 @@ def parse_args():
     help='''format for overlay contour labels''')
   parser.add_argument("--overlay_mark_gt", action="store_true",
     help='''add > signs to overlay contours to mark directions''')
+  parser.add_argument("--overlay_proxies",
+    help='''overlay proxy data points. Separate files with ':' ''')
 
 
   options = parser.parse_args()
