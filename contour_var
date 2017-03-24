@@ -394,6 +394,8 @@ def contour_var(var, filename, options):
   cmap=truncate_colormap(cmap,options.truncate_fraction,1-options.truncate_fraction)
   if options.white_center:
     cmap=white_center(cmap)
+  if options.white_under:
+      cmap.set_under((1.,1.,1.))
 
 
   # LEVELS
@@ -776,6 +778,9 @@ def parse_args():
     help='''Fraction of colormap to truncate at each end for values exceeding cbar''', default=.07, type=float)
   parser.add_argument("--white_center",
     help='''set the center of the colormap to white''', action="store_true")
+  parser.add_argument("--white_under",
+    help='''set the below range color to white''', action="store_true")
+
 
   parser.add_argument("--font_scale",
                     help='''scale fontsize by factor ''', type=float , default=1.)
