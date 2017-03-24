@@ -641,7 +641,7 @@ def contour_var(var, filename, options):
           mpl.savefig(options.outfile, dpi=200 )
           mpl.close('all')
         else:
-          mpl.savefig(options.outfile)
+          mpl.savefig(options.outfile, dpi=200)
           mpl.close('all')
       else:
         mpl.show()
