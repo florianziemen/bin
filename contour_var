@@ -46,6 +46,20 @@ try:
 except ImportError:
   print ("Viridis not found")
 
+def fh(field, dimension=1):
+    '''Fix broken mpiom halo'''
+    if dimension == 1:
+        field[:,-1] = field[:,1]
+        field[:,0] = field[:,-2]
+    if dimension == 2:
+        field[:,:,-1] = field[:,:,1]
+        field[:,:,0] = field[:,:,-2]
+    if dimension == 0:
+        field[-1] = field[1]
+        field[0] = field[-2]
+    return field
+
+  
 def read_proxies(filenames):
     data=[]
     for filename in filenames.split(":"):
@@ -89,7 +103,7 @@ def read_var(var, filename, level, options, ECHAM):
   if type(var[:]) is np.ma.masked_array:
     data = np.ma.masked_array(np.squeeze(var),np.squeeze(var[:].mask))
   else :
-    data = np.squeeze(var)
+    data = np.ma.masked_array(np.squeeze(var))
   if options.missval is not None:
     data = np.ma.masked_values(data, options.missval)
   dims = var.dimensions
@@ -170,6 +184,23 @@ def read_var(var, filename, level, options, ECHAM):
       lat[0:-1,-1] = lb[:,-1,3]
       lat[-1,-1] = lb[-1,-1,2]
       pcm_dimensions[-2] = lat
+    if options.cutlon:
+      lo = dimensions[-1][:]
+      lo [lo<options.cutlon] = lo[lo<options.cutlon]+360
+      lo [lo>options.cutlon+360] = lo[lo>options.cutlon+360]-360
+      dimensions[-1]=lo
+    # for i in xrange(len (lo)-1):
+    #   lo[i+1][abs(lo[i+1]-lo[i])>180] = (lo[i+1][abs(lo[i+1]-lo[i])>180]+360)
+    # lo=lo.transpose()
+    # for i in xrange(len (lo)-1):
+    #   lo[i+1][abs(lo[i+1]-lo[i])>180] = (lo[i+1][abs(lo[i+1]-lo[i])>180]+360)
+    # lo=lo.transpose()
+    # lo=lo-360
+    # pcm_dimensions[-1] = lo
+    # print(lo.shape)
+    # mpl.imshow(lo, interpolation='nearest')
+    # mpl.colorbar()
+    # mpl.show()
 
   else:
     if options.transpose: # python has a very strange understanding of order -- we'll fix that
@@ -189,17 +220,97 @@ def read_var(var, filename, level, options, ECHAM):
 
   return (data, attrs, dimensions, pcm_dimensions, labels)
 
-def sort_dimensions(dimensions, pcm_dimensions, map, maps, data, options):
+def sort_dimensions(dimensions, pcm_dimensions, map, maps, global_maps, data, options, allthree):
     if (len(dimensions) >= 4  or any(maps)) : # 2d coordinates
-      pcm_data=data
+      pcm_data = data
       if (len (dimensions[-1][:].shape) > 1 ):
-        x, y = map(dimensions[-1][:], dimensions[-2][:])
-        pcm_x, pcm_y = map(pcm_dimensions[-1][:], pcm_dimensions[-2][:])
+        dim1 = dimensions[-1][:]
+        dim2 = dimensions[-2][:]
+        pcdim1 = pcm_dimensions[-1][:]
+        pcdim2 = pcm_dimensions[-2][:]
+        if (allthree):
+          data = fh(data)
+          dim1 = fh(dim1)
+          dim2 = fh(dim2)
+          pcdim1 = fh(pcdim1)
+          pcdim2 = fh(pcdim2)
+          pcm_data = fh(pcm_data)
+        x, y = map(dim1, dim2)
+        pcm_x, pcm_y = map(pcdim1, pcdim2)
+        if (allthree):
+          print (type(pcdim1))
+
+          px1 = pcdim1
+          px2 = np.copy(pcdim1)
+          px3 = np.copy(pcdim1)
+          px2[px2<90]=px2[px2<90]+360
+          px3[px3>-90]=px3[px3>-90]-360
+          pcm_x2, pcm_y2 =  map(px2, pcdim2)
+          pcm_x3, pcm_y3 =  map(px3, pcdim2)
+          pcd1 = np.ma.masked_where(pcm_data.mask+ (abs(px1[1:,1:]-px1[:-1,:-1])>180) + (abs(px1[1:,:-1]-px1[:-1,:-1])>180) + (abs(px1[:-1,1:]-px1[:-1,:-1])>180) , pcm_data)
+          pcd2 = np.ma.masked_where(pcm_data.mask+ (abs(px2[1:,1:]-px2[:-1,:-1])>180) + (abs(px2[1:,:-1]-px2[:-1,:-1])>180) + (abs(px2[:-1,1:]-px2[:-1,:-1])>180) , pcm_data)
+          pcd3 = np.ma.masked_where(pcm_data.mask+ (abs(px3[1:,1:]-px3[:-1,:-1])>180) + (abs(px3[1:,:-1]-px3[:-1,:-1])>180) + (abs(px3[:-1,1:]-px3[:-1,:-1])>180) , pcm_data)
+
+
+          x2 = np.copy(dim1)
+          x3 = np.copy(dim1)
+          x2[x2<90]=x2[x2<90]+360
+          x3[x3>-90]=x3[x3>-90]-360
+          x2, y2 =  map(x2, dim2)
+          x3, y3 =  map(x3, dim2)
+
+          d1 = np.ma.copy(data)
+          d2 = np.ma.copy(data)
+          d3 = np.ma.copy(data)
+          
+          d1[:-1,:-1] = np.ma.masked_where(data.mask[:-1,:-1]+ (abs(dim1[1:,1:]-dim1[:-1,:-1])>180) + (abs(dim1[1:,:-1]-dim1[:-1,:-1])>180) + (abs(dim1[:-1,1:]-dim1[:-1,:-1])>180) , data[:-1,:-1])
+          d2[:-1,:-1] = np.ma.masked_where(data.mask[:-1,:-1]+ (abs(x2[1:,1:]-x2[:-1,:-1])>180) + (abs(x2[1:,:-1]-x2[:-1,:-1])>180) + (abs(x2[:-1,1:]-x2[:-1,:-1])>180) , data[:-1,:-1])
+          d3[:-1,:-1] = np.ma.masked_where(data.mask[:-1,:-1]+ (abs(x3[1:,1:]-x3[:-1,:-1])>180) + (abs(x3[1:,:-1]-x3[:-1,:-1])>180) + (abs(x3[:-1,1:]-x3[:-1,:-1])>180) , data[:-1,:-1])
+          return ((x,x2,x3), (y,y2,y3), (d1,d2,d3), (pcm_x,pcm_x2,pcm_x3), (pcm_y,pcm_y2,pcm_y3), (pcd1,pcd2,pcd3), map)
+
       else:
-        x, y = map(*np.meshgrid(dimensions[-1][:], dimensions[-2][:]))
-        pcm_x, pcm_y = map(*np.meshgrid(pcm_dimensions[-1][:], pcm_dimensions[-2][:]))
+        dim1 = dimensions[-1][:]
+        dim2 = dimensions[-2][:]
+        pcdim1 = pcm_dimensions[-1][:]
+        pcdim2 = pcm_dimensions[-2][:]
+        x, y = map(*np.meshgrid(dim1, dim2))
+        pcm_x, pcm_y = map(*np.meshgrid(pcdim1, pcdim2))
+        if (allthree):
+          px1 = pcdim1
+          px2 = np.copy(pcdim1)
+          px3 = np.copy(pcdim1)
+          px2[px2<90]=px2[px2<90]+360
+          px3[px3>-90]=px3[px3>-90]-360
+          pcm_x2, pcm_y2 =  map(*np.meshgrid(px2, pcdim2))
+          pcm_x3, pcm_y3 =  map(*np.meshgrid(px3, pcdim2))
+          pcd1 = np.ma.masked_where(pcm_data.mask + (np.broadcast_to((abs(px1[1:]-px1[:-1])),pcm_data.shape)) > 180, pcm_data)
+          pcd2 = np.ma.masked_where(pcm_data.mask + (np.broadcast_to((abs(px2[1:]-px2[:-1])),pcm_data.shape)) > 180, pcm_data)
+          pcd3 = np.ma.masked_where(pcm_data.mask + (np.broadcast_to((abs(px3[1:]-px3[:-1])),pcm_data.shape)) > 180, pcm_data)
 
+          x1 = dim1
+          x2 = np.copy(dim1)
+          x3 = np.copy(dim1)
+          x2[x2<90]=x2[x2<90]+360
+          x3[x3>-90]=x3[x3>-90]-360
 
+          d1 = np.ma.copy(data)
+          d2 = np.ma.copy(data)
+          d3 = np.ma.copy(data)
+
+          print("debugging")
+          print (x1.shape)
+          print (d1.shape)
+          print (data.shape)
+          print (data[:-1])
+          print ((data[:,:-1]).shape)
+          print ((np.broadcast_to(abs(x1[1:]-x1[:-1]), (data[:,:-1]).shape)).shape)
+          print (data.shape)
+          d1[:,:-1] = np.ma.masked_where((np.broadcast_to(abs(x1[1:]-x1[:-1]), (data[:,:-1]).shape)) > 180, data[:,:-1])
+          d2[:,:-1] = np.ma.masked_where((np.broadcast_to(abs(x2[1:]-x2[:-1]), (data[:,:-1]).shape)) > 180, data[:,:-1])
+          d3[:,:-1] = np.ma.masked_where((np.broadcast_to(abs(x3[1:]-x3[:-1]), (data[:,:-1]).shape)) > 180, data[:,:-1])
+          x2, y2 =  map(*np.meshgrid(x2, dim2))
+          x3, y3 =  map(*np.meshgrid(x3, dim2))
+          return ((x, x2, x3), (y, y2, y3), (d1, d2, d3), (pcm_x, pcm_x2, pcm_x3), (pcm_y, pcm_y2, pcm_y3), (pcd1, pcd2, pcd3), map)
       pl = map
     else:
       pl = mpl
@@ -218,7 +329,7 @@ def sort_dimensions(dimensions, pcm_dimensions, map, maps, data, options):
       pcm_y = pcm_y[:25]
     else:
       pcm_data = data
-    return (x, y, pcm_x, pcm_y, pcm_data, pl)
+    return ((x,), (y,), (data,), (pcm_x,), (pcm_y,), (pcm_data,), pl)
 
 
 def sort_levels (levels = None, minmax=None):
@@ -393,11 +504,12 @@ def contour_var(var, filename, options):
                       lat_0=90, lat_ts=70,lon_0=-45.)
     else:
       map=False
-    (x, y, pcm_x, pcm_y, pcm_data, pl) = sort_dimensions(dimensions, pcm_dimensions, map, maps, data, options)
-    if not options.overlay_var is None:
-      (overlay_x, overlay_y) = sort_dimensions(overlay_dimensions, overlay_pcm_dimensions, map, maps, overlay_data, options)[0:2]
+    print ("DATA.SHAPE")
+    print (data.shape)
+    (x_l, y_l, data_l, pcm_x_l, pcm_y_l, pcm_data_l, pl) = sort_dimensions(dimensions, pcm_dimensions, map, maps, global_maps, data, options, options.MG or options.EG )
 
     # DRAW IT
+    cbdrawn = False
     mpl.gca().patch.set_color('.75')
     if options.missvalcolor:
       mpl.gca().patch.set_color(options.missvalcolor)
@@ -408,22 +520,28 @@ def contour_var(var, filename, options):
       pl.drawcoastlines(linewidth=0.25, color=clc, zorder=-999)
       if options.rivers:
         pl.drawrivers(linewidth=0.25)
-    if (not levels is None ):
-      print (pcm_x.shape, pcm_y.shape, pcm_data.shape)
-      if (not norm is None):
-        pcol = pl.pcolormesh(pcm_x, pcm_y, pcm_data,  norm = norm ,  cmap=cmap,  rasterized=True)
-        pcol.set_edgecolor("face")
+    for (x, y, data_i, pcm_x, pcm_y, pcm_data) in zip (x_l, y_l, data_l, pcm_x_l, pcm_y_l, pcm_data_l):
+      if (not levels is None ):
+        print (pcm_x.shape, pcm_y.shape, pcm_data.shape)
+        if (not norm is None):
+          pcol = pl.pcolormesh(pcm_x, pcm_y, pcm_data,  norm = norm ,  cmap=cmap,  rasterized=True)
+          pcol.set_edgecolor("face")
+        else:
+          pcol = pl.pcolormesh(pcm_x, pcm_y, pcm_data,   cmap=cmap, rasterized=True)
+          pcol.set_edgecolor("face")
+        if (not cbdrawn):
+          mpl.colorbar(extend='both')
+          cbdrawn = True
+        if not options.no_outline:
+          pl.contour (x, y, data_i, levels,  colors="0.5", linewidths=.25, linestyles="solid")
       else:
-        pcol = pl.pcolormesh(pcm_x, pcm_y, pcm_data,   cmap=cmap, rasterized=True)
-        pcol.set_edgecolor("face")
-      mpl.colorbar(extend='both')
-      if not options.no_outline:
-        pl.contour (x, y, data, levels,  colors="0.5", linewidths=.25, linestyles="solid")
-    else:
-      pl.pcolormesh(pcm_x, pcm_y, pcm_data,  cmap=cmap)
-      mpl.colorbar(extend='both')
-      if not options.no_outline:
-        pl.contour (x, y, data,  colors="0.5", linewidths=.25, linestyles="solid")
+        print ("masking")
+        pl.pcolormesh(pcm_x, pcm_y, pcm_data,  cmap=cmap)
+        if (not cbdrawn):
+          mpl.colorbar(extend='both')
+          cbdrawn = True
+        if not options.no_outline:
+          pl.contour (x, y, data,  colors="0.5", linewidths=.25, linestyles="solid")
     if options.scaled:
       mpl.axis("scaled")
 
@@ -439,22 +557,25 @@ def contour_var(var, filename, options):
 
     if not options.overlay_var is None:
       overlay_levels = sort_levels (options.overlay_levels)
-      if (overlay_levels is not None):
-        CS = pl.contour(overlay_x, overlay_y, overlay_data[min(num, overlay_slicecount)], overlay_levels, colors="k", linewidths=options.overlay_linewidths)
-      else:
-        CS = pl.contour(overlay_x, overlay_y, overlay_data[min(num, overlay_slicecount)], colors="k", linewidths=options.overlay_linewidths)
-      if options.overlay_mark_gt:
-        mpl.clabel(CS, fontsize=9, inline=1, use_clabeltext=True, rightside_up = False, fmt='A') # \u25BC for black triangles # u'\u2227'
-      if options.overlay_clabel:
-        mpl.clabel(CS, fontsize=9, inline=1, use_clabeltext=True, rightside_up = True, fmt=options.overlay_clabel_format)
-      for line in CS.collections:
-        if line.get_linestyle() != [(None, None)]:
-          line.set_linestyle([(0, (12.0, 4.0))])
-      if options.overlay_thick is not None:
-        CS = pl.contour(overlay_x, overlay_y, overlay_data[min(num, overlay_slicecount)], (options.overlay_thick,), colors="k", linewidths=3.)
+      (overlay_x_l, overlay_y_l, overlay_data_l) = sort_dimensions(overlay_dimensions, overlay_pcm_dimensions, map, maps, global_maps, overlay_data[min(num, overlay_slicecount)], options, options.OMG)[0:3]
+
+      for (overlay_x, overlay_y, od) in zip (overlay_x_l, overlay_y_l, overlay_data_l):
+        if (overlay_levels is not None):
+          CS = pl.contour(overlay_x, overlay_y, od , overlay_levels, colors="k", linewidths=options.overlay_linewidths)
+        else:
+          CS = pl.contour(overlay_x, overlay_y, od , colors="k", linewidths=options.overlay_linewidths)
+        if options.overlay_mark_gt:
+          mpl.clabel(CS, fontsize=9, inline=1, use_clabeltext=True, rightside_up = False, fmt='A') # \u25BC for black triangles # u'\u2227'
+        if options.overlay_clabel:
+          mpl.clabel(CS, fontsize=9, inline=1, use_clabeltext=True, rightside_up = True, fmt=options.overlay_clabel_format)
         for line in CS.collections:
           if line.get_linestyle() != [(None, None)]:
-            line.set_linestyle([(0, (12.0, 4.0))])
+            line.set_linestyle([(0, (12.0*options.overlay_linewidths, 4.0*options.overlay_linewidths))])
+        if options.overlay_thick is not None:
+          CS = pl.contour(overlay_x, overlay_y, od, (options.overlay_thick,), colors="k", linewidths=3.)
+          for line in CS.collections:
+            if line.get_linestyle() != [(None, None)]:
+              line.set_linestyle([(0, (12.0*options.overlay_linewidths, 4.0*options.overlay_linewidths))])
       if options.xticks is not None:
           pl.xticks(sort_levels(options.xticks))
       try:
@@ -600,6 +721,10 @@ def parse_args():
   parser.add_argument("--rotlon",
                       help='''Move lon values from 0..360 to -180..180''', action="store_true")
 
+  parser.add_argument("--MG",
+                      help='''MPIOM Global plot''', action="store_true")
+  parser.add_argument("--OMG",
+                      help='''Overlay MPIOM Global plot''', action="store_true")
   parser.add_argument("--EN",
                       help='''ECHAM NORTHERN HEMISPHERE PLOT''', action="store_true")
   parser.add_argument("--EG",
@@ -676,6 +801,8 @@ def parse_args():
     help='''add > signs to overlay contours to mark directions''')
   parser.add_argument("--overlay_proxies",
     help='''overlay proxy data points. Separate files with ':' ''')
+  parser.add_argument("--cutlon",
+    help='''set the point where to cut lon''', type=float)
 
 
   options = parser.parse_args()
