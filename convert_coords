@@ -64,8 +64,8 @@ def convert_file (filename, opts={}):
     fvx.units = "m"
     fvy.units = "m"
 
-    lon = outfile.createVariable("lon","f4",("y","x"), fill_value=-9.e9)
-    lat = outfile.createVariable("lat","f4",("y","x"), fill_value=-9.e9)
+    lon = outfile.createVariable("lon",opts["coords_dtype"],("y","x"), fill_value=-9.e9)
+    lat = outfile.createVariable("lat",opts["coords_dtype"],("y","x"), fill_value=-9.e9)
 
     lon.units = "degrees"
     lon.long_name = "longitude"
@@ -87,8 +87,8 @@ def convert_file (filename, opts={}):
     addx = [ xoff, xoff,-xoff,-xoff]
     addy = [-yoff, yoff, yoff,-yoff]
 
-    grid_corner_lat = outfile.createVariable("grid_corner_lat","f4",("y", "x", "grid_corners"), fill_value=-9.e9)
-    grid_corner_lon = outfile.createVariable("grid_corner_lon","f4",("y", "x", "grid_corners"), fill_value=-9.e9)
+    grid_corner_lat = outfile.createVariable("grid_corner_lat",opts["coords_dtype"],("y", "x", "grid_corners"), fill_value=-9.e9)
+    grid_corner_lon = outfile.createVariable("grid_corner_lon",opts["coords_dtype"],("y", "x", "grid_corners"), fill_value=-9.e9)
 
     grid_corner_lat.units = "degrees"
     grid_corner_lon.units = "degrees"
@@ -116,6 +116,8 @@ def parse_args():
                         help='''File that contains projection information''', default = None)
   parser.add_argument("-s", "--projection_string",
                         help='''Proj4 sring that contains projection information''', default = None)
+  parser.add_argument("--coords_dtype",
+                        help='''data type for coords var''', default = "f4")
   # parser.add_argument("-s", "--state",
   #                      help='''file with reference values''', required = True)
   # parser.add_argument("-b", "--var_b",
