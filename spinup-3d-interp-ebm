@@ -48,6 +48,7 @@ def advance_in_time(options):
     # echo OUTPUT file ${outfile}
   if not fu.check_files([oce_file_name], fatal=False):
     fu.cerr("Linking oce  fields")
+    fu.check_files([oce_infile_name], fatal=True)
     os.symlink(oce_infile_name, oce_file_name)
 
 
