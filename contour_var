@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+
+
 from __future__ import print_function
 
 
@@ -22,6 +24,7 @@ from mpl_toolkits.basemap import Basemap, addcyclic, shiftgrid
 try:
   import seaborn as sns
   seaborn = True
+  sns.set_style("white")
 except ImportError:
   seaborn = False
 
@@ -39,8 +42,44 @@ try:
   mpl.register_cmap(name='inferno_r', cmap=cmaps.inferno_r)
   print ("Got viridis")
   mpl.register_cmap(name='rignot', cmap=cmaps.rignot)
+  mpl.register_cmap(name='rignot_r', cmap=cmaps.rignot_r)
 except ImportError:
   print ("Viridis not found")
+
+def fh(field, dimension=1):
+    '''Fix broken mpiom halo'''
+    if dimension == 1:
+        field[:,-1] = field[:,1]
+        field[:,0] = field[:,-2]
+    if dimension == 2:
+        field[:,:,-1] = field[:,:,1]
+        field[:,:,0] = field[:,:,-2]
+    if dimension == 0:
+        field[-1] = field[1]
+        field[0] = field[-2]
+    return field
+
+  
+def read_proxies(filenames):
+    data=[]
+    for filename in filenames.split(":"):
+        dat=np.loadtxt(filename)
+        print (dat.shape)
+        data.append(dat)
+    return data
+
+def fix_meridians(mm):
+    for mmm in mm.itervalues():
+        for mmmm in mmm[1]:
+            mmmm.set_text('-') # u'\u23D0')
+            mmmm.set_fontsize(10)
+            mmmm.set_rotation(90)
+
+def fix_parallels(pp):
+          for ppp in pp.itervalues():
+            for pppp in ppp[1]:
+                pppp.set_text('-') # u'\u23AF')
+                pppp.set_fontsize(10)
 
 def fix_attrs(vars,labels):
   for n,x in enumerate(labels):
@@ -49,7 +88,10 @@ def fix_attrs(vars,labels):
         labels[n] = vars[x].long_name
   return labels
 
-def read_var(var, filename, level, options):
+def read_var(var, filename, level, options, ECHAM):
+  maps= (options.MOLL, options.CYL, options.HAMMER, options.GL, options.ANT, options.NATL, options.diss_proj, options.PISM, options.mapit)
+  global_maps = (options.MOLL, options.CYL, options.HAMMER)
+
   print ("reading %s from %s"%(var, filename), file=sys.stderr)
   try:
     f = nc(filename)
@@ -61,7 +103,7 @@ def read_var(var, filename, level, options):
   if type(var[:]) is np.ma.masked_array:
     data = np.ma.masked_array(np.squeeze(var),np.squeeze(var[:].mask))
   else :
-    data = np.squeeze(var)
+    data = np.ma.masked_array(np.squeeze(var))
   if options.missval is not None:
     data = np.ma.masked_values(data, options.missval)
   dims = var.dimensions
@@ -106,12 +148,12 @@ def read_var(var, filename, level, options):
                 lo [lo>180] = lo[lo>180]-360
               dimensions[offset]=lo
               labels[offset] = "lon"
-  if ("lat" in vars.keys() and "lon" in vars.keys() and (len(np.squeeze(vars["lat"]).shape) > 1 or options.diss_proj or options.MOLL or options.CYL or options.GL or options.ANT or options.NATL or options.mapit )):
+  if ("lat" in vars.keys() and "lon" in vars.keys() and (len(np.squeeze(vars["lat"]).shape) > 1 or any(maps) )):
     print ("Using map and projection")
     labels[0] = ""
     labels[1] = ""
     dimensions = dimensions +[ vars["lat"], vars["lon"] ]
-    if ((options.MOLL or options.CYL) and len(dimensions[-1].shape) < 2):
+    if (any(global_maps) and len(dimensions[-1].shape) < 2):
       print ("CONSIDERING LON AS 1d")
       lon = dimensions[-1][:]
       (data, lon) = shiftgrid(180,data,lon)
@@ -119,7 +161,7 @@ def read_var(var, filename, level, options):
       lon=lon-360
       dimensions[-1] = lon
     pcm_dimensions = dimensions[:]
-    if options.EN or options.EG:
+    if (ECHAM):
       lat = pcm_dimensions[-2]
       pcm_dimensions[-2] = np.array([90]+(.5*(lat[1:]+lat[:-1])).tolist()+[-90])
       lon = pcm_dimensions[-1]
@@ -142,6 +184,23 @@ def read_var(var, filename, level, options):
       lat[0:-1,-1] = lb[:,-1,3]
       lat[-1,-1] = lb[-1,-1,2]
       pcm_dimensions[-2] = lat
+    if options.cutlon:
+      lo = dimensions[-1][:]
+      lo [lo<options.cutlon] = lo[lo<options.cutlon]+360
+      lo [lo>options.cutlon+360] = lo[lo>options.cutlon+360]-360
+      dimensions[-1]=lo
+    # for i in xrange(len (lo)-1):
+    #   lo[i+1][abs(lo[i+1]-lo[i])>180] = (lo[i+1][abs(lo[i+1]-lo[i])>180]+360)
+    # lo=lo.transpose()
+    # for i in xrange(len (lo)-1):
+    #   lo[i+1][abs(lo[i+1]-lo[i])>180] = (lo[i+1][abs(lo[i+1]-lo[i])>180]+360)
+    # lo=lo.transpose()
+    # lo=lo-360
+    # pcm_dimensions[-1] = lo
+    # print(lo.shape)
+    # mpl.imshow(lo, interpolation='nearest')
+    # mpl.colorbar()
+    # mpl.show()
 
   else:
     if options.transpose: # python has a very strange understanding of order -- we'll fix that
@@ -150,13 +209,127 @@ def read_var(var, filename, level, options):
       print (dimensions[-1][:])
       labels=labels[::-1]
     else:
-      data = data.transpose(0,2,1)
+      if (len(data.shape) == 3):
+        data = data.transpose(0,2,1)
+      else:
+        data=data.transpose()
       print (dimensions[-2][:])
       print (dimensions[-1][:])
 
     labels = fix_attrs(vars, labels)
 
   return (data, attrs, dimensions, pcm_dimensions, labels)
+
+def sort_dimensions(dimensions, pcm_dimensions, map, maps, global_maps, data, options, allthree):
+    if (len(dimensions) >= 4  or any(maps)) : # 2d coordinates
+      pcm_data = data
+      if (len (dimensions[-1][:].shape) > 1 ):
+        dim1 = dimensions[-1][:]
+        dim2 = dimensions[-2][:]
+        pcdim1 = pcm_dimensions[-1][:]
+        pcdim2 = pcm_dimensions[-2][:]
+        if (allthree):
+          data = fh(data)
+          dim1 = fh(dim1)
+          dim2 = fh(dim2)
+          pcdim1 = fh(pcdim1)
+          pcdim2 = fh(pcdim2)
+          pcm_data = fh(pcm_data)
+        x, y = map(dim1, dim2)
+        pcm_x, pcm_y = map(pcdim1, pcdim2)
+        if (allthree):
+          print (type(pcdim1))
+
+          px1 = pcdim1
+          px2 = np.copy(pcdim1)
+          px3 = np.copy(pcdim1)
+          px2[px2<90]=px2[px2<90]+360
+          px3[px3>-90]=px3[px3>-90]-360
+          pcm_x2, pcm_y2 =  map(px2, pcdim2)
+          pcm_x3, pcm_y3 =  map(px3, pcdim2)
+          pcd1 = np.ma.masked_where(pcm_data.mask+ (abs(px1[1:,1:]-px1[:-1,:-1])>180) + (abs(px1[1:,:-1]-px1[:-1,:-1])>180) + (abs(px1[:-1,1:]-px1[:-1,:-1])>180) , pcm_data)
+          pcd2 = np.ma.masked_where(pcm_data.mask+ (abs(px2[1:,1:]-px2[:-1,:-1])>180) + (abs(px2[1:,:-1]-px2[:-1,:-1])>180) + (abs(px2[:-1,1:]-px2[:-1,:-1])>180) , pcm_data)
+          pcd3 = np.ma.masked_where(pcm_data.mask+ (abs(px3[1:,1:]-px3[:-1,:-1])>180) + (abs(px3[1:,:-1]-px3[:-1,:-1])>180) + (abs(px3[:-1,1:]-px3[:-1,:-1])>180) , pcm_data)
+
+
+          x2 = np.copy(dim1)
+          x3 = np.copy(dim1)
+          x2[x2<90]=x2[x2<90]+360
+          x3[x3>-90]=x3[x3>-90]-360
+          x2, y2 =  map(x2, dim2)
+          x3, y3 =  map(x3, dim2)
+
+          d1 = np.ma.copy(data)
+          d2 = np.ma.copy(data)
+          d3 = np.ma.copy(data)
+          
+          d1[:-1,:-1] = np.ma.masked_where(data.mask[:-1,:-1]+ (abs(dim1[1:,1:]-dim1[:-1,:-1])>180) + (abs(dim1[1:,:-1]-dim1[:-1,:-1])>180) + (abs(dim1[:-1,1:]-dim1[:-1,:-1])>180) , data[:-1,:-1])
+          d2[:-1,:-1] = np.ma.masked_where(data.mask[:-1,:-1]+ (abs(x2[1:,1:]-x2[:-1,:-1])>180) + (abs(x2[1:,:-1]-x2[:-1,:-1])>180) + (abs(x2[:-1,1:]-x2[:-1,:-1])>180) , data[:-1,:-1])
+          d3[:-1,:-1] = np.ma.masked_where(data.mask[:-1,:-1]+ (abs(x3[1:,1:]-x3[:-1,:-1])>180) + (abs(x3[1:,:-1]-x3[:-1,:-1])>180) + (abs(x3[:-1,1:]-x3[:-1,:-1])>180) , data[:-1,:-1])
+          return ((x,x2,x3), (y,y2,y3), (d1,d2,d3), (pcm_x,pcm_x2,pcm_x3), (pcm_y,pcm_y2,pcm_y3), (pcd1,pcd2,pcd3), map)
+
+      else:
+        dim1 = dimensions[-1][:]
+        dim2 = dimensions[-2][:]
+        pcdim1 = pcm_dimensions[-1][:]
+        pcdim2 = pcm_dimensions[-2][:]
+        x, y = map(*np.meshgrid(dim1, dim2))
+        pcm_x, pcm_y = map(*np.meshgrid(pcdim1, pcdim2))
+        if (allthree):
+          px1 = pcdim1
+          px2 = np.copy(pcdim1)
+          px3 = np.copy(pcdim1)
+          px2[px2<90]=px2[px2<90]+360
+          px3[px3>-90]=px3[px3>-90]-360
+          pcm_x2, pcm_y2 =  map(*np.meshgrid(px2, pcdim2))
+          pcm_x3, pcm_y3 =  map(*np.meshgrid(px3, pcdim2))
+          pcd1 = np.ma.masked_where(pcm_data.mask + (np.broadcast_to((abs(px1[1:]-px1[:-1])),pcm_data.shape)) > 180, pcm_data)
+          pcd2 = np.ma.masked_where(pcm_data.mask + (np.broadcast_to((abs(px2[1:]-px2[:-1])),pcm_data.shape)) > 180, pcm_data)
+          pcd3 = np.ma.masked_where(pcm_data.mask + (np.broadcast_to((abs(px3[1:]-px3[:-1])),pcm_data.shape)) > 180, pcm_data)
+
+          x1 = dim1
+          x2 = np.copy(dim1)
+          x3 = np.copy(dim1)
+          x2[x2<90]=x2[x2<90]+360
+          x3[x3>-90]=x3[x3>-90]-360
+
+          d1 = np.ma.copy(data)
+          d2 = np.ma.copy(data)
+          d3 = np.ma.copy(data)
+
+          print("debugging")
+          print (x1.shape)
+          print (d1.shape)
+          print (data.shape)
+          print (data[:-1])
+          print ((data[:,:-1]).shape)
+          print ((np.broadcast_to(abs(x1[1:]-x1[:-1]), (data[:,:-1]).shape)).shape)
+          print (data.shape)
+          d1[:,:-1] = np.ma.masked_where((np.broadcast_to(abs(x1[1:]-x1[:-1]), (data[:,:-1]).shape)) > 180, data[:,:-1])
+          d2[:,:-1] = np.ma.masked_where((np.broadcast_to(abs(x2[1:]-x2[:-1]), (data[:,:-1]).shape)) > 180, data[:,:-1])
+          d3[:,:-1] = np.ma.masked_where((np.broadcast_to(abs(x3[1:]-x3[:-1]), (data[:,:-1]).shape)) > 180, data[:,:-1])
+          x2, y2 =  map(*np.meshgrid(x2, dim2))
+          x3, y3 =  map(*np.meshgrid(x3, dim2))
+          return ((x, x2, x3), (y, y2, y3), (d1, d2, d3), (pcm_x, pcm_x2, pcm_x3), (pcm_y, pcm_y2, pcm_y3), (pcd1, pcd2, pcd3), map)
+      pl = map
+    else:
+      pl = mpl
+      x = dimensions[-2][:]
+      y = dimensions[-1][:]
+      pcm_x = x # actually needs to be shifted, too!
+      pcm_y = y # actually needs to be shifted, too!
+      if options.ocedepth:
+        z = np.arange(len(y)+1)
+        z[1:-1] = .5*(y[1:]+y[:-1])
+        z[-1] = 1.5*y[-1]-.5*y[-2]
+        pcm_y = z
+    if options.EN:
+      pcm_data = pcm_data [:24]
+      pcm_x = pcm_x[:25]
+      pcm_y = pcm_y[:25]
+    else:
+      pcm_data = data
+    return ((x,), (y,), (data,), (pcm_x,), (pcm_y,), (pcm_data,), pl)
 
 
 def sort_levels (levels = None, minmax=None):
@@ -174,48 +347,83 @@ def sort_levels (levels = None, minmax=None):
     levels = None
   return levels
 
+
+def truncate_colormap(cmap, minval=0.0, maxval=1.0, n=100):
+  new_cmap = colors.LinearSegmentedColormap.from_list(
+    "ABCDE",
+#        'trunc({n},{a:.2f},{b:.2f})'.format(n=cmap.name, a=minval, b=maxval),
+        cmap(np.linspace(minval, maxval, n)))
+  new_cmap.set_under(cmap(0.))
+  new_cmap.set_over(cmap(1.))
+
+
+  return new_cmap
+
+def white_center(cmap):
+  l = len(cmap._segmentdata['green'])
+  csd=cmap._segmentdata
+  cmap._segmentdata['red'][l/2]=(csd['red'][l/2][0],1,csd['red'][l/2][0])
+  cmap._segmentdata['red'][l/2-1]=(csd['red'][l/2-1][0],csd['red'][l/2-1][0],1)
+  cmap._segmentdata['green'][l/2]=(csd['green'][l/2][0],1,csd['green'][l/2][0])
+  cmap._segmentdata['green'][l/2-1]=(csd['green'][l/2-1][0],csd['green'][l/2-1][0],1)
+  cmap._segmentdata['blue'][l/2]=(csd['blue'][l/2][0],1,csd['blue'][l/2][0])
+  cmap._segmentdata['blue'][l/2-1]=(csd['blue'][l/2-1][0],csd['blue'][l/2-1][0],1)
+  return cmap
+
 def contour_var(var, filename, options):
+  maps= (options.MOLL, options.CYL, options.HAMMER, options.GL, options.ANT, options.NATL, options.diss_proj, options.PISM, options.mapit)
+  global_maps = (options.MOLL, options.CYL, options.HAMMER)
+  ECHAM = (options.EN or options.EG)
+  OVERLAY_ECHAM = (options.overlay_EN or options.overlay_EG)
   # Get the data
-  (data, attrs, dimensions, pcm_dimensions, labels) = read_var(var, filename, options.level, options)
+  (data, attrs, dimensions, pcm_dimensions, labels) = read_var(var, filename, options.level, options, ECHAM)
   # Get the data
   if not options.sub is None :
-    (sub_data, sub_attrs, sub_dimensions, sub_pcm_dimensions, sub_labels) = read_var(var, options.sub, options.level, options)
+    (sub_data, sub_attrs, sub_dimensions, sub_pcm_dimensions, sub_labels) = read_var(var, options.sub, options.level, options, ECHAM)
     data = data - sub_data
-
   # COLORMAP
   cmap = None
 #  cmap = sns.color_palette(options.cmap, options.levels if options.levels and len(options.levels.split(",")) == 1 else 7, as_cmap=True)
   try:
     if (options.cmap):
-      cmap=options.cmap
+      cmap=mpl.get_cmap(options.cmap)
     else:
       cmap = sns.cubehelix_palette(as_cmap=True, start=.5)
   except:
-    print ("Trouble using colorbar %s."%(options.cmap), file=sys.stderr)
+    print ("Trouble using colormap %s."%(options.cmap), file=sys.stderr)
+  cmap=truncate_colormap(cmap,options.truncate_fraction,1-options.truncate_fraction)
+  if options.white_center:
+    cmap=white_center(cmap)
+  if options.white_under:
+      cmap.set_under((1.,1.,1.))
+
 
   # LEVELS
   levels = sort_levels(options.levels, options.minmax)
   norm = None
   if not levels is None:
-    if len(levels) > 1:
+    if type (levels ) is not int : # len(levels) > 1:
       norm = colors.BoundaryNorm(boundaries=levels, ncolors=256)
 
   # map and projection stuff
-  if (len(dimensions) >= 4 or options.diss_proj or options.MOLL or options.CYL or options.GL or options.ANT or options.NATL or options.mapit)  : # 2d coordinates
+  if (len(dimensions) >= 4 or any(maps))  : # 2d coordinates
     print ("using 2d coordinates")
     # map = Basemap(width=8000000,height=8500000,
     #                  resolution='l',projection='stere',\
     #                  lat_ts=70,lat_0=72,lon_0=-45.)
-    if not (options.ll is None or options.ur is None or options.MOLL or options.CYL):
+    limits = False
+    if not (options.ll is None or options.ur is None):
       llcrnrlon = options.ll[1]
       urcrnrlon = options.ur[1]
       llcrnrlat = options.ll[0]
       urcrnrlat = options.ur[0]
-    elif (not (options.NATL or options.MOLL or options.CYL)):
+      limits = True
+    elif (not (options.NATL or any(global_maps))):
       llcrnrlon = dimensions[-1][0,0]
       urcrnrlon = dimensions[-1][-1,-1]
       llcrnrlat = dimensions[-2][0,0]
       urcrnrlat = dimensions[-2][-1,-1]
+      limits = True
   slices = False
   if (len(data.shape) == 3):
     slices = True
@@ -226,9 +434,12 @@ def contour_var(var, filename, options):
     alldata = data.reshape([1]+[ i for i in data.shape])
   if not options.overlay_var is None:
     if options.overlay_file is None:
-      (overlay_data, overlay_attrs, overlay_dimensions, overlay_pcm_dimensions, overlay_labels) = read_var (options.overlay_var, filename, options.overlay_level, options)
+      (overlay_data, overlay_attrs, overlay_dimensions, overlay_pcm_dimensions, overlay_labels) = read_var (options.overlay_var, filename, options.overlay_level, options, OVERLAY_ECHAM)
     else:
-      (overlay_data, overlay_attrs, overlay_dimensions, overlay_pcm_dimensions, overlay_labels) = read_var (options.overlay_var, options.overlay_file, options.overlay_level, options)
+      (overlay_data, overlay_attrs, overlay_dimensions, overlay_pcm_dimensions, overlay_labels) = read_var (options.overlay_var, options.overlay_file, options.overlay_level, options, OVERLAY_ECHAM)
+    if not options.overlay_sub_file is None:
+            overlay_sub_data = read_var (options.overlay_var, options.overlay_sub_file, options.overlay_level, options, OVERLAY_ECHAM)[0]
+            overlay_data = overlay_data - overlay_sub_data
     if (len(overlay_data.shape) == 3):
       overlay_slicecount = len(overlay_data)
       if overlay_slicecount != slicecount:
@@ -240,22 +451,29 @@ def contour_var(var, filename, options):
       overlay_slicecount = 0
     if options.overlay_scale is not None:
       overlay_data = overlay_data * options.overlay_scale
-
-
   for (num, data) in enumerate(alldata):
     if options.scale is not None:
       data = data * options.scale
     if (options.figsize):
       mpl.figure(figsize=options.figsize)
-    if (len(dimensions) >= 4  or options.diss_proj or options.MOLL or options.CYL or options.GL or options.ANT or options.NATL or options.mapit) : # 2d coordinates
+    if (len(dimensions) >= 4  or any(maps)) : # 2d coordinates
       if options.MOLL:
         map = Basemap(resolution=options.resolution, projection='moll',\
                       lon_0=0, area_thresh=10000.)
         print ("MOLL")
-      elif options.CYL:
+      elif options.CYL and not limits:
         map = Basemap(resolution=options.resolution, projection='cyl',\
                       lon_0=0, area_thresh=10000.)
         print ("CYL")
+      elif options.CYL and limits:
+        map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,\
+                      resolution=options.resolution, projection='cyl',\
+                      lon_0=0, area_thresh=10000.)
+        print ("CYL-limit")
+      elif options.HAMMER:
+        map = Basemap(resolution=options.resolution, projection='hammer',\
+                      lon_0=0, area_thresh=10000.)
+        print ("HAMMER")
       elif options.GL:
         map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
                       resolution=options.resolution, projection='stere',\
@@ -279,98 +497,107 @@ def contour_var(var, filename, options):
         print (llcrnrlon, llcrnrlat, urcrnrlon, urcrnrlat)
         map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
                       resolution=options.resolution, projection='stere',\
-                      lat_0=-90, lat_ts=-71,lon_0=180)
+                      lat_0=-90, lat_ts=-71,lon_0=135)
       else:
         print ("USING NSIDC POLAR STEREOGRAPHIC PROJECTION 90 -45 70")
         print (llcrnrlon, llcrnrlat, urcrnrlon, urcrnrlat)
         map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
                       resolution=options.resolution, projection='stere', area_thresh=10000.,\
                       lat_0=90, lat_ts=70,lon_0=-45.)
-      pcm_data=data
-      if (len (dimensions[-1][:].shape) > 1 ):
-        x, y = map(dimensions[-1][:], dimensions[-2][:])
-        pcm_x, pcm_y = map(pcm_dimensions[-1][:], pcm_dimensions[-2][:])
-      else:
-#        if options.EN:
-#           pcm_data, pcm_dimensions[-1] = addcyclic(pcm_data, pcm_dimensions[-1])
-        x, y = map(*np.meshgrid(dimensions[-1][:], dimensions[-2][:]))
-        pcm_x, pcm_y = map(*np.meshgrid(pcm_dimensions[-1][:], pcm_dimensions[-2][:]))
-        # To get reasonably correct ocean levels prepend something like this to the vert var:
-        # z=arange(len(x)+1)
-        # z[1:-1]=.5*(x[1:]+x[:-1])
-        # z[-1]=1.5*x[-1]-.5*x[-2]
-
-
-      pl = map
     else:
-      pl = mpl
-      x = dimensions[-2][:]
-      y = dimensions[-1][:]
-      pcm_x = x # actually needs to be shifted, too!
-      pcm_y = y # actually needs to be shifted, too!
-
+      map=False
+    print ("DATA.SHAPE")
+    print (data.shape)
+    (x_l, y_l, data_l, pcm_x_l, pcm_y_l, pcm_data_l, pl) = sort_dimensions(dimensions, pcm_dimensions, map, maps, global_maps, data, options, options.MG or options.EG )
 
     # DRAW IT
+    cbdrawn = False
     mpl.gca().patch.set_color('.75')
     if options.missvalcolor:
       mpl.gca().patch.set_color(options.missvalcolor)
-    if options.EN:
-      pcm_data = pcm_data [:24]
-      pcm_x = pcm_x[:25]
-      pcm_y = pcm_y[:25]
-    else:
-      pcm_data = data
-    if (( options.coast_first) and( (len(dimensions)  >= 4 or options.MOLL or options.CYL or options.GL or options.ANT or options.NATL or options.diss_proj or options.PISM or options.mapit))) : # 2d coordinates
+    if (( options.coast_first) and( (len(dimensions)  >= 4 or any (maps)))) : # 2d coordinates
       clc='.5'
       if options.whitecoast:
         clc = 'white'
       pl.drawcoastlines(linewidth=0.25, color=clc, zorder=-999)
       if options.rivers:
         pl.drawrivers(linewidth=0.25)
-    if (not levels is None ):
-      print (pcm_x.shape, pcm_y.shape, pcm_data.shape)
-      if (not norm is None):
-        pl.pcolormesh(pcm_x, pcm_y, pcm_data,  norm = norm ,  cmap=cmap )
+    for (x, y, data_i, pcm_x, pcm_y, pcm_data) in zip (x_l, y_l, data_l, pcm_x_l, pcm_y_l, pcm_data_l):
+      if (not levels is None ):
+        print (pcm_x.shape, pcm_y.shape, pcm_data.shape)
+        if (not norm is None):
+          pcol = pl.pcolormesh(pcm_x, pcm_y, pcm_data,  norm = norm ,  cmap=cmap,  rasterized=True)
+          pcol.set_edgecolor("face")
+        else:
+          pcol = pl.pcolormesh(pcm_x, pcm_y, pcm_data,   cmap=cmap, rasterized=True)
+          pcol.set_edgecolor("face")
+        if (not cbdrawn):
+          mpl.colorbar(extend='both')
+          cbdrawn = True
+        if not options.no_outline:
+          pl.contour (x, y, data_i, levels,  colors="0.5", linewidths=.25, linestyles="solid")
       else:
-        pl.pcolormesh(pcm_x, pcm_y, pcm_data,   cmap=cmap)
-      mpl.colorbar()
-      if not options.no_outline:
-        pl.contour (x, y, pcm_data, levels,  colors="0.5", linewidths=.25, linestyles="solid")
-    else:
-      pl.pcolormesh(pcm_x, pcm_y, pcm_data,  cmap=cmap)
-      mpl.colorbar()
-      if not options.no_outline:
-        pl.contour (x, y, data,  colors="0.5", linewidths=.25, linestyles="solid")
+        print ("masking")
+        pl.pcolormesh(pcm_x, pcm_y, pcm_data,  cmap=cmap)
+        if (not cbdrawn):
+          mpl.colorbar(extend='both')
+          cbdrawn = True
+        if not options.no_outline:
+          pl.contour (x, y, data,  colors="0.5", linewidths=.25, linestyles="solid")
     if options.scaled:
       mpl.axis("scaled")
 
-    if ((not options.coast_first) and( (len(dimensions)  >= 4 or options.MOLL or options.CYL or options.GL or options.ANT or options.NATL or options.diss_proj or options.PISM or options.mapit))) : # 2d coordinates
+    if ((not options.coast_first) and( (len(dimensions)  >= 4 or any(maps)))) : # 2d coordinates
       clc='.5'
       if options.whitecoast:
         clc = 'white'
-      pl.drawcoastlines(linewidth=0.25, color=clc)
-    if (( (len(dimensions)  >= 4 or options.MOLL or options.CYL or options.GL or options.ANT or options.NATL or options.diss_proj or options.PISM or options.mapit))) : # 2d coordinates
-      if options.rivers:
-        pl.drawrivers(linewidth=0.25)
-      pl.drawmeridians(np.arange(0,360,options.grid_spacing),linewidth=options.gridwidth, dashes=[10,1e-6],color=(.5,.5,.5))
-      pl.drawparallels(np.arange(-90,90,options.grid_spacing),linewidth=options.gridwidth, dashes=[10,1e-6],color=(.5,.5,.5))
+      pl.drawcoastlines(linewidth=0.5, color=clc)
+
+
 
     # OVERLAY
 
     if not options.overlay_var is None:
       overlay_levels = sort_levels (options.overlay_levels)
-      if (overlay_levels is not None):
-        CS = pl.contour(x, y, overlay_data[min(num, overlay_slicecount)], overlay_levels, colors="k", linewidths=1.5)
-      else:
-        CS = pl.contour(x, y, overlay_data[min(num, overlay_slicecount)], colors="k", linewidths=1.5)
-      for line in CS.collections:
-        if line.get_linestyle() != [(None, None)]:
-          line.set_linestyle([(0, (12.0, 4.0))])
-      if options.overlay_thick is not None:
-        CS = pl.contour(x, y, overlay_data[min(num, overlay_slicecount)], (options.overlay_thick,), colors="k", linewidths=3.)
+      (overlay_x_l, overlay_y_l, overlay_data_l) = sort_dimensions(overlay_dimensions, overlay_pcm_dimensions, map, maps, global_maps, overlay_data[min(num, overlay_slicecount)], options, options.OMG)[0:3]
+
+      for (overlay_x, overlay_y, od) in zip (overlay_x_l, overlay_y_l, overlay_data_l):
+        if (overlay_levels is not None):
+          CS = pl.contour(overlay_x, overlay_y, od , overlay_levels, colors="k", linewidths=options.overlay_linewidths)
+        else:
+          CS = pl.contour(overlay_x, overlay_y, od , colors="k", linewidths=options.overlay_linewidths)
+        if options.overlay_mark_gt:
+          mpl.clabel(CS, fontsize=9, inline=1, use_clabeltext=True, rightside_up = False, fmt='A') # \u25BC for black triangles # u'\u2227'
+        if options.overlay_clabel:
+          mpl.clabel(CS, fontsize=9, inline=1, use_clabeltext=True, rightside_up = True, fmt=options.overlay_clabel_format)
         for line in CS.collections:
           if line.get_linestyle() != [(None, None)]:
-            line.set_linestyle([(0, (12.0, 4.0))])
+            line.set_linestyle([(0, (12.0*options.overlay_linewidths, 4.0*options.overlay_linewidths))])
+        if options.overlay_thick is not None:
+          CS = pl.contour(overlay_x, overlay_y, od, (options.overlay_thick,), colors="k", linewidths=3.)
+          for line in CS.collections:
+            if line.get_linestyle() != [(None, None)]:
+              line.set_linestyle([(0, (12.0*options.overlay_linewidths, 4.0*options.overlay_linewidths))])
+      if options.xticks is not None:
+          pl.xticks(sort_levels(options.xticks))
+      try:
+        ax = mpl.gca()
+        ax.get_yaxis().set_tick_params(direction='out')
+        ax.get_xaxis().set_tick_params(direction='out')
+        mpl.gca().tick_params('both', length=2, width=.5, which='minor')
+        mpl.gca().tick_params('both', length=4, width=.5, which='major')
+      except:
+        pass
+    if not options.overlay_proxies is None:
+      proxy_data = read_proxies(options.overlay_proxies)
+      for dat in proxy_data:
+        lon=dat[:,0]
+        lat=dat[:,1]
+        val=dat[:,2]
+        if map is not None:
+          lon,lat=map(lon,lat)
+        pl.scatter(lon, lat, c=val, cmap=cmap, norm=norm)
+
 
     # MAKE IT NICE
     if "xlim" in options:
@@ -388,12 +615,25 @@ def contour_var(var, filename, options):
       mpl.ylabel(options.ylabel)
     if options.title is None:
       if attrs.get("units", False):
-        mpl.title("%s (%s)"%(attrs.get("long_name", var), attrs.get("units", "")))
+        mpl.title("%s (%s)"%(attrs.get("long_name", var), attrs.get("units", "")), y=1.02)
       else:
         mpl.title("%s"%(attrs.get("long_name", var)))
     else:
-      mpl.title(options.title)
+      mpl.title(options.title, y=1.02)
 
+    if (( (len(dimensions)  >= 4 or any(maps)))) : # 2d coordinates
+      if options.rivers:
+        pl.drawrivers(linewidth=0.25)
+      mm=pl.drawmeridians(np.arange(0,359.99,options.grid_spacing),linewidth=options.gridwidth, dashes=[10,1e-6],color=(.5,.5,.5),  labels=[ options.draw_ticks, 0, 0, options.draw_ticks], fmt='-', xoffset=0, yoffset=0, fontsize=.01)
+      if (options.draw_ticks):
+        fix_meridians(mm)
+      mm=pl.drawmeridians(np.arange(0,359.99,options.grid_spacing),linewidth=options.gridwidth, dashes=[10,1e-6],color=(.5,.5,.5),  labels=[ 0, options.draw_ticks, options.draw_ticks, 0], fmt='-', xoffset=0, yoffset=0, fontsize=.01)
+      if (options.draw_ticks):
+        fix_meridians(mm)
+
+      pp=pl.drawparallels(np.arange(-90,90,options.grid_spacing),linewidth=options.gridwidth, dashes=[10,1e-6],color=(.5,.5,.5), labels=[ options.draw_ticks, options.draw_ticks, options.draw_ticks, options.draw_ticks], fmt='-', xoffset=0, yoffset=0, fontsize=0.01)
+      if (options.draw_ticks):
+        fix_parallels(pp)
     # SAVE TO FILE OR SHOW
     if not slices:
       if not options.outfile is  None:
@@ -401,7 +641,7 @@ def contour_var(var, filename, options):
           mpl.savefig(options.outfile, dpi=200 )
           mpl.close('all')
         else:
-          mpl.savefig(options.outfile)
+          mpl.savefig(options.outfile, dpi=200)
           mpl.close('all')
       else:
         mpl.show()
@@ -462,6 +702,8 @@ def parse_args():
                       help='''Adjust map for Cylindrical plot''', action="store_true")
   parser.add_argument("-G", "--GL",
                       help='''Adjust map for Greenland plot''', action="store_true")
+  parser.add_argument("-H", "--HAMMER",
+                      help='''Adjust map for Hammer plot''', action="store_true")
   parser.add_argument("-N", "--NATL",
                       help='''Adjust map for NATL plot''', action="store_true")
   parser.add_argument("-P", "--PISM",
@@ -481,10 +723,20 @@ def parse_args():
   parser.add_argument("--rotlon",
                       help='''Move lon values from 0..360 to -180..180''', action="store_true")
 
+  parser.add_argument("--MG",
+                      help='''MPIOM Global plot''', action="store_true")
+  parser.add_argument("--OMG",
+                      help='''Overlay MPIOM Global plot''', action="store_true")
   parser.add_argument("--EN",
                       help='''ECHAM NORTHERN HEMISPHERE PLOT''', action="store_true")
   parser.add_argument("--EG",
                       help='''ECHAM Global plot''', action="store_true")
+  parser.add_argument("--overlay_EN",
+                      help='''overlay ECHAM northern hemisphere plot''', action="store_true")
+  parser.add_argument("--overlay_EG",
+                      help='''overlay ECHAM Global plot''', action="store_true")
+  parser.add_argument("--ocedepth",
+                      help='''Estimate ocean depth levels in pcolormesh''', action="store_true")
 
   parser.add_argument("--scale",
                       help='''scale data by''', type=float, default = None)
@@ -497,6 +749,8 @@ def parse_args():
                       help='''set minimum and maximum for contours''', nargs=2, type=float, default = None)
   parser.add_argument("--levels",
                       help='''set levels for plotting. n = n levels, 1,2,3 = draw levels at 1, 2, and 3''')
+  parser.add_argument("--xticks",
+                      help='''set values for x ticks''')
   parser.add_argument("--whitecoast",
                       help='''Draw white coastlines''', action="store_true")
   parser.add_argument("--coast_first",
@@ -509,6 +763,8 @@ def parse_args():
                       help='''Width of gridlines''', type=float , default=0.25)
   parser.add_argument("--grid_spacing",
                       help='''Spacing of gridlines''', type=float , default=10)
+  parser.add_argument("--draw_ticks",
+                      help='''draw ticks for gridlines''', action="store_true")
 
   parser.add_argument("-T", "--title",
                       help='''plot title''', default=None)
@@ -518,6 +774,14 @@ def parse_args():
                       help='''y axis label''', default=None)
   parser.add_argument("-c", "--cmap",
     help='''Name of a colormap''')
+  parser.add_argument( "--truncate_fraction",
+    help='''Fraction of colormap to truncate at each end for values exceeding cbar''', default=.07, type=float)
+  parser.add_argument("--white_center",
+    help='''set the center of the colormap to white''', action="store_true")
+  parser.add_argument("--white_under",
+    help='''set the below range color to white''', action="store_true")
+
+
   parser.add_argument("--font_scale",
                     help='''scale fontsize by factor ''', type=float , default=1.)
 
@@ -527,10 +791,23 @@ def parse_args():
 
   parser.add_argument("--overlay_var", default=None)
   parser.add_argument("--overlay_file", default=None)
+  parser.add_argument("--overlay_sub_file", default=None)
   parser.add_argument("--overlay_levels", default=None,
     help='''set levels for plotting. n = n levels, 1,2,3 = draw levels at 1, 2, and 3''')
+  parser.add_argument("--overlay_linewidths", default=1.5, type=float,
+    help='''Thickness of overlay lines''')
   parser.add_argument("--overlay_thick", default=None, type=float,
     help='''set level for thick line in overlay''')
+  parser.add_argument("--overlay_clabel", action="store_true",
+    help='''add labels to overlay contours''')
+  parser.add_argument("--overlay_clabel_format", default="%f",
+    help='''format for overlay contour labels''')
+  parser.add_argument("--overlay_mark_gt", action="store_true",
+    help='''add > signs to overlay contours to mark directions''')
+  parser.add_argument("--overlay_proxies",
+    help='''overlay proxy data points. Separate files with ':' ''')
+  parser.add_argument("--cutlon",
+    help='''set the point where to cut lon''', type=float)
 
 
   options = parser.parse_args()

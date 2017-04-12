@@ -75,16 +75,20 @@ def plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts = {}):
     cmap=sns.husl_palette(max(len(xvecs),6),s=.6) # sns.color_palette("Set2", 8)
     sns.set_palette(cmap)
     print (len(cmap))
-    namedict ={}
-
+    namedict = {}
+    patterndict = {}
+    dashdict = js_config.get("dashes",{})
 #    colordict={"I01":(cmap[1]), "H87":(cmap[3]), "I02":(cmap[4]), "I09":(cmap[5])}
-    patterndict={}
     mpl.subplots_adjust(bottom=0.2, left=.15)
 
     yscale=plot_opts.get('yscale', 1.)
     xscale=plot_opts.get('xscale', 1.)
     addtox=plot_opts.get('addto_x', 0.)
     plots = [ mpl.plot(xvec * xscale + addtox, yvec * yscale, patterndict.get(lb[:5],'-'),  label=namedict.get(lb,lb), color=get_color(lb,i%len(cmap))) for (xvec,yvec,lb,i) in zip(xvecs,yvecs,labels,np.arange(len(xvecs))) ]
+    dashes = [dashdict.get(x, False) for x in labels]
+    for (p, dash) in zip(plots, dashes):
+        if(dash):
+            p[0].set_dashes(dash)
 #    for nnn,xxx in enumerate(((plots[0]),plots[2], plots[3])):
 #      xxx[0].set_dashes([15,nnn*2+4])
     if (plot_opts.get("ensmean", False)):
@@ -114,6 +118,9 @@ def plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts = {}):
         mpl.xlim( plot_opts["xlim"] )
     if "ylim" in plot_opts.keys():
         mpl.ylim(plot_opts["ylim"])
+    if "tick_interval" in plot_opts.keys():
+        ti=plot_opts["tick_interval"]
+        mpl.xticks=np.arange(ti[0], ti[1],ti[2])
     if "output" in plot_opts.keys():
         mpl.savefig(plot_opts["output"])
     return fig
@@ -302,7 +309,7 @@ def main(argv):
       yvecs=filter(yvecs, plot_opts)
 
   if options.get("white_grid", False):
-    sns.set(style="whitegrid", context="poster")
+    sns.set(style="whitegrid") # , context="poster
   fig = plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts)
   if not options.get("output", False):
     mpl.show()

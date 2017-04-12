@@ -1062,3 +1062,4 @@ inferno_r = cmaps['inferno_r']
 plasma_r = cmaps['plasma_r']
 viridis_r = cmaps['viridis_r']
 rignot = LinearSegmentedColormap.from_list( "rignot", _rignot_data)
+rignot_r = LinearSegmentedColormap.from_list( "rignot_r", _rignot_data[::-1])
