@@ -10,7 +10,7 @@ from math import log
 
 
 def mix_forcing(year, options):
-  data = np.genfromtxt("timeseries")[::-1].transpose()
+  data = np.genfromtxt(options.timeseries)[::-1].transpose()
   # time -- sea level -- isolation -- co2
   # negative value in insol row/col is 115 ka fraction, positive value is 127 ka fraction
   data[1] = 1 + data[1]/130. #
@@ -78,7 +78,9 @@ def mix_forcing(year, options):
   command = command + " -mulc,%.5f %s/mpiom_%s_ncea_cdo_filled_xy.nc "%(pairs[-1][0], options.ebm_data_path, pairs[-1][1])
   command = command + " %s"%options.oce_file_name
   fu.qo ( command )
-  command = "ncatted -a units,time,o,c,'days since 0001-01-01 00:00:00' %s"%options.oce_file_name
+#  command = "ncatted -a units,time,o,c,'days since 0001-01-01 00:00:00' %s"%options.oce_file_name
+#  fu.qo ( command )
+  command = "ncks -A %s/1year.nc %s"%(fu.home, options.oce_file_name)
   fu.qo ( command )
 
 def parse_args():
@@ -90,6 +92,7 @@ def parse_args():
   parser.add_argument("--ebm_data_path", required=True)
   parser.add_argument("--atm_file_name", required=True)
   parser.add_argument("--oce_file_name", required=True)
+  parser.add_argument("--timeseries", required=True, help="Timerseries file to use")
 
   parser.add_argument("-v", "--verbose",
     help='''Be verbose''', action="store_true")

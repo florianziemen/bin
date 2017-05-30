@@ -24,13 +24,14 @@ parser.add_argument("-e", "--echo", help="only print command",
                     action="store_true", default = False)
 
 
-parser.add_argument("-i", "--input",  help="input file", default = None)
+parser.add_argument("-i", "--input",  help="input file", default = None, required = True)
 parser.add_argument("-c", "--config",  help="run_pism config file", default="run_pism.conf")
 parser.add_argument("-a", "--atmosphere_given_file",  help="atmosphere input")
 parser.add_argument("--surface_given_file",  help="smb+tsurf input")
+parser.add_argument("--topg_file",  help="overwrite topg")
 parser.add_argument("--ocean_th_file",  help="ocean forcing input")
 parser.add_argument("--ocean_delta_SL_file",  help="varying sea level input")
-parser.add_argument("-o", "--output", help="output file", default = None)
+parser.add_argument("-o", "--output", help="output file", default = None, required=True)
 parser.add_argument("--ys", help="startyear", default = None)
 parser.add_argument("-b", "--bootstrap", help="bootstrap (instead of restart)" , action="store_true" )
 parser.add_argument("-r", "--regrid_file", help="regrid file (if desired)" , default = None )
@@ -76,33 +77,24 @@ for x in args_dict.keys():
 # fu.debug_cerr([(x,config[x]) for x in  config.keys()])
 
 errors = 0
-required = ( "output",)
-for x in required:
-    if not x in config.keys():
-        print ("run_pism:ERROR: option " + x + " missing! GOING TO EXIT")
-        errors = errors + 1
 
 if not "years" in config.keys() and not "time_file" in config.keys():
         print ("run_pism:ERROR: Don't know for how long to run. Need -y or --time_file! GOING TO EXIT")
         errors = errors + 1
 
 
-if ( not args.input):
-    print ("run_pism: ERROR: need some input --input or -i ! GOING TO EXIT!")
-    errors = errors + 1
 
 if args.input:
     pism_args.append(" -i " + args.input)
 
 if args.output[-3:] == ".nc":
     output_start = args.output[:-3]
-    fu.mkdir(output_start)
-    output_start="%s/%s"%(output_start,output_start)
-
-elif not '/' in args.output:
-    output_start = args.output
-    output_start="%s/%s"%(output_start,output_start)
-    fu.mkdir(output_start)
+    dn = os.path.dirname(output_start)
+    if dn:
+        fu.mkdir(dn)
+    else:
+        fu.mkdir(output_start)
+        output_start="%s/%s"%(output_start,output_start)
 else:
     print ("run_pism: ERROR: need netcdf output file name ending on '.nc' ! GOING TO EXIT!")
     errors = errors + 1
@@ -213,7 +205,9 @@ if "ocean_delta_SL_file" in config.keys():
 if ocean:
     pism_args.append(" -ocean %s "%ocean)
 
-
+if "topg_file" in config.keys():
+    pism_args.append("-topg_file")
+    pism_args.append(config["topg_file"])
 
 
 

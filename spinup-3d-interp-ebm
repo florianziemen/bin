@@ -48,6 +48,7 @@ def advance_in_time(options):
     # echo OUTPUT file ${outfile}
   if not fu.check_files([oce_file_name], fatal=False):
     fu.cerr("Linking oce  fields")
+    fu.check_files([oce_infile_name], fatal=True)
     os.symlink(oce_infile_name, oce_file_name)
 
 
@@ -67,10 +68,13 @@ def advance_in_time(options):
   # save config
   json.dump(state, open(options["state"], "w"), sort_keys=True, indent=2)
 
-  # run pism
-  fu.cerr("calling run_pism with options \n")
-  fu.cerr(rpo)
-  fu.qo(["run_pism"] + rpo )
+  if not options.get("skip_pism", False):
+    # run pism
+    fu.cerr("calling run_pism with options \n")
+    fu.cerr(rpo)
+    fu.qo(["run_pism"] + rpo )
+  else:
+    fu.cerr("skipping pism on user request")
 
 
   if options["vilma"]:
@@ -90,7 +94,7 @@ def advance_in_time(options):
 def pism2vilma(pin,pout):
   vilma_file  = fu.qo(["pism2vilma", pout]).rstrip()
   vilma_old=pin[:-3] + "_thk_for_vilma.nc"
-  fu.qo(["ncrcat",  "-O", "vilma_inp/ice5g_123ka.nc", vilma_old, vilma_file, "vilma_inp/pism4vilma.nc"])
+  fu.qo(["ncrcat",  "-O", "-v", "Ice",  "vilma_inp/ice6g_122ka.nc", vilma_old, vilma_file, "vilma_inp/pism4vilma.nc"])
 
 
 def adapt_vilma_input(state):
@@ -98,10 +102,10 @@ def adapt_vilma_input(state):
   old_text=open("vilma_inp/pism4vilma.inp","r").readlines()
   new_text=[old_text[0]]
   new_text.append("3\n")
-  new_text.append("-123\n")
+  new_text.append("-122\n")
   new_text.append("%.3f\n"%(state["last_year"]/1000.-.025))
   new_text.append("%.3f\n"%(state["target_year"]/1000.+.025))
-  open ("vilma_inp/pism4vilma.inp", "w").writelines(old_text)
+  open ("vilma_inp/pism4vilma.inp", "w").writelines(new_text)
   # when do we need output?
 #  old_text=open("vilma_inp/wepochs.inp","r").readlines()
 #  old_text.append("%s\n"%(state["target_year"]/1000.))
@@ -125,7 +129,7 @@ def run_vilma(state, pout):
     fu.cerr ("vilma_out/rsl.nc is older than vilma_inp/pism4vilma.nc")
     fu.cerr ("looks like vilma did not do it's homework")
     fu.cerr ("ERROR EXIT")
-    fu.cerr (667)
+    exit (667)
   fu.qo(["vilma2pism", "vilma_out/rsl.nc", "rsl_present.nc", pout[:-3]+"_new_topg.nc", pout])
 
 def parse_args():
@@ -140,6 +144,8 @@ def parse_args():
                     help='''Be verbose''', action="store_true")
   parser.add_argument("-V", "--vilma",
                     help='''prepare for VILMA''', action="store_true")
+  parser.add_argument("--skip_pism",
+                    help='''skip pism''', action="store_true")
 
   options = parser.parse_args()
   options_dict = vars(options)
