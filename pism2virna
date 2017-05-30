@@ -4,21 +4,37 @@ echo WARNING: MIGHT BE BUGGY, JUST FOR DEVELOPMENT / TESTING
 
 set -evx
 
-datadir=/work/ba0989/work_bm0948/common/INPUT/RTOPO
-topo_file=RTopo-2.0.1_30sec_surface_elevation_10minbil.nc
-min_ocean=50
+#ICE COVERED PARTS OF ANTARCTICA FIXED TO PRESENT DAY
+thk_sh=/work/ba0989/work_bm0948/common/INPUT/RTOPO/thk_SH_10minbil.nc
+bedrock_ant=" -setname,topg -selvar,bedrock_topography /work/ba0989/work_bm0948/common/INPUT/RTOPO/RTopo-2.0.1_30sec_bedrock_topography_10minbil.nc"
+
+datadir=/work/ba0989/work_bm0948/common/INPUT/RTOPO/
+topo_file=RTopo-2.0.1_30sec_surface_elevation_10minbil.nc # evtl. austauschen!
+
+
+min_ocean=0
 df=1.1296703296703297  # 1028/910, the constants in PISM
-for num in $@  ; do 
+for num in $@  ; do
+    #Files
+    bedrock_vilma="../vilma/pv_${num}.nc"
+    ttg=ttg_${num}.nc # Pism values on global grid
 
-    cdo -remap,../vilma/pv_${num}.nc,factors.nc -selvar,thk,topg,usurf ../pism/pv_${num}.nc ttg_${num}.nc
+    # PISM values on global grid
+    cdo -remap,${bedrock_vilma},factors.nc -selvar,thk,topg,usurf,mask ../pism/pv_${num}.nc $ttg 
 
-    usf_nh="-ifthen -gec,-${min_ocean} -add -selvar,thk ttg_${num}.nc -selvar,topg ttg_${num}.nc -selvar,usurf ttg_${num}.nc" # Ein Feld usurf, wenn thk+topg > -min_ocean 
-    ice_nh=" -setmisstoc,0 -ifthen -gtc,10 -selvar,thk ttg_${num}.nc ${usf_nh} " # thk+topg mit thk maskiert
+    # surface elevation of grounded ice NH
+    usf_nh="-setmisstoc,0  -ifthen -eqc,2 -selvar,mask $ttg -selvar,usurf $ttg" 
 
+    # surface elevation of grounded ice NH (old method)
+    #    usf_nh="-ifthen -gec,-${min_ocean} -add -divc,${df} -selvar,thk ttg_${num}.nc -selvar,topg ttg_${num}.nc -selvar,usurf ttg_${num}.nc" # Ein Feld usurf, wenn thk+topg > -min_ocean
 
-    usf_sh="-ifthen -gec,-${min_ocean} -add -divc,df -selvar,thk ${datadir}/thk_SH_10minbil.nc -selvar,topg ../vilma/pv_${num}.nc -selvar,surface_elevation ${datadir}/${topo_file}" # s.o.
-    ice_sh="-setmisstoc,0 -ifthen -gtc,10 -selvar,thk ${datadir}/thk_SH_10minbil.nc  ${usf_sh} " # s.o.
-    cdo -setname,topg -ifthenelse -add ${ice_sh}  ${ice_nh} -add ${ice_sh} ${ice_nh} -selvar,topg ../vilma/pv_${num}.nc usf_${num}.nc 
+    # surface elevation of grounded ice SH
+    usf_sh=" -setmisstoc,0 -ifthen -gtc,10 -selvar,thk ${thk_sh} -ifthen -gec,-${min_ocean} -add -divc,${df} -selvar,thk ${thk_sh} ${bedrock_ant} -selvar,surface_elevation ${datadir}/${topo_file}" # s.o.
+
+    cdo ${usf_sh} usf_sh.nc
+    cdo ${usf_nh} usf_nh.nc
+    # new surface elevation
+    cdo -setname,topg -ifthenelse -add ${usf_sh}  ${usf_nh} -add ${usf_sh} ${usf_nh}  -selvar,topg  ${bedrock_vilma} usf_${num}.nc 
     
     rm ttg_${num}.nc
 done
