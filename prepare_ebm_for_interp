@@ -1,21 +1,21 @@
 #!/bin/bash
-#SBATCH --job-name=interp      # Specify job name
+#SBATCH --job-name=interp_ebm      # Specify job name
 #SBATCH --partition=shared     # Specify partition name
 #SBATCH --ntasks=1             # Specify max. number of tasks to be invoked
 #SBATCH --time=5:00:00         # Set a limit on the total run time
 #SBATCH --mail-type=FAIL       # Notify user by email in case of job failure
-#SBATCH --account=bm0948       # Charge resources on this project account
+#SBATCH --account=ba0989       # Charge resources on this project account
 #SBATCH --output=ebm.eo%j    # File name for standard output
 #SBATCH --error=ebm.eo%j     # File name for standard error output
 
 set -evx
 #Interpolation on ice sheet grid for different experiments
-exp=${expid:-EXPERIMENT_ID} #pmu0032_zonmean
+# needs NOTHING
+
 startyear=${startyear:-1000}
 endyear=${endyear:-1049}
 pow=2
-datpath=${datpath:-/work/bm0948/m300467/ebm}
-path=${ebm_scriptdir:-$datpath/ebm_lev_${exp}/script}
+path=${path:-$(pwd)/script}
 workpath=${workpath:-$(pwd)}
 workpath=$(readlink -m "$workpath")
 path=$(readlink -m "$path")

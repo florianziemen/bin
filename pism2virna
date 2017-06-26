@@ -1,0 +1,23 @@
+#!/bin/bash
+
+echo WARNING: MIGHT BE BUGGY, JUST FOR DEVELOPMENT / TESTING
+
+set -evx
+
+datadir=/work/ba0989/work_bm0948/common/INPUT/RTOPO
+topo_file=RTopo-2.0.1_30sec_surface_elevation_10minbil.nc
+min_ocean=50
+for num in $@  ; do 
+
+    cdo -remap,../vilma/pv_${num}.nc,factors.nc -selvar,thk,topg,usurf ../pism/pv_${num}.nc ttg_${num}.nc
+
+    usf_nh="-ifthen -gec,-${min_ocean} -add -selvar,thk ttg_${num}.nc -selvar,topg ttg_${num}.nc -selvar,usurf ttg_${num}.nc" # Ein Feld usurf, wenn thk+topg > -min_ocean 
+    ice_nh=" -setmisstoc,0 -ifthen -gtc,10 -selvar,thk ttg_${num}.nc ${usf_nh} " # thk+topg mit thk maskiert
+
+
+    usf_sh="-ifthen -gec,-${min_ocean} -add -selvar,thk ${datadir}/thk_SH_10minbil.nc -selvar,topg ../vilma/pv_${num}.nc -selvar,surface_elevation ${datadir}/${topo_file}" # s.o.
+    ice_sh="-setmisstoc,0 -ifthen -gtc,10 -selvar,thk ${datadir}/thk_SH_10minbil.nc  ${usf_sh} " # s.o.
+    cdo -setname,topg -ifthenelse -add ${ice_sh}  ${ice_nh} -add ${ice_sh} ${ice_nh} -selvar,topg ../vilma/pv_${num}.nc usf_${num}.nc 
+    
+    rm ttg_${num}.nc
+done
