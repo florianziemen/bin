@@ -59,7 +59,7 @@ def fh(field, dimension=1):
         field[0] = field[-2]
     return field
 
-  
+
 def read_proxies(filenames):
     data=[]
     for filename in filenames.split(":"):
@@ -89,8 +89,8 @@ def fix_attrs(vars,labels):
   return labels
 
 def read_var(var, filename, level, options, ECHAM):
-  maps= (options.MOLL, options.CYL, options.HAMMER, options.GL, options.ANT, options.NATL, options.diss_proj, options.PISM, options.mapit)
-  global_maps = (options.MOLL, options.CYL, options.HAMMER)
+  maps= (options.MOLL, options.CYL, options.HAMMER, options.KAV7, options.GL, options.ANT, options.NATL, options.diss_proj, options.PISM, options.mapit)
+  global_maps = (options.MOLL, options.CYL, options.HAMMER, options.KAV7)
 
   print ("reading %s from %s"%(var, filename), file=sys.stderr)
   try:
@@ -156,10 +156,11 @@ def read_var(var, filename, level, options, ECHAM):
     if (any(global_maps) and len(dimensions[-1].shape) < 2):
       print ("CONSIDERING LON AS 1d")
       lon = dimensions[-1][:]
-      (data, lon) = shiftgrid(180,data,lon)
-#      (data, lon) = addcyclic(data, lon)
-      lon=lon-360
-      dimensions[-1] = lon
+      if max(lon) > 180:
+        (data, lon) = shiftgrid(180,data,lon)
+        #      (data, lon) = addcyclic(data, lon)
+        lon=lon-360
+        dimensions[-1] = lon
     pcm_dimensions = dimensions[:]
     if (ECHAM):
       lat = pcm_dimensions[-2]
@@ -262,7 +263,7 @@ def sort_dimensions(dimensions, pcm_dimensions, map, maps, global_maps, data, op
           d1 = np.ma.copy(data)
           d2 = np.ma.copy(data)
           d3 = np.ma.copy(data)
-          
+
           d1[:-1,:-1] = np.ma.masked_where(data.mask[:-1,:-1]+ (abs(dim1[1:,1:]-dim1[:-1,:-1])>180) + (abs(dim1[1:,:-1]-dim1[:-1,:-1])>180) + (abs(dim1[:-1,1:]-dim1[:-1,:-1])>180) , data[:-1,:-1])
           d2[:-1,:-1] = np.ma.masked_where(data.mask[:-1,:-1]+ (abs(x2[1:,1:]-x2[:-1,:-1])>180) + (abs(x2[1:,:-1]-x2[:-1,:-1])>180) + (abs(x2[:-1,1:]-x2[:-1,:-1])>180) , data[:-1,:-1])
           d3[:-1,:-1] = np.ma.masked_where(data.mask[:-1,:-1]+ (abs(x3[1:,1:]-x3[:-1,:-1])>180) + (abs(x3[1:,:-1]-x3[:-1,:-1])>180) + (abs(x3[:-1,1:]-x3[:-1,:-1])>180) , data[:-1,:-1])
@@ -371,8 +372,8 @@ def white_center(cmap):
   return cmap
 
 def contour_var(var, filename, options):
-  maps= (options.MOLL, options.CYL, options.HAMMER, options.GL, options.ANT, options.NATL, options.diss_proj, options.PISM, options.mapit)
-  global_maps = (options.MOLL, options.CYL, options.HAMMER)
+  maps= (options.MOLL, options.CYL, options.HAMMER, options.KAV7, options.GL, options.ANT, options.NATL, options.diss_proj, options.PISM, options.mapit)
+  global_maps = (options.MOLL, options.CYL, options.HAMMER, options.KAV7)
   ECHAM = (options.EN or options.EG)
   OVERLAY_ECHAM = (options.overlay_EN or options.overlay_EG)
   # Get the data
@@ -391,7 +392,14 @@ def contour_var(var, filename, options):
       cmap = sns.cubehelix_palette(as_cmap=True, start=.5)
   except:
     print ("Trouble using colormap %s."%(options.cmap), file=sys.stderr)
-  cmap=truncate_colormap(cmap,options.truncate_fraction,1-options.truncate_fraction)
+  tu = options.truncate_fraction
+  ta = 1.-options.truncate_fraction
+  if options.truncate_under is not None:
+    tu= options.truncate_under
+  if options.truncate_above is not None:
+      ta = options.truncate_above
+  cmap=truncate_colormap(cmap,tu,ta)
+
   if options.white_center:
     cmap=white_center(cmap)
   if options.white_under:
@@ -474,6 +482,10 @@ def contour_var(var, filename, options):
         map = Basemap(resolution=options.resolution, projection='hammer',\
                       lon_0=0, area_thresh=10000.)
         print ("HAMMER")
+      elif options.KAV7:
+        map = Basemap(resolution=options.resolution, projection='kav7',\
+                      lon_0=0, area_thresh=10000.)
+        print ("Kavrayskiy VII")
       elif options.GL:
         map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
                       resolution=options.resolution, projection='stere',\
@@ -704,6 +716,8 @@ def parse_args():
                       help='''Adjust map for Greenland plot''', action="store_true")
   parser.add_argument("-H", "--HAMMER",
                       help='''Adjust map for Hammer plot''', action="store_true")
+  parser.add_argument("-K", "--KAV7",
+                      help='''Adjust map for Kavrayskiy VII plot''', action="store_true")
   parser.add_argument("-N", "--NATL",
                       help='''Adjust map for NATL plot''', action="store_true")
   parser.add_argument("-P", "--PISM",
@@ -776,6 +790,10 @@ def parse_args():
     help='''Name of a colormap''')
   parser.add_argument( "--truncate_fraction",
     help='''Fraction of colormap to truncate at each end for values exceeding cbar''', default=.07, type=float)
+  parser.add_argument( "--truncate_under",
+    help='''Fraction of colormap to truncate at bottom end for values exceeding cbar''', type=float)
+  parser.add_argument( "--truncate_above",
+    help='''Fraction of colormap to truncate at top end for values exceeding cbar''', type=float)
   parser.add_argument("--white_center",
     help='''set the center of the colormap to white''', action="store_true")
   parser.add_argument("--white_under",
