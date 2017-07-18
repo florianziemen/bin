@@ -6,9 +6,22 @@ import numpy as np
 import re
 import sys
 import os
+
+cdo="/sw/rhel6-x64/cdo/cdo-1.8.0-gcc48/bin/cdo"
 # import flo_utils as fu
 
 debug = False
+
+def co (args):
+    try:
+        sp.check_output(args)
+    except sp.CalledProcessError as ERR:
+        print ("TRIED")
+        print (" ".join(args))
+        print ("GOT")
+        print (ERR.output.decode('ascii'))
+        sys.exit(ERR.returncode)
+
 def rm_if_exist(files):
     if type (files) is str:
         files = [files]
@@ -47,6 +60,11 @@ def average_esm(options):
                   "RUNXXXX/outdata/mpiom/RUNXXXX_mpiom_timeser_mm_YYYY0101_YYYY1231.nc" ]
   mpiom_ym =  [ "RUNXXXX/outdata/mpiom/RUNXXXX_mpiom_monitoring_ym_YYYY0101_YYYY1231.nc" ]
 
+  if options.hd:
+      hd_mm =  [ "RUNXXXX/outdata/jsbach/RUNXXXX_hd_higres_mon_YYYY0101_YYYY1231.nc" ]
+  else:
+      hd_mm = []
+
   if options.hamocc:
       hamocc_mm =   [ "RUNXXXX/outdata/hamocc/RUNXXXX_hamocc_data_2d_mm_YYYY0101_YYYY1231.nc",
                       "RUNXXXX/outdata/hamocc/RUNXXXX_hamocc_data_eu_mm_YYYY0101_YYYY1231.nc" ]
@@ -60,17 +78,19 @@ def average_esm(options):
   oce_patterns_mm = mpiom_mm + hamocc_mm 
   oce_patterns_ym = mpiom_ym + hamocc_ym 
 
-  patterns_mm = echam_mm + jsbach_mm + oce_patterns_mm
+  patterns_mm = hd_mm + echam_mm + jsbach_mm + oce_patterns_mm 
   
   # "hamocc/RUNXXXX_hamocc_co2_YYYY0101_YYYY1231.nc"
   for pat in patterns_mm + oce_patterns_ym:
     template = re.sub("RUNXXXX", run, pat)
     infiles = [ re.sub("YYYY", str(year), template) for year in years ]
-    if pat in  oce_patterns_mm + oce_patterns_ym:
+    if pat in  oce_patterns_mm + oce_patterns_ym + hd_mm:
             infiles = [ re.sub("YYYY0101_YYYY", "%s0101_%s"%(str(year), str( year+options.ocestep-1 )), template) for year in oceyears ]
     catfile = re.sub("YYYY0101_YYYY123[01]", "%d-%d"%(options.startyear,options.endyear), template)
     catfile = re.sub("YYYY", "%d-%d"%(options.startyear,options.endyear), catfile)
     catfile = re.sub("outdata/.*/", "means/", catfile)
+    if pat in hd_mm:
+        catfile = re.sub("_mon_", "_mm_", catfile) # Uwe does not stick to the rules
     catfile = options.prepend +"/"  + catfile
     lmean = re.sub("_mm_", "_lm_", catfile)
     lmean = re.sub(".grb", ".nc", lmean)
@@ -91,21 +111,21 @@ def average_esm(options):
                 "ch_yasso_mm_YYYY.grb" : "jsbach_yasso.codes"}
     rm_if_exist([catfile,smean,lmean,tmean, smean])
     mkdir(os.path.dirname(catfile))
-    sp.check_call([ "cdo", "--silent", "-cat" ] +  infiles + [catfile])
+    co([ cdo, "--silent", "-cat" ] +  infiles + [catfile])
     
     
     print ("Going to create ", tmean, file=sys.stderr)
     if (pat in patterns_mm ) :
       if pat in echam_mm + jsbach_mm:
         codefile = "%s/log/%s_%s"%(run, run,code_files[pat[-20:]])
-        sp.check_call([ "cdo", "--silent", "-f", "nc", "-setpartab,"+codefile, "-lmean", catfile, lmean])
+        co([ cdo, "--silent", "-f", "nc", "-setpartab,"+codefile, "-lmean", catfile, lmean])
       else:
-        sp.check_call([ "cdo", "--silent",  "-lmean", catfile, lmean])
+        co([ cdo, "--silent",  "-lmean", catfile, lmean])
       if ("_lm_" in lmean):
-        sp.check_call([ "cdo", "--silent", "-mergetime"] + seasons + [smean])
-        sp.check_call([ "cdo", "--silent", "-timmean", lmean, tmean])
+        co([ cdo, "--silent", "-mergetime"] + seasons + [smean])
+        co([ cdo, "--silent", "-timmean", lmean, tmean])
     else:
-      sp.check_call([ "cdo", "--silent", "-timmean", catfile, tmean])
+      co([ cdo, "--silent", "-timmean", catfile, tmean])
     rm_if_exist(catfile)
   
   
@@ -124,6 +144,8 @@ def parse_args():
                       help='''Step taken by ocean model in years''', type= int, default = 1)
   parser.add_argument("--no_hamocc", 
                       help='''Do not expect hamocc files''', dest = "hamocc", action="store_false")
+  parser.add_argument("--hd", 
+                      help='''Include HD files''', dest = "hd", action="store_true")
   parser.set_defaults(hamocc=True)
                         
 
