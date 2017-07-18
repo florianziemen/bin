@@ -397,7 +397,7 @@ def contour_var(var, filename, options):
     if (options.cmap):
       cmap=mpl.get_cmap(options.cmap)
     else:
-      cmap = viridis # sns.cubehelix_palette(as_cmap=True, start=.5)
+      cmap = mpl.get_cmap("viridis") # sns.cubehelix_palette(as_cmap=True, start=.5)
   except:
     print ("Trouble using colormap %s."%(options.cmap), file=sys.stderr)
   tu = options.truncate_fraction
