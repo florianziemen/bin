@@ -468,27 +468,27 @@ def contour_var(var, filename, options):
     if (len(dimensions) >= 4  or any(maps)) : # 2d coordinates
       if options.MOLL:
         map_proj = Basemap(resolution=options.resolution, projection='moll',\
-                      lon_0=0, area_thresh=10000.)
+                      lon_0=options.lon_0, area_thresh=10000.)
         print ("MOLL")
       elif options.CYL and not limits:
         map_proj = Basemap(resolution=options.resolution, projection='cyl',\
-                      lon_0=0, area_thresh=10000.)
+                      lon_0=options.lon_0, area_thresh=10000.)
         print ("CYL")
       elif options.CYL and limits:
         map_proj = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,\
                       resolution=options.resolution, projection='cyl',\
-                      lon_0=0, area_thresh=10000.)
+                      lon_0=options.lon_0, area_thresh=10000.)
         print ("CYL-limit")
       elif options.HAMMER:
         map_proj = Basemap(resolution=options.resolution, projection='hammer',\
-                      lon_0=0, area_thresh=10000.)
+                      lon_0=options.lon_0, area_thresh=10000.)
         print ("HAMMER")
       elif options.LAMBERT:
         map_proj = Basemap(width=17200000,height=17200000, resolution=options.resolution, projection='laea', lat_ts=0,lat_0=0,lon_0=-30.)
         print ("Lambert Azimuthal")
       elif options.KAV7:
         map_proj = Basemap(resolution=options.resolution, projection='kav7',\
-                      lon_0=0, area_thresh=10000.)
+                      lon_0=options.lon_0, area_thresh=10000.)
         print ("Kavrayskiy VII")
       elif options.GL:
         map_proj = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
@@ -716,6 +716,8 @@ def parse_args():
     help='''lat lon of lower left corner NEEDS --ur''', nargs=2, type=float)
   parser.add_argument("--ur",
     help='''lat lon of upper right corner NEEDS --ll''', nargs=2, type=float)
+  parser.add_argument("--lon_0",
+    help='''center lon for various maps''', default=0, type=float)
   parser.add_argument("-M", "--MOLL",
                       help='''Adjust map for Mollweide plot''', action="store_true")
   parser.add_argument("-C", "--CYL",
