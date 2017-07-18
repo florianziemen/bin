@@ -44,4 +44,4 @@ done
 
 # get all last timesteps (final SMBs of all years)
 cdo -s -f ext -b 64L mergetime $workpath/H1???? $workpath/Output_Zall.ext
-rm $workpath/H1???? $workpath/Output_Z????.ext $workpath/YEAR????.nc
+#rm $workpath/H1???? $workpath/Output_Z????.ext $workpath/YEAR????.nc
