@@ -389,7 +389,7 @@ def contour_var(var, filename, options):
     if (options.cmap):
       cmap=mpl.get_cmap(options.cmap)
     else:
-      cmap = sns.cubehelix_palette(as_cmap=True, start=.5)
+      cmap = viridis # sns.cubehelix_palette(as_cmap=True, start=.5)
   except:
     print ("Trouble using colormap %s."%(options.cmap), file=sys.stderr)
   tu = options.truncate_fraction
@@ -845,7 +845,8 @@ def parse_args():
 def main():
   '''Analyze the run. Call all that's needed.'''
   options = parse_args()
-  sns.set(style=sns.axes_style(), font_scale=options.font_scale)
+  if seaborn:
+    sns.set(style=sns.axes_style(), font_scale=options.font_scale)
   contour_var(options.var, options.filename, options)
 
 if __name__ == "__main__":
