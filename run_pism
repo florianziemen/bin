@@ -292,4 +292,8 @@ if not os.access(output_start+".nc", os.R_OK):
 if os.path.getctime(output_start+".nc") < os.path.getctime(config_file_name):
     fu.cerr("RUN_PISM: Output file %s is older than config file %s. Something went wrong!\n"%(output_start+".nc", config_file_name))
     sys.exit(1)
-# spc.communicate()
+
+if "years" in config.keys():
+    fu.qo(("ncap2", "-Ovs", "liquid_flux=(climatic_mass_balance_cumulative+grounded_basal_flux_cumulative+nonneg_flux_cumulative)/%s;solid_flux=(floating_basal_flux_cumulative+discharge_flux_cumulative)/%s"%(config["years"],config["years"]), output_start+".nc", output_start+"_fluxes.nc"))
+    fu.qo(("ncatted", "-a", "units,liquid_flux,o,c,kg m-2 yr-1", "-a", "units,solid_flux,o,c,kg m-2 yr-1", output_start+"_fluxes.nc"))
+    # spc.communicate()
