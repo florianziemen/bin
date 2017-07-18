@@ -579,10 +579,10 @@ def contour_var(var, filename, options):
       mpl.axis("scaled")
 
     if ((not options.coast_first) and( (len(dimensions)  >= 4 or any(maps)))) : # 2d coordinates
-      clc='.2'
+      clc='.5'
       if options.whitecoast:
         clc = 'white'
-      pl.drawcoastlines(linewidth=1, color=clc)
+      pl.drawcoastlines(linewidth=.5, color=clc)
 
 
 
