@@ -74,6 +74,8 @@ def query (question, stdin_string=False, env={}):
 
 
     debug_cerr("FU: trying " + " ".join(question))
+    debug_cerr("FU: env is ")
+    debug_cerr(env)
   if env:
     a = sp.Popen(question, stdin = sp.PIPE, stdout = sp.PIPE, stderr = sp.PIPE, env=env)
   else:
@@ -89,9 +91,11 @@ def query (question, stdin_string=False, env={}):
     cerr( "FU: attempting " + str(question) + " in  " + os.getcwd())
     cerr( "FU: returned " + str( a.returncode) )
     cerr( "FU: program stdout:")
-    cerr( so)
+    for o in so.decode('UTF-8').split("\n"):
+      cerr( o)
     cerr( "FU: program stderr:")
-    cerr( se)
+    for e in se.decode('UTF-8').split("\n"):
+      cerr( e)
     exit (a.returncode)
   return (so,se)
 
