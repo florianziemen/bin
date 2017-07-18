@@ -59,7 +59,7 @@ def fh(field, dimension=1):
         field[0] = field[-2]
     return field
 
-  
+
 def read_proxies(filenames):
     data=[]
     for filename in filenames.split(":"):
@@ -89,8 +89,8 @@ def fix_attrs(vars,labels):
   return labels
 
 def read_var(var, filename, level, options, ECHAM):
-  maps= (options.MOLL, options.CYL, options.HAMMER, options.GL, options.ANT, options.NATL, options.diss_proj, options.PISM, options.mapit)
-  global_maps = (options.MOLL, options.CYL, options.HAMMER)
+  maps= (options.MOLL, options.CYL, options.HAMMER, options.LAMBERT, options.KAV7, options.GL, options.ANT, options.NATL, options.diss_proj, options.PISM, options.mapit)
+  global_maps = (options.MOLL, options.CYL, options.HAMMER, options.LAMBERT, options.KAV7)
 
   print ("reading %s from %s"%(var, filename), file=sys.stderr)
   try:
@@ -156,10 +156,11 @@ def read_var(var, filename, level, options, ECHAM):
     if (any(global_maps) and len(dimensions[-1].shape) < 2):
       print ("CONSIDERING LON AS 1d")
       lon = dimensions[-1][:]
-      (data, lon) = shiftgrid(180,data,lon)
-#      (data, lon) = addcyclic(data, lon)
-      lon=lon-360
-      dimensions[-1] = lon
+      if max(lon) > 180:
+        (data, lon) = shiftgrid(180,data,lon)
+        #      (data, lon) = addcyclic(data, lon)
+        lon=lon-360
+        dimensions[-1] = lon
     pcm_dimensions = dimensions[:]
     if (ECHAM):
       lat = pcm_dimensions[-2]
@@ -220,7 +221,7 @@ def read_var(var, filename, level, options, ECHAM):
 
   return (data, attrs, dimensions, pcm_dimensions, labels)
 
-def sort_dimensions(dimensions, pcm_dimensions, map, maps, global_maps, data, options, allthree):
+def sort_dimensions(dimensions, pcm_dimensions, map_proj, maps, global_maps, data, options, allthree):
     if (len(dimensions) >= 4  or any(maps)) : # 2d coordinates
       pcm_data = data
       if (len (dimensions[-1][:].shape) > 1 ):
@@ -235,8 +236,8 @@ def sort_dimensions(dimensions, pcm_dimensions, map, maps, global_maps, data, op
           pcdim1 = fh(pcdim1)
           pcdim2 = fh(pcdim2)
           pcm_data = fh(pcm_data)
-        x, y = map(dim1, dim2)
-        pcm_x, pcm_y = map(pcdim1, pcdim2)
+        x, y = map_proj(dim1, dim2)
+        pcm_x, pcm_y = map_proj(pcdim1, pcdim2)
         if (allthree):
           print (type(pcdim1))
 
@@ -245,8 +246,8 @@ def sort_dimensions(dimensions, pcm_dimensions, map, maps, global_maps, data, op
           px3 = np.copy(pcdim1)
           px2[px2<90]=px2[px2<90]+360
           px3[px3>-90]=px3[px3>-90]-360
-          pcm_x2, pcm_y2 =  map(px2, pcdim2)
-          pcm_x3, pcm_y3 =  map(px3, pcdim2)
+          pcm_x2, pcm_y2 =  map_proj(px2, pcdim2)
+          pcm_x3, pcm_y3 =  map_proj(px3, pcdim2)
           pcd1 = np.ma.masked_where(pcm_data.mask+ (abs(px1[1:,1:]-px1[:-1,:-1])>180) + (abs(px1[1:,:-1]-px1[:-1,:-1])>180) + (abs(px1[:-1,1:]-px1[:-1,:-1])>180) , pcm_data)
           pcd2 = np.ma.masked_where(pcm_data.mask+ (abs(px2[1:,1:]-px2[:-1,:-1])>180) + (abs(px2[1:,:-1]-px2[:-1,:-1])>180) + (abs(px2[:-1,1:]-px2[:-1,:-1])>180) , pcm_data)
           pcd3 = np.ma.masked_where(pcm_data.mask+ (abs(px3[1:,1:]-px3[:-1,:-1])>180) + (abs(px3[1:,:-1]-px3[:-1,:-1])>180) + (abs(px3[:-1,1:]-px3[:-1,:-1])>180) , pcm_data)
@@ -256,33 +257,33 @@ def sort_dimensions(dimensions, pcm_dimensions, map, maps, global_maps, data, op
           x3 = np.copy(dim1)
           x2[x2<90]=x2[x2<90]+360
           x3[x3>-90]=x3[x3>-90]-360
-          x2, y2 =  map(x2, dim2)
-          x3, y3 =  map(x3, dim2)
+          x2, y2 =  map_proj(x2, dim2)
+          x3, y3 =  map_proj(x3, dim2)
 
           d1 = np.ma.copy(data)
           d2 = np.ma.copy(data)
           d3 = np.ma.copy(data)
-          
+
           d1[:-1,:-1] = np.ma.masked_where(data.mask[:-1,:-1]+ (abs(dim1[1:,1:]-dim1[:-1,:-1])>180) + (abs(dim1[1:,:-1]-dim1[:-1,:-1])>180) + (abs(dim1[:-1,1:]-dim1[:-1,:-1])>180) , data[:-1,:-1])
           d2[:-1,:-1] = np.ma.masked_where(data.mask[:-1,:-1]+ (abs(x2[1:,1:]-x2[:-1,:-1])>180) + (abs(x2[1:,:-1]-x2[:-1,:-1])>180) + (abs(x2[:-1,1:]-x2[:-1,:-1])>180) , data[:-1,:-1])
           d3[:-1,:-1] = np.ma.masked_where(data.mask[:-1,:-1]+ (abs(x3[1:,1:]-x3[:-1,:-1])>180) + (abs(x3[1:,:-1]-x3[:-1,:-1])>180) + (abs(x3[:-1,1:]-x3[:-1,:-1])>180) , data[:-1,:-1])
-          return ((x,x2,x3), (y,y2,y3), (d1,d2,d3), (pcm_x,pcm_x2,pcm_x3), (pcm_y,pcm_y2,pcm_y3), (pcd1,pcd2,pcd3), map)
+          return ((x,x2,x3), (y,y2,y3), (d1,d2,d3), (pcm_x,pcm_x2,pcm_x3), (pcm_y,pcm_y2,pcm_y3), (pcd1,pcd2,pcd3), map_proj)
 
       else:
         dim1 = dimensions[-1][:]
         dim2 = dimensions[-2][:]
         pcdim1 = pcm_dimensions[-1][:]
         pcdim2 = pcm_dimensions[-2][:]
-        x, y = map(*np.meshgrid(dim1, dim2))
-        pcm_x, pcm_y = map(*np.meshgrid(pcdim1, pcdim2))
+        x, y = map_proj(*np.meshgrid(dim1, dim2))
+        pcm_x, pcm_y = map_proj(*np.meshgrid(pcdim1, pcdim2))
         if (allthree):
           px1 = pcdim1
           px2 = np.copy(pcdim1)
           px3 = np.copy(pcdim1)
           px2[px2<90]=px2[px2<90]+360
           px3[px3>-90]=px3[px3>-90]-360
-          pcm_x2, pcm_y2 =  map(*np.meshgrid(px2, pcdim2))
-          pcm_x3, pcm_y3 =  map(*np.meshgrid(px3, pcdim2))
+          pcm_x2, pcm_y2 =  map_proj(*np.meshgrid(px2, pcdim2))
+          pcm_x3, pcm_y3 =  map_proj(*np.meshgrid(px3, pcdim2))
           pcd1 = np.ma.masked_where(pcm_data.mask + (np.broadcast_to((abs(px1[1:]-px1[:-1])),pcm_data.shape)) > 180, pcm_data)
           pcd2 = np.ma.masked_where(pcm_data.mask + (np.broadcast_to((abs(px2[1:]-px2[:-1])),pcm_data.shape)) > 180, pcm_data)
           pcd3 = np.ma.masked_where(pcm_data.mask + (np.broadcast_to((abs(px3[1:]-px3[:-1])),pcm_data.shape)) > 180, pcm_data)
@@ -308,10 +309,10 @@ def sort_dimensions(dimensions, pcm_dimensions, map, maps, global_maps, data, op
           d1[:,:-1] = np.ma.masked_where((np.broadcast_to(abs(x1[1:]-x1[:-1]), (data[:,:-1]).shape)) > 180, data[:,:-1])
           d2[:,:-1] = np.ma.masked_where((np.broadcast_to(abs(x2[1:]-x2[:-1]), (data[:,:-1]).shape)) > 180, data[:,:-1])
           d3[:,:-1] = np.ma.masked_where((np.broadcast_to(abs(x3[1:]-x3[:-1]), (data[:,:-1]).shape)) > 180, data[:,:-1])
-          x2, y2 =  map(*np.meshgrid(x2, dim2))
-          x3, y3 =  map(*np.meshgrid(x3, dim2))
-          return ((x, x2, x3), (y, y2, y3), (d1, d2, d3), (pcm_x, pcm_x2, pcm_x3), (pcm_y, pcm_y2, pcm_y3), (pcd1, pcd2, pcd3), map)
-      pl = map
+          x2, y2 =  map_proj(*np.meshgrid(x2, dim2))
+          x3, y3 =  map_proj(*np.meshgrid(x3, dim2))
+          return ((x, x2, x3), (y, y2, y3), (d1, d2, d3), (pcm_x, pcm_x2, pcm_x3), (pcm_y, pcm_y2, pcm_y3), (pcd1, pcd2, pcd3), map_proj)
+      pl = map_proj
     else:
       pl = mpl
       x = dimensions[-2][:]
@@ -335,7 +336,7 @@ def sort_dimensions(dimensions, pcm_dimensions, map, maps, global_maps, data, op
 def sort_levels (levels = None, minmax=None):
 #   levels = levels[0] if levels else None
   if not levels is None:
-    levels = np.array([float(x) for x in levels.split(',')])
+    levels = np.array(sorted([float(x) for x in levels.split(',')]))
 #    levels = [data.min()] + levels + [data.max()]
     if (len(levels) == 1 ):
       levels = int(levels[0])
@@ -346,6 +347,14 @@ def sort_levels (levels = None, minmax=None):
   else:
     levels = None
   return levels
+
+def mask_jumps(x, data):
+  steps = (x[:,1:]-x[:,:-1])
+  ms = abs(sorted(steps.reshape(steps.size))[steps.size/2])
+  bigmask = ((x[:,1:]-x[:,:-1])<-10*ms)  + ((x[:,1:]-x[:,:-1]) > 10*ms)
+  mask = bigmask[1:]+bigmask[:-1]+data.mask
+  data = np.ma.masked_array(data,mask)
+  return data
 
 
 def truncate_colormap(cmap, minval=0.0, maxval=1.0, n=100):
@@ -371,8 +380,8 @@ def white_center(cmap):
   return cmap
 
 def contour_var(var, filename, options):
-  maps= (options.MOLL, options.CYL, options.HAMMER, options.GL, options.ANT, options.NATL, options.diss_proj, options.PISM, options.mapit)
-  global_maps = (options.MOLL, options.CYL, options.HAMMER)
+  maps= (options.MOLL, options.CYL, options.HAMMER, options.LAMBERT, options.KAV7, options.GL, options.ANT, options.NATL, options.diss_proj, options.PISM, options.mapit)
+  global_maps = (options.MOLL, options.CYL, options.HAMMER, options.KAV7, options.LAMBERT)
   ECHAM = (options.EN or options.EG)
   OVERLAY_ECHAM = (options.overlay_EN or options.overlay_EG)
   # Get the data
@@ -388,10 +397,17 @@ def contour_var(var, filename, options):
     if (options.cmap):
       cmap=mpl.get_cmap(options.cmap)
     else:
-      cmap = sns.cubehelix_palette(as_cmap=True, start=.5)
+      cmap = viridis # sns.cubehelix_palette(as_cmap=True, start=.5)
   except:
     print ("Trouble using colormap %s."%(options.cmap), file=sys.stderr)
-  cmap=truncate_colormap(cmap,options.truncate_fraction,1-options.truncate_fraction)
+  tu = options.truncate_fraction
+  ta = 1.-options.truncate_fraction
+  if options.truncate_under is not None:
+    tu= options.truncate_under
+  if options.truncate_above is not None:
+      ta = options.truncate_above
+  cmap=truncate_colormap(cmap,tu,ta)
+
   if options.white_center:
     cmap=white_center(cmap)
   if options.white_under:
@@ -432,6 +448,7 @@ def contour_var(var, filename, options):
     alldata = data # data.transpose((2,0,1))
   else:
     alldata = data.reshape([1]+[ i for i in data.shape])
+    slicecount = 1
   if not options.overlay_var is None:
     if options.overlay_file is None:
       (overlay_data, overlay_attrs, overlay_dimensions, overlay_pcm_dimensions, overlay_labels) = read_var (options.overlay_var, filename, options.overlay_level, options, OVERLAY_ECHAM)
@@ -458,57 +475,64 @@ def contour_var(var, filename, options):
       mpl.figure(figsize=options.figsize)
     if (len(dimensions) >= 4  or any(maps)) : # 2d coordinates
       if options.MOLL:
-        map = Basemap(resolution=options.resolution, projection='moll',\
-                      lon_0=0, area_thresh=10000.)
+        map_proj = Basemap(resolution=options.resolution, projection='moll',\
+                      lon_0=options.lon_0, area_thresh=10000.)
         print ("MOLL")
       elif options.CYL and not limits:
-        map = Basemap(resolution=options.resolution, projection='cyl',\
-                      lon_0=0, area_thresh=10000.)
+        map_proj = Basemap(resolution=options.resolution, projection='cyl',\
+                      lon_0=options.lon_0, area_thresh=10000.)
         print ("CYL")
       elif options.CYL and limits:
-        map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,\
+        map_proj = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,\
                       resolution=options.resolution, projection='cyl',\
-                      lon_0=0, area_thresh=10000.)
+                      lon_0=options.lon_0, area_thresh=10000.)
         print ("CYL-limit")
       elif options.HAMMER:
-        map = Basemap(resolution=options.resolution, projection='hammer',\
-                      lon_0=0, area_thresh=10000.)
+        map_proj = Basemap(resolution=options.resolution, projection='hammer',\
+                      lon_0=options.lon_0, area_thresh=10000.)
         print ("HAMMER")
+      elif options.LAMBERT:
+        map_proj = Basemap(width=17200000,height=17200000, resolution=options.resolution, projection='laea', lat_ts=0,lat_0=0,lon_0=-30.)
+        print ("Lambert Azimuthal")
+      elif options.KAV7:
+        map_proj = Basemap(resolution=options.resolution, projection='kav7',\
+                      lon_0=options.lon_0, area_thresh=10000.)
+        print ("Kavrayskiy VII")
       elif options.GL:
-        map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
+        map_proj = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
                       resolution=options.resolution, projection='stere',\
                       lat_ts=71,lat_0=90,lon_0=-39.)
         print ("GL")
       elif options.NATL:
-            map = Basemap(width=9500000,height=10000000, area_thresh=10000.,
+            map_proj = Basemap(width=9500000,height=10000000, area_thresh=10000.,
                        resolution=options.resolution, projection='stere',\
                        lat_0=67,lon_0=-44.)
       elif options.PISM:
-            map = Basemap(width=9500000,height=9500000,
+            map_proj = Basemap(width=9500000,height=9500000,
                        resolution=options.resolution, projection='stere',\
                        lat_ts=71,lat_0=87,lon_0=-44.)
       elif options.diss_proj:
         print (llcrnrlon, llcrnrlat, urcrnrlon, urcrnrlat)
-        map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
+        map_proj = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
                       resolution=options.resolution, projection='stere', area_thresh=10000., \
                       lat_0=90, lat_ts=71,lon_0=-44.)
       elif options.ANT:
         print ("ANT")
         print (llcrnrlon, llcrnrlat, urcrnrlon, urcrnrlat)
-        map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
+        map_proj = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
                       resolution=options.resolution, projection='stere',\
                       lat_0=-90, lat_ts=-71,lon_0=135)
       else:
         print ("USING NSIDC POLAR STEREOGRAPHIC PROJECTION 90 -45 70")
         print (llcrnrlon, llcrnrlat, urcrnrlon, urcrnrlat)
-        map = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
+        map_proj = Basemap(llcrnrlon=llcrnrlon,urcrnrlon=urcrnrlon,llcrnrlat=llcrnrlat,urcrnrlat=urcrnrlat,
                       resolution=options.resolution, projection='stere', area_thresh=10000.,\
                       lat_0=90, lat_ts=70,lon_0=-45.)
     else:
-      map=False
+      map_proj=False
     print ("DATA.SHAPE")
     print (data.shape)
-    (x_l, y_l, data_l, pcm_x_l, pcm_y_l, pcm_data_l, pl) = sort_dimensions(dimensions, pcm_dimensions, map, maps, global_maps, data, options, options.MG or options.EG )
+    (x_l, y_l, data_l, pcm_x_l, pcm_y_l, pcm_data_l, pl) = sort_dimensions(dimensions, pcm_dimensions, map_proj, maps, global_maps, data, options, options.MG or options.EG )
 
     # DRAW IT
     cbdrawn = False
@@ -523,6 +547,9 @@ def contour_var(var, filename, options):
       if options.rivers:
         pl.drawrivers(linewidth=0.25)
     for (x, y, data_i, pcm_x, pcm_y, pcm_data) in zip (x_l, y_l, data_l, pcm_x_l, pcm_y_l, pcm_data_l):
+      if (pcm_x.shape[0] == pcm_data.shape[0]+1 and pcm_x.shape[1] == pcm_data.shape[1]+1):
+        print ("MASKING JUMPS")
+        pcm_data = mask_jumps(pcm_x, pcm_data)
       if (not levels is None ):
         print (pcm_x.shape, pcm_y.shape, pcm_data.shape)
         if (not norm is None):
@@ -532,7 +559,9 @@ def contour_var(var, filename, options):
           pcol = pl.pcolormesh(pcm_x, pcm_y, pcm_data,   cmap=cmap, rasterized=True)
           pcol.set_edgecolor("face")
         if (not cbdrawn):
-          mpl.colorbar(extend='both')
+          cb = mpl.colorbar(extend='both')
+          if not type (levels) is float:
+            cb.set_ticks(levels)
           cbdrawn = True
         if not options.no_outline:
           pl.contour (x, y, data_i, levels,  colors="0.5", linewidths=.25, linestyles="solid")
@@ -540,7 +569,9 @@ def contour_var(var, filename, options):
         print ("masking")
         pl.pcolormesh(pcm_x, pcm_y, pcm_data,  cmap=cmap)
         if (not cbdrawn):
-          mpl.colorbar(extend='both')
+          cb = mpl.colorbar(extend='both')
+          if not type (levels) is float:
+            cb.set_ticks(levels)
           cbdrawn = True
         if not options.no_outline:
           pl.contour (x, y, data,  colors="0.5", linewidths=.25, linestyles="solid")
@@ -551,7 +582,7 @@ def contour_var(var, filename, options):
       clc='.5'
       if options.whitecoast:
         clc = 'white'
-      pl.drawcoastlines(linewidth=0.5, color=clc)
+      pl.drawcoastlines(linewidth=.5, color=clc)
 
 
 
@@ -559,7 +590,7 @@ def contour_var(var, filename, options):
 
     if not options.overlay_var is None:
       overlay_levels = sort_levels (options.overlay_levels)
-      (overlay_x_l, overlay_y_l, overlay_data_l) = sort_dimensions(overlay_dimensions, overlay_pcm_dimensions, map, maps, global_maps, overlay_data[min(num, overlay_slicecount)], options, options.OMG)[0:3]
+      (overlay_x_l, overlay_y_l, overlay_data_l) = sort_dimensions(overlay_dimensions, overlay_pcm_dimensions, map_proj, maps, global_maps, overlay_data[min(num, overlay_slicecount)], options, options.OMG or options.overlay_EG)[0:3]
 
       for (overlay_x, overlay_y, od) in zip (overlay_x_l, overlay_y_l, overlay_data_l):
         if (overlay_levels is not None):
@@ -594,8 +625,8 @@ def contour_var(var, filename, options):
         lon=dat[:,0]
         lat=dat[:,1]
         val=dat[:,2]
-        if map is not None:
-          lon,lat=map(lon,lat)
+        if map_proj is not None:
+          lon,lat=map_proj(lon,lat)
         pl.scatter(lon, lat, c=val, cmap=cmap, norm=norm)
 
 
@@ -696,6 +727,8 @@ def parse_args():
     help='''lat lon of lower left corner NEEDS --ur''', nargs=2, type=float)
   parser.add_argument("--ur",
     help='''lat lon of upper right corner NEEDS --ll''', nargs=2, type=float)
+  parser.add_argument("--lon_0",
+    help='''center lon for various maps''', default=0, type=float)
   parser.add_argument("-M", "--MOLL",
                       help='''Adjust map for Mollweide plot''', action="store_true")
   parser.add_argument("-C", "--CYL",
@@ -704,6 +737,10 @@ def parse_args():
                       help='''Adjust map for Greenland plot''', action="store_true")
   parser.add_argument("-H", "--HAMMER",
                       help='''Adjust map for Hammer plot''', action="store_true")
+  parser.add_argument("-L", "--LAMBERT",
+                      help='''Adjust map for Lambert azimuthal plot''', action="store_true")
+  parser.add_argument("-K", "--KAV7",
+                      help='''Adjust map for Kavrayskiy VII plot''', action="store_true")
   parser.add_argument("-N", "--NATL",
                       help='''Adjust map for NATL plot''', action="store_true")
   parser.add_argument("-P", "--PISM",
@@ -776,6 +813,10 @@ def parse_args():
     help='''Name of a colormap''')
   parser.add_argument( "--truncate_fraction",
     help='''Fraction of colormap to truncate at each end for values exceeding cbar''', default=.07, type=float)
+  parser.add_argument( "--truncate_under",
+    help='''Fraction of colormap to truncate at bottom end for values exceeding cbar''', type=float)
+  parser.add_argument( "--truncate_above",
+    help='''Fraction of colormap to truncate at top end for values exceeding cbar''', type=float)
   parser.add_argument("--white_center",
     help='''set the center of the colormap to white''', action="store_true")
   parser.add_argument("--white_under",
@@ -817,7 +858,8 @@ def parse_args():
 def main():
   '''Analyze the run. Call all that's needed.'''
   options = parse_args()
-  sns.set(style=sns.axes_style(), font_scale=options.font_scale)
+  if seaborn:
+    sns.set(style=sns.axes_style(), font_scale=options.font_scale)
   contour_var(options.var, options.filename, options)
 
 if __name__ == "__main__":
