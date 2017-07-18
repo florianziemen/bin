@@ -18,7 +18,7 @@ import sys
 def combine_files (factors, output, options):
   config = json.load(open(options.config))
   filesets = config["filesets"]
-  varnames = filesets.values()[0].keys()
+  varnames = list(filesets.values())[0].keys()
   for varname in varnames:
     if varname == "smb":
       for (n, fileset) in enumerate(factors.keys()):
