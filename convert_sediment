@@ -1,0 +1,10 @@
+#!/usr/bin/env python
+
+
+import netCDF4 as nc
+
+a=nc.Dataset("till_dis_yx.nc", 'r+')
+till=a.variables["till_thk"][:]
+till_out = 1- (arctan((till*1000-150)/10.)/pi+.5)*.98
+a.variables["till_thk"][:]=(1/ (till_out)/1000.)
+a.close()
