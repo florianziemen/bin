@@ -547,9 +547,9 @@ def contour_var(var, filename, options):
       if options.rivers:
         pl.drawrivers(linewidth=0.25)
     for (x, y, data_i, pcm_x, pcm_y, pcm_data) in zip (x_l, y_l, data_l, pcm_x_l, pcm_y_l, pcm_data_l):
-      if (pcm_x.shape[0] == pcm_data.shape[0]+1 and pcm_x.shape[1] == pcm_data.shape[1]+1):
-        print ("MASKING JUMPS")
-        pcm_data = mask_jumps(pcm_x, pcm_data)
+#      if (pcm_x.shape[0] == pcm_data.shape[0]+1 and pcm_x.shape[1] == pcm_data.shape[1]+1):
+#        print ("MASKING JUMPS")
+#        pcm_data = mask_jumps(pcm_x, pcm_data)
       if (not levels is None ):
         print (pcm_x.shape, pcm_y.shape, pcm_data.shape)
         if (not norm is None):
