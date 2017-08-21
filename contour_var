@@ -350,7 +350,7 @@ def sort_levels (levels = None, minmax=None):
 
 def mask_jumps(x, data):
   steps = (x[:,1:]-x[:,:-1])
-  ms = abs(sorted(steps.reshape(steps.size))[round(steps.size/2)])
+  ms = abs(sorted(steps.reshape(steps.size))[int(round(steps.size/2))])
   bigmask = ((x[:,1:]-x[:,:-1])<-10*ms)  + ((x[:,1:]-x[:,:-1]) > 10*ms)
   mask = bigmask[1:]+bigmask[:-1]+data.mask
   data = np.ma.masked_array(data,mask)
