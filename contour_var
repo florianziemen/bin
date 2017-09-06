@@ -547,7 +547,7 @@ def contour_var(var, filename, options):
       clc='.5'
       if options.whitecoast:
         clc = 'white'
-      pl.drawcoastlines(linewidth=0.25, color=clc, zorder=-999)
+      pl.drawcoastlines(linewidth=options.coastlinewidth, color=clc, zorder=-999)
       if options.rivers:
         pl.drawrivers(linewidth=0.25)
     for (x, y, data_i, pcm_x, pcm_y, pcm_data) in zip (x_l, y_l, data_l, pcm_x_l, pcm_y_l, pcm_data_l):
@@ -586,7 +586,7 @@ def contour_var(var, filename, options):
       clc='.5'
       if options.whitecoast:
         clc = 'white'
-      pl.drawcoastlines(linewidth=.5, color=clc)
+      pl.drawcoastlines(linewidth=options.coastlinewidth, color=clc)
 
 
 
@@ -802,6 +802,8 @@ def parse_args():
                       help='''Draw coastlines before contour plot''', action="store_true")
   parser.add_argument("--rivers",
                       help='''Draw rivers''', action="store_true")
+  parser.add_argument("--coastlinewidth",
+                      help='''Width of coastlines''', type=float, default=0.25)
   parser.add_argument("--resolution",
                       help='''Resolution of map features [clihf]''', default="l")
   parser.add_argument("--gridwidth",
