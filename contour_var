@@ -89,7 +89,7 @@ def fix_attrs(vars,labels):
   return labels
 
 def read_var(var, filename, level, options, ECHAM):
-  maps= (options.MOLL, options.CYL, options.HAMMER, options.LAMBERT, options.KAV7, options.GL, options.ANT, options.NATL, options.diss_proj, options.PISM, options.mapit)
+  maps= (options.MOLL, options.CYL, options.HAMMER, options.LAMBERT, options.KAV7, options.GL, options.ANT, options.NATL, options.sNATL, options.diss_proj, options.PISM, options.mapit)
   global_maps = (options.MOLL, options.CYL, options.HAMMER, options.LAMBERT, options.KAV7)
 
   print ("reading %s from %s"%(var, filename), file=sys.stderr)
@@ -380,7 +380,7 @@ def white_center(cmap):
   return cmap
 
 def contour_var(var, filename, options):
-  maps= (options.MOLL, options.CYL, options.HAMMER, options.LAMBERT, options.KAV7, options.GL, options.ANT, options.NATL, options.diss_proj, options.PISM, options.mapit)
+  maps= (options.MOLL, options.CYL, options.HAMMER, options.LAMBERT, options.KAV7, options.GL, options.ANT, options.NATL, options.sNATL, options.diss_proj, options.PISM, options.mapit)
   global_maps = (options.MOLL, options.CYL, options.HAMMER, options.KAV7, options.LAMBERT)
   ECHAM = (options.EN or options.EG)
   OVERLAY_ECHAM = (options.overlay_EN or options.overlay_EG)
@@ -434,7 +434,7 @@ def contour_var(var, filename, options):
       llcrnrlat = options.ll[0]
       urcrnrlat = options.ur[0]
       limits = True
-    elif (not (options.NATL or any(global_maps))):
+    elif (not (options.NATL or options.sNATL or any(global_maps))):
       llcrnrlon = dimensions[-1][0,0]
       urcrnrlon = dimensions[-1][-1,-1]
       llcrnrlat = dimensions[-2][0,0]
@@ -507,6 +507,10 @@ def contour_var(var, filename, options):
             map_proj = Basemap(width=9500000,height=10000000, area_thresh=10000.,
                        resolution=options.resolution, projection='stere',\
                        lat_0=67,lon_0=-44.)
+      elif options.sNATL:
+            map_proj = Basemap(width=9500000,height=8500000, area_thresh=10000.,
+                       resolution=options.resolution, projection='stere',\
+                       lat_0=68,lon_0=-44.)
       elif options.PISM:
             map_proj = Basemap(width=9500000,height=9500000,
                        resolution=options.resolution, projection='stere',\
@@ -745,6 +749,8 @@ def parse_args():
                       help='''Adjust map for Kavrayskiy VII plot''', action="store_true")
   parser.add_argument("-N", "--NATL",
                       help='''Adjust map for NATL plot''', action="store_true")
+  parser.add_argument("--sNATL",
+                      help='''Adjust map for small NATL plot''', action="store_true")
   parser.add_argument("-P", "--PISM",
                       help='''Adjust map for PISM plot''', action="store_true")
   parser.add_argument("-A", "--ANT",
