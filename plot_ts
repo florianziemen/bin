@@ -14,6 +14,7 @@ import re
 import json
 
 js_config = json.load(open(fu.home+"/MPI/offsets.json"))
+sns.set()
 #plt.xkcd()
 #mpl.rcParams['figure.figsize']=[3,2]
 def get_array(filename, varname, skip = 1):
@@ -37,10 +38,10 @@ def ensmean (xvecs, yvecs, time_scaling):
   etmin=max([x[0] for x in xvecs])
   etmax=min([x[-1] for x in xvecs])
   dest = np.arange(etmin, etmax+1, time_scaling)
-  print "INTERPOLATION TARGET ",(etmin, etmax+1, time_scaling)
+  print("INTERPOLATION TARGET ",(etmin, etmax+1, time_scaling))
   target = np.zeros(len(dest))
   for (n, x )  in enumerate(xvecs) :
-    print x.shape
+    print(x.shape)
     yin = yvecs[n][x <= etmax ]
     xin = x[x <= etmax ]
     yin = yin[xin >= etmin ]
@@ -51,13 +52,13 @@ def ensmean (xvecs, yvecs, time_scaling):
   return dest, target
 
 def get_color(name, num):
-  print (name, num)
+  print((name, num))
   cmap=sns.color_palette()
   linecol = js_config.get("colors",{}).get(name, num)
   print (linecol)
-  print (type (linecol))
+  print((type (linecol)))
   if type (linecol) is int or type(linecol) is np.int64:
-    print (linecol, len(cmap))
+    print((linecol, len(cmap)))
     linecol =cmap[linecol]
   return linecol
 
@@ -74,7 +75,7 @@ def plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts = {}):
     ax=mpl.subplot(1,1,1)
     cmap=sns.husl_palette(max(len(xvecs),6),s=.6) # sns.color_palette("Set2", 8)
     sns.set_palette(cmap)
-    print (len(cmap))
+    print((len(cmap)))
     namedict = {}
     patterndict = {}
     dashdict = js_config.get("dashes",{})
@@ -83,8 +84,9 @@ def plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts = {}):
 
     yscale=plot_opts.get('yscale', 1.)
     xscale=plot_opts.get('xscale', 1.)
-    addtox=plot_opts.get('addto_x', 0.)
-    plots = [ mpl.plot(xvec * xscale + addtox, yvec * yscale, patterndict.get(lb[:5],'-'),  label=namedict.get(lb,lb), color=get_color(lb,i%len(cmap))) for (xvec,yvec,lb,i) in zip(xvecs,yvecs,labels,np.arange(len(xvecs))) ]
+    addto_x=plot_opts.get('addto_x', 0.)
+    addto_y=plot_opts.get('addto_y', 0.)
+    plots = [ mpl.plot(xvec * xscale + addto_x, yvec * yscale+addto_y, patterndict.get(lb[:5],'-'),  label=namedict.get(lb,lb), color=get_color(lb,i%len(cmap))) for (xvec,yvec,lb,i) in zip(xvecs,yvecs,labels,np.arange(len(xvecs))) ]
     dashes = [dashdict.get(x, False) for x in labels]
     for (p, dash) in zip(plots, dashes):
         if(dash):
@@ -108,29 +110,29 @@ def plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts = {}):
         frame.set_edgecolor('white')
 
     #    mpl.axvline(0,zorder=-999, color="gray")
-    if "xlabel" in plot_opts.keys():
+    if "xlabel" in list(plot_opts.keys()):
         mpl.xlabel(plot_opts["xlabel"])
-    if "ylabel" in plot_opts.keys():
+    if "ylabel" in list(plot_opts.keys()):
         mpl.ylabel(plot_opts["ylabel"])
-    if "title" in plot_opts.keys():
+    if "title" in list(plot_opts.keys()):
         mpl.title(plot_opts["title"])
-    if "xlim" in plot_opts.keys():
+    if "xlim" in list(plot_opts.keys()):
         mpl.xlim( plot_opts["xlim"] )
-    if "ylim" in plot_opts.keys():
+    if "ylim" in list(plot_opts.keys()):
         mpl.ylim(plot_opts["ylim"])
-    if "tick_interval" in plot_opts.keys():
+    if "tick_interval" in list(plot_opts.keys()):
         ti=plot_opts["tick_interval"]
         mpl.xticks=np.arange(ti[0], ti[1],ti[2])
-    if "output" in plot_opts.keys():
+    if "output" in list(plot_opts.keys()):
         mpl.savefig(plot_opts["output"])
     return fig
 
 def filter(vecs, plot_opts={}):
-    if "smooth_window_length" in plot_opts.keys():
+    if "smooth_window_length" in list(plot_opts.keys()):
         npoints = plot_opts["smooth_window_length"]
     else:
         npoints = 0
-    if "smooth_filter" in plot_opts.keys():
+    if "smooth_filter" in list(plot_opts.keys()):
         window = plot_opts["smooth_filter"]
     else:
         window = "flat"
@@ -145,13 +147,13 @@ def sort_labels(xattr, yattr):
     xlabel = ""
     ylabel = ""
     title = ""
-    if "long_name" in xattr.keys():
+    if "long_name" in list(xattr.keys()):
         xlabel = xattr["long_name"]
-        if "units" in xattr.keys():
+        if "units" in list(xattr.keys()):
             xlabel = xlabel + " in %s"%xattr["units"]
-    if "long_name" in yattr.keys():
+    if "long_name" in list(yattr.keys()):
         ylabel = yattr["long_name"]
-        if "units" in yattr.keys():
+        if "units" in list(yattr.keys()):
             ylabel = ylabel + " in %s"%yattr["units"]
     return {"xlabel"  : xlabel , "ylabel" : ylabel , "title" : title}
 
@@ -204,6 +206,8 @@ def parse_args():
                     help='''scale x axis by factor ''', type=float , default=1.)
   parser.add_argument("--addto_x",
                     help='''add to x values ''', type=float , default=0.)
+  parser.add_argument("--addto_y",
+                    help='''add to y values ''', type=float , default=0.)
   parser.add_argument("--multime",
                     help='''multiply raw x axis by factor ''', type=float , default=1.)
   parser.add_argument("--font_scale",
@@ -215,7 +219,7 @@ def parse_args():
   sns.set(style=sns.axes_style(), font_scale=options.font_scale)
   options_dict = vars(options)
   if options_dict.get("names", False):
-    print options_dict["names"]
+    print(options_dict["names"])
     options_dict["names"]= options_dict["names"].split(",")
   return options_dict
 
@@ -228,19 +232,19 @@ def convert_year(year, cal):
 
 def specials(figure, xattrs, plot_opts, ax):
     attr = xattrs[0]
-    years = range(1980,2101,20)
-    if "tick_interval" in plot_opts.keys():
+    years = list(range(1980,2101,20))
+    if "tick_interval" in list(plot_opts.keys()):
         ti=plot_opts["tick_interval"]
         years=np.arange(ti[0], ti[1],ti[2])
-    print years
+    print(years)
     mpl.xticks(years )
 
 
 def process_xvecs(xvecs, xattrs, plot_opts):
   if plot_opts["xvar"] == "time" or plot_opts["xvar"] == "t":
     attr = xattrs[0]
-    if "calendar" in attr.keys() and attr["calendar"] and not "years" in xattrs[0]["units"]:
-      print (xattrs[0]["units"])
+    if "calendar" in list(attr.keys()) and attr["calendar"] and not "years" in xattrs[0]["units"]:
+      print((xattrs[0]["units"]))
       xvecs = [ nc.date2num(nc.num2date(vec , units=attr["units"] , calendar=attr["calendar"]), units="days since 0000-01-01 00:00:00", calendar=attr["calendar"] ) / 360. for (vec, attr) in zip (xvecs, xattrs) ]
       xvecs = [ x * plot_opts["multime"] for x in xvecs ]
     if plot_opts.get ('offsets', False):
@@ -249,12 +253,12 @@ def process_xvecs(xvecs, xattrs, plot_opts):
       if plot_opts.get("names", False):
         names = plot_opts.get("names")
         offsets_dict = js_config.get("offsets", {})
-        print offsets_dict
+        print(offsets_dict)
         offsets = [ offsets_dict.get(x, 0) for x in names]
-        print offsets
+        print(offsets)
         time_scaling_dict = js_config.get("time_scaling", {})
         time_scaling = [ time_scaling_dict.get(x, 1) for x in names]
-        for x in xrange (len(xvecs)):
+        for x in range (len(xvecs)):
           # if offsets[x]:
           #   data_labels[x] = data_labels [x] + " - %i years"%(round( offsets[x]))
           # if time_scaling[x] != 1 :
@@ -298,15 +302,15 @@ def main(argv):
     yattrs.append(yattr)
 
   plot_opts = sort_labels(xattr, yattr)
-  for x in options.keys():
+  for x in list(options.keys()):
     if not options[x] is  None :
       plot_opts[x] = options[x]
 
   xvecs = process_xvecs(xvecs, xattrs,  plot_opts)
 
   if options.get("smooth_window_length", False):
-      xvecs=filter(xvecs, plot_opts)
-      yvecs=filter(yvecs, plot_opts)
+      xvecs=list(filter(xvecs, plot_opts))
+      yvecs=list(filter(yvecs, plot_opts))
 
   if options.get("white_grid", False):
     sns.set(style="whitegrid") # , context="poster

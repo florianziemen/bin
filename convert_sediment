@@ -1,0 +1,14 @@
+#!/usr/bin/env python
+
+
+import netCDF4 as nc
+import datetime
+import numpy as np
+
+a=nc.Dataset("till_dis_yx.nc", 'r+')
+till=a.variables["till_thk"][:]
+till_out = 1- (np.arctan((till*1000-150)/10.)/np.pi+.5)*.98
+a.variables["till_thk"][:]=(1/ (till_out)/1000.)
+history_add = datetime.datetime.now().isoformat() + ' convert_sediment -- converted till with equations till_out = 1- (np.arctan((till*1000-150)/10.)/np.pi+.5)*.98 ; a.variables["till_thk"][:]=(1/ (till_out)/1000.)\n'
+a.history = history_add + a.history
+a.close()
