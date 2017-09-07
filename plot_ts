@@ -123,6 +123,8 @@ def plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts = {}):
     if "tick_interval" in list(plot_opts.keys()):
         ti=plot_opts["tick_interval"]
         mpl.xticks=np.arange(ti[0], ti[1],ti[2])
+    if plot_opts.get("despine", False):
+      sns.despine()
     if "output" in list(plot_opts.keys()):
         mpl.savefig(plot_opts["output"])
     return fig
@@ -198,6 +200,12 @@ def parse_args():
                     help='''suppress legend''', action = "store_true")
   parser.add_argument("--white_grid",
                     help='''white grid''', action = "store_true")
+  parser.add_argument("--white",
+                    help='''white backgrund''', action = "store_true")
+  parser.add_argument("--ticks",
+                    help='''ticks and white backgrund''', action = "store_true")
+  parser.add_argument("--despine",
+                    help='''call despine''', action = "store_true")
   parser.add_argument("--tick_interval",
                     help='''draw vertical lines at years specified by start range step ''', nargs=3, type=float )
   parser.add_argument("--yscale",
@@ -216,7 +224,6 @@ def parse_args():
                     help='''Comma separated list of experiment names''')
   parser.add_argument("--ensmean", help='''Add ensembel mean plot''', action = "store_true")
   options = parser.parse_args()
-  sns.set(style=sns.axes_style(), font_scale=options.font_scale)
   options_dict = vars(options)
   if options_dict.get("names", False):
     print(options_dict["names"])
@@ -314,6 +321,12 @@ def main(argv):
 
   if options.get("white_grid", False):
     sns.set(style="whitegrid") # , context="poster
+  if options.get("white", False):
+    sns.set(style="white") # , context="poster
+  if options.get("ticks", False):
+    sns.set(style="ticks") # , context="poster
+  sns.set(style=sns.axes_style(), font_scale=options.get("font_scale", 1.))
+
   fig = plot_vars(xvecs, yvecs, xattrs, yattrs, plot_opts)
   if not options.get("output", False):
     mpl.show()
