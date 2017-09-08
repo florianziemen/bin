@@ -1,6 +1,6 @@
 #!/bin/bash
 
-start=$1
+start=$(echo $1|sed 's/,/ /g')
 inc=$2
 end=$3
 
