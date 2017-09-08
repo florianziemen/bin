@@ -1,0 +1,12 @@
+#!/bin/bash
+
+set -e
+
+for y in $(seq -4 -1 ) ; do
+    infiles=$(echo $(for z in $(seq 0 10 99 ) ; do let zz=$y*100+$z ; xs=$(printf %+05d $zz) ;  echo main_fields_${xs}.nc ; done))
+    let zo=$y*100+50
+    ncra ${infiles}  mf_$(printf %+05d $zo).nc
+done
+rm -f mf.nc
+cdo -cat $(sf mf) mf.nc
+cdo -runmean,3 mf.nc mf_rm3.nc

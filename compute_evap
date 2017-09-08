@@ -1,0 +1,7 @@
+#!/bin/bash
+
+maxlat=$1
+
+x=bot_rm3.nc
+mask='-fldmean  -sellonlatbox,270,90,45,'$maxlat' -ifthen -eqc,0 -selvar,slm'
+cdo -s -info  -subc,1 -div $mask $x -selvar,evap $x $mask bot_before.nc -selvar,evap bot_before.nc

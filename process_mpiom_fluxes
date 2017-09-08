@@ -1,0 +1,7 @@
+#!/bin/bash
+set -e
+for x in $@ ; do
+    year=$(echo $x  |sed -E 's/.*_([0-9][0-9][0-9][0-9]).*/\1/')
+    cdo -s -f nc -setdate,$year -setname,fw_flux -setgrid,~/Plots/UTIL/GR30_LUODUST.nc ${x} ${x/ext8/nc}
+
+done

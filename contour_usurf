@@ -1,0 +1,9 @@
+#!/bin/bash
+
+infile=$1
+outfile=${infile/.nc/_usurf.png}
+
+cdo -s  -setmisstoc,0 -ifthen -gtc,10 -selvar,thk $infile  -selvar,usurf $infile  temp_masked.nc
+cdo -s  -ifthen -gtc,10 -selvar,thk $infile  -selvar,usurf $infile  temp_masked_miss.nc
+
+contour_var usurf temp_masked_miss.nc --ll  30 -90 --ur  40 100 --levels=$(cs 0 500 3500 ) -c Blues --diss_proj  --missvalcolor=1.0 -o ${outfile} --gridwidth=.25 --coast_first --font_scale 2 -T "Land ice surface elevation (m)" --overlay_var usurf --overlay_file temp_masked.nc --overlay_levels=20,20.1  # --overlay_var usurf --overlay_file mean_fields.nc --overlay_levels=$(shell cs 0 500 5000 )

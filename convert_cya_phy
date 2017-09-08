@@ -1,0 +1,30 @@
+#!/usr/bin/env python
+import numpy as np
+import flo_utils as fu
+import sys
+
+infile = sys.argv[1] # "ret0000_hamocc_data_3d_tm_7000-7999.nc"
+levels_in = np.array((0, 15, 25, 35, 45, 55, 65, 78, 93, 113, 138, 168, 203, 243, 288,     338, 393, 453, 523, 603, 693, 793, 903, 1023, 1153, 1293, 1443, 1613,     1793, 1983, 2183, 2403, 2653, 2923, 3223, 3573, 3973, 4423, 4923, 5423,     6023))
+levels = levels_in[1:]-levels_in[:-1]
+
+
+string_cya = "cdo "
+for n,x in enumerate (levels[:20]):
+    string_cya += " -add -mulc,%s  -sellevidx,%s -selvar,cya %s "%(x, (n+1), infile)
+string_cya +=  " -mulc,%s  -sellevidx,%s -selvar,cya %s "%(x, (n+1), infile)
+string_cya += "cya_"+infile
+
+print (string_cya)
+fu.qo (string_cya)
+
+
+
+string_phy = "cdo "
+for n,x in enumerate (levels[:20]):
+    string_phy += " -add -mulc,%s  -sellevidx,%s -selvar,phy %s "%(x, (n+1), infile)
+string_phy +=  " -mulc,%s  -sellevidx,%s -selvar,phy %s "%(x, (n+1), infile)
+string_phy += "phy_"+infile
+
+fu.qo (string_phy)
+
+fu.qo("cdo -merge -setunit,'mgChl m-2' -mulc,24000000 cya_%s  -setunit,'mgChl m-2' -mulc,24000000 phy_%s cya_phy_%s"%(infile, infile, infile))

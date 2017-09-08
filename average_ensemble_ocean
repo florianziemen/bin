@@ -1,0 +1,13 @@
+#!/bin/bash
+
+set -evx
+
+tmfiles=""
+for x in $@ ; do
+      ncpdq -a time,record ${x} ${x/.nc/_tr.nc}
+      ncra ${x/.nc/_tr.nc} ${x/.nc/_tm.nc}
+      rm ${x/.nc/_tr.nc}
+      tmfiles="${tmfiles} ${x/.nc/_tm.nc}"
+done
+
+ncrcat ${tmfiles} mpiom_tm_rcat.nc

@@ -1,0 +1,69 @@
+#!/usr/bin/env python
+
+#import Nio
+#import subprocess as sp
+#import shlex
+#import shutil
+import sys
+import getopt
+import re
+import plotgen
+import os
+import flo_utils as fu
+import numpy as np
+
+
+
+def split_basins(args, my_opts):
+    basins=['lnd', 'gin', 'arc', 'lab', 'nat', 'atl', 'acc', 'pac','nin', 'lak']
+    if "variables" in my_opts.keys():
+        var=" -selvar," + my_opts["variables"]
+    else:
+        var=""
+    for infile in args:
+        pc=os.path.split(infile)
+        for basin in range(1,10,1):
+            print basin, basins[basin]
+            outfile=os.path.join(pc[0],"%s_%s"%(basins[basin],pc[1]))
+            fu.qo("cdo -s -fldsum -ifthen -eqc,%i bek.nc -sethalo,-1,-1  %s %s %s"%(basin,var,infile,outfile))
+
+    return 0
+
+def usage(args_long, args_short):
+    print "call split_basins OPTIONS FILENAMES"
+    print "possible options:"
+    print args_long, args_short
+
+def check_args(args, my_opts):
+    return 0
+
+
+def main(argv):
+    ref_years=years=""
+    args_short = "dv:"
+    args_long =  ["debug", "var="]
+    my_opts= {}
+    try:
+        opts, args = getopt.getopt(argv, args_short, args_long)
+
+    except getopt.GetoptError:
+        usage(args_long, args_short)
+        sys.exit(2)
+
+
+    for (opt,arg) in opts:
+        if opt in ( "--debug", "-d"):
+            fu.set_debug(True)
+        if opt in ( "--var", "-v"):
+            my_opts['variables']=arg
+
+    code = check_args(args, my_opts)
+    if code:
+        usage(args_long , args_short)
+        exit (code)
+
+    split_basins(args, my_opts)
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
